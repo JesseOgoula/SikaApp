@@ -145,6 +145,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Stream<List<TransactionWithCategory>> watchTransactionsWithCategories() {
+    return _db.watchTransactionsWithCategories();
+  }
+
+  @override
   Stream<List<TransactionsTableData>> watchTransactionsByAccount(
     String accountId,
   ) {

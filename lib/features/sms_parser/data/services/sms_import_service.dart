@@ -2,7 +2,6 @@ import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'package:sika_app/features/transactions/domain/repositories/transaction_repository.dart';
-import 'package:sika_app/features/sms_parser/domain/entities/parsed_transaction.dart';
 import 'package:sika_app/features/sms_parser/data/services/sms_parser_service.dart';
 
 /// Résultat de l'import des SMS

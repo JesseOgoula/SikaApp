@@ -41,6 +41,23 @@ final transactionListProvider = StreamProvider<List<TransactionsTableData>>((
   return repository.watchAllTransactions();
 });
 
+/// StreamProvider pour les transactions avec catégories jointes
+///
+/// Utilisé par HomeScreen pour afficher les icônes de catégorie.
+final transactionWithCategoryListProvider =
+    StreamProvider<List<TransactionWithCategory>>((ref) {
+      final repository = ref.watch(transactionRepositoryProvider);
+      return repository.watchTransactionsWithCategories();
+    });
+
+/// FutureProvider pour la liste des catégories
+///
+/// Utilisé par AddTransactionScreen pour afficher le sélecteur de catégorie.
+final categoriesProvider = FutureProvider<List<CategoriesTableData>>((ref) {
+  final db = ref.watch(databaseProvider);
+  return db.getAllCategories();
+});
+
 /// Provider pour les transactions d'un compte spécifique
 ///
 /// Utilise un family provider pour passer l'accountId.

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
 
 /// Écran d'accueil principal de l'application SIKA
 class HomeScreen extends ConsumerStatefulWidget {
@@ -34,10 +36,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     debugPrint('🏗️ [HomeScreen] build called');
 
-    debugPrint('🔍 [HomeScreen] Watching transactionListProvider...');
-    final transactionsAsync = ref.watch(transactionListProvider);
     debugPrint(
-      '✅ [HomeScreen] transactionListProvider watched. State: ${transactionsAsync.toString()}',
+      '🔍 [HomeScreen] Watching transactionWithCategoryListProvider...',
+    );
+    final transactionsAsync = ref.watch(transactionWithCategoryListProvider);
+    debugPrint(
+      '✅ [HomeScreen] transactionWithCategoryListProvider watched. State: ${transactionsAsync.toString()}',
     );
 
     debugPrint('🔍 [HomeScreen] Watching smsImportNotifierProvider...');
@@ -78,6 +82,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+          );
+          if (result == true) {
+            // Rafraîchit la liste (le StreamProvider le fait automatiquement)
+            ref.invalidate(transactionWithCategoryListProvider);
+          }
+        },
+        backgroundColor: const Color(0xFF00D9FF),
+        child: const Icon(Icons.add, color: Color(0xFF0A0E21)),
       ),
     );
   }
@@ -125,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBody(List<TransactionsTableData> transactions) {
+  Widget _buildBody(List<TransactionWithCategory> transactions) {
     return Column(
       children: [
         // Header avec solde
@@ -141,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildBalanceHeader(List<TransactionsTableData> transactions) {
+  Widget _buildBalanceHeader(List<TransactionWithCategory> transactions) {
     debugPrint(
       '💰 [HomeScreen] Building balance header with ${transactions.length} txs',
     );
@@ -150,7 +168,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     double totalIncome = 0;
     double totalExpense = 0;
 
-    for (final tx in transactions) {
+    for (final txWithCat in transactions) {
+      final tx = txWithCat.transaction;
       if (tx.type == 'income') {
         totalIncome += tx.amount;
         totalBalance += tx.amount;
@@ -297,7 +316,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildTransactionList(List<TransactionsTableData> transactions) {
+  Widget _buildTransactionList(List<TransactionWithCategory> transactions) {
     debugPrint(
       '📋 [HomeScreen] Building transaction list (${transactions.length} items)',
     );
@@ -305,17 +324,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: transactions.length,
       itemBuilder: (context, index) {
-        final tx = transactions[index];
-        return _buildTransactionTile(tx);
+        final txWithCat = transactions[index];
+        return _buildTransactionTile(txWithCat);
       },
     );
   }
 
-  Widget _buildTransactionTile(TransactionsTableData tx) {
-    // Debug print for first transaction to check fields
-    // if (tx == transactions.first) {
-    //  debugPrint('📝 [HomeScreen] First transaction: id=${tx.id}, amount=${tx.amount}, type=${tx.type}, sender=${tx.smsSender}');
-    // }
+  Widget _buildTransactionTile(TransactionWithCategory txWithCat) {
+    final tx = txWithCat.transaction;
+    final category = txWithCat.category;
 
     final isExpense = tx.type == 'expense';
     final isIncome = tx.type == 'income';
@@ -330,6 +347,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? '-'
         : '';
 
+    // Catégorie: icône et couleur
+    final categoryIcon = _getCategoryIcon(category?.iconKey);
+    final categoryColor = _parseColor(category?.color) ?? Colors.grey;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -339,17 +360,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       child: Row(
         children: [
-          // Icône de l'opérateur
+          // Icône de la catégorie
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _getOperatorColor(tx.smsSender).withOpacity(0.2),
+              color: categoryColor.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              _getOperatorIcon(tx.smsSender),
-              color: _getOperatorColor(tx.smsSender),
+            child: Center(
+              child: FaIcon(categoryIcon, color: categoryColor, size: 20),
             ),
           ),
           const SizedBox(width: 16),
@@ -419,31 +439,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  IconData _getOperatorIcon(String? operator) {
-    if (operator == null) return Icons.receipt;
-    switch (operator.toUpperCase()) {
-      case 'AIRTEL_MONEY':
-        return Icons.phone_android;
-      case 'MOOV_MONEY':
-        return Icons.phone_iphone;
-      case 'UBA':
-        return Icons.account_balance;
+  /// Maps category iconKey to FontAwesome icon
+  IconData _getCategoryIcon(String? iconKey) {
+    if (iconKey == null) return FontAwesomeIcons.question;
+    switch (iconKey) {
+      case 'utensils':
+        return FontAwesomeIcons.utensils;
+      case 'taxi':
+        return FontAwesomeIcons.taxi;
+      case 'bolt':
+        return FontAwesomeIcons.bolt;
+      case 'heartPulse':
+        return FontAwesomeIcons.heartPulse;
+      case 'exchangeAlt':
+        return FontAwesomeIcons.rightLeft;
+      case 'gamepad':
+        return FontAwesomeIcons.gamepad;
+      case 'question':
+        return FontAwesomeIcons.question;
       default:
-        return Icons.receipt;
+        return FontAwesomeIcons.tag;
     }
   }
 
-  Color _getOperatorColor(String? operator) {
-    if (operator == null) return Colors.grey;
-    switch (operator.toUpperCase()) {
-      case 'AIRTEL_MONEY':
-        return Colors.red;
-      case 'MOOV_MONEY':
-        return Colors.blue;
-      case 'UBA':
-        return Colors.green;
-      default:
-        return Colors.grey;
+  /// Parses hex color string to Color
+  Color? _parseColor(String? hexColor) {
+    if (hexColor == null || !hexColor.startsWith('#')) return null;
+    try {
+      final hex = hexColor.replaceFirst('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return null;
     }
   }
 

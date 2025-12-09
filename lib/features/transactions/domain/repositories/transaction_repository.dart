@@ -18,6 +18,12 @@ abstract class TransactionRepository {
   /// Triées par date décroissante (plus récentes en premier).
   Stream<List<TransactionsTableData>> watchAllTransactions();
 
+  /// Écoute toutes les transactions avec leurs catégories jointes
+  ///
+  /// Retourne un Stream de TransactionWithCategory pour afficher
+  /// les icônes et couleurs de catégorie dans l'UI.
+  Stream<List<TransactionWithCategory>> watchTransactionsWithCategories();
+
   /// Écoute les transactions d'un compte spécifique
   ///
   /// [accountId] : UUID du compte à filtrer
