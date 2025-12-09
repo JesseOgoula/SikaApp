@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
@@ -81,6 +82,15 @@ class SikaApp extends StatelessWidget {
     return MaterialApp(
       title: 'SIKA',
       debugShowCheckedModeBanner: false,
+
+      // Localisation française
+      locale: const Locale('fr', 'FR'),
+      supportedLocales: const [Locale('fr', 'FR'), Locale('en', 'US')],
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
 
       // Thème Neo-Bank Pro (Light)
       theme: AppTheme.lightTheme,

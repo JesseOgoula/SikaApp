@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
 
@@ -25,7 +27,7 @@ dependencies:
 
   # ===== UTILITIES =====
   uuid: ^4.5.1
-  intl: ^0.19.0
+  intl: ^0.20.2
 
   # ===== SMS & PERMISSIONS (Android) =====
   flutter_sms_inbox: ^1.0.4

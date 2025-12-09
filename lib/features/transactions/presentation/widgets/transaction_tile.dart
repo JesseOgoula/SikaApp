@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 
-/// Tuile de transaction avec design Neo-Bank
+/// Tuile de transaction avec design Neo-Bank minimaliste
 class TransactionTile extends StatelessWidget {
   final TransactionWithCategory txWithCategory;
 
@@ -23,14 +23,9 @@ class TransactionTile extends StatelessWidget {
     );
     final dateFormat = DateFormat('dd MMM', 'fr_FR');
 
-    final isExpense = tx.type == 'expense';
     final isIncome = tx.type == 'income';
     final amountColor = isIncome ? AppTheme.success : AppTheme.error;
     final amountPrefix = isIncome ? '+' : '-';
-
-    // Couleur pastel pour l'icône
-    final categoryColor = _parseColor(category?.color) ?? Colors.grey;
-    final pastelColor = AppTheme.getCategoryPastelColor(category?.color);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -48,18 +43,18 @@ class TransactionTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Icône catégorie
+          // Icône catégorie - Style minimaliste (gris)
           Container(
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: pastelColor,
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
             ),
             child: Center(
               child: FaIcon(
                 _getCategoryIcon(category?.iconKey),
-                color: categoryColor,
+                color: Colors.grey[700],
                 size: 18,
               ),
             ),
@@ -100,7 +95,7 @@ class TransactionTile extends StatelessWidget {
                         child: Text(
                           category.name,
                           style: TextStyle(
-                            color: categoryColor,
+                            color: Colors.grey[600],
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -150,16 +145,6 @@ class TransactionTile extends StatelessWidget {
         return FontAwesomeIcons.question;
       default:
         return FontAwesomeIcons.tag;
-    }
-  }
-
-  Color? _parseColor(String? hexColor) {
-    if (hexColor == null || !hexColor.startsWith('#')) return null;
-    try {
-      final hex = hexColor.replaceFirst('#', '');
-      return Color(int.parse('FF$hex', radix: 16));
-    } catch (_) {
-      return null;
     }
   }
 }

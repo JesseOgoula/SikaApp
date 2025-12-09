@@ -7,6 +7,7 @@ import 'package:sika_app/features/analytics/presentation/screens/statistics_scre
 import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
+import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/balance_card.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/quick_actions.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
@@ -29,8 +30,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
-      body: SafeArea(
-        child: transactionsAsync.when(
+      body: SafeArea(child: _buildBodyForIndex(transactionsAsync, importState)),
+      bottomNavigationBar: _buildBottomNav(),
+    );
+  }
+
+  Widget _buildBodyForIndex(
+    AsyncValue<List<TransactionWithCategory>> transactionsAsync,
+    SmsImportState importState,
+  ) {
+    switch (_currentNavIndex) {
+      case 0: // Accueil
+        return transactionsAsync.when(
           data: (transactions) => _buildContent(transactions, importState),
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppTheme.primaryColor),
@@ -41,9 +52,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               style: const TextStyle(color: AppTheme.error),
             ),
           ),
-        ),
+        );
+      case 1: // Budget/Statistics
+        return const StatisticsScreen();
+      case 2: // Transactions
+        return const TransactionsListScreen();
+      case 3: // Profil
+        return _buildProfilePlaceholder();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildProfilePlaceholder() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.person, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Profil (bientôt)',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
+          ),
+        ],
       ),
-      bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -99,39 +132,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Section Title
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Transactions Récentes',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Text(
-                  'Voir tout',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            child: const Text(
+              'Transactions Récentes',
+              style: TextStyle(
+                color: AppTheme.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Transaction List
+          // Transaction List (3 récentes seulement)
           transactions.isEmpty
               ? _buildEmptyState()
               : Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: transactions
-                        .take(10)
+                        .take(3)
                         .map((tx) => TransactionTile(txWithCategory: tx))
                         .toList(),
                   ),
@@ -250,9 +270,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: 'Budget',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card_outlined),
-            activeIcon: Icon(Icons.credit_card),
-            label: 'Cartes',
+            icon: Icon(Icons.receipt_long_outlined),
+            activeIcon: Icon(Icons.receipt_long),
+            label: 'Transactions',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
