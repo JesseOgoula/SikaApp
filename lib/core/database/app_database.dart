@@ -9,11 +9,13 @@ import 'package:path/path.dart' as p;
 import 'tables/transactions_table.dart';
 import 'tables/accounts_table.dart';
 import 'tables/categories_table.dart';
+import 'tables/goals_table.dart';
 
 // Export des tables pour faciliter les imports
 export 'tables/transactions_table.dart';
 export 'tables/accounts_table.dart';
 export 'tables/categories_table.dart';
+export 'tables/goals_table.dart';
 
 // Fichier généré par build_runner (drift)
 part 'app_database.g.dart';
@@ -41,7 +43,9 @@ class TransactionWithCategory {
 /// final db = AppDatabase();
 /// final transactions = await db.select(db.transactionsTable).get();
 /// ```
-@DriftDatabase(tables: [TransactionsTable, AccountsTable, CategoriesTable])
+@DriftDatabase(
+  tables: [TransactionsTable, AccountsTable, CategoriesTable, GoalsTable],
+)
 class AppDatabase extends _$AppDatabase {
   /// Constructeur par défaut - ouvre la base de données
   AppDatabase() : super(_openConnection());
@@ -52,7 +56,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// Migrations de la base de données
   ///
@@ -75,6 +79,10 @@ class AppDatabase extends _$AppDatabase {
             batch.deleteWhere(categoriesTable, (row) => const Constant(true));
           });
           await _seedDefaultCategories();
+        }
+        if (from < 3) {
+          // Ajout de la table GoalsTable
+          await m.createTable(goalsTable);
         }
       },
       // Exécuté à chaque ouverture de la base
@@ -184,6 +192,15 @@ class AppDatabase extends _$AppDatabase {
         keywords: ['bar', 'resto', 'club', 'netflix', 'cinema', 'sortie'],
         isSystem: true,
         sortOrder: 6,
+      ),
+      _createCategory(
+        id: 'cat-epargne',
+        name: 'Épargne',
+        iconKey: 'piggyBank', // FontAwesome: piggyBank
+        color: '#1E3A5F', // Bleu Nuit (couleur primaire SIKA)
+        keywords: ['epargne', 'objectif', 'economie', 'saving'],
+        isSystem: true,
+        sortOrder: 7,
       ),
       _createCategory(
         id: 'cat-autres',

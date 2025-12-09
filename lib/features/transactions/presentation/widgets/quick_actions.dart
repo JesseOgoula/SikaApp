@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
 
-/// Boutons d'actions rapides (Ajouter, Sync, Analyse)
+/// Boutons d'actions rapides (Ajouter, Sync, Analyse, Objectifs)
 class QuickActions extends StatelessWidget {
   final VoidCallback onAddPressed;
   final VoidCallback onSyncPressed;
   final VoidCallback? onAnalysePressed;
+  final VoidCallback? onGoalsPressed;
   final bool isSyncing;
 
   const QuickActions({
@@ -14,6 +16,7 @@ class QuickActions extends StatelessWidget {
     required this.onAddPressed,
     required this.onSyncPressed,
     this.onAnalysePressed,
+    this.onGoalsPressed,
     this.isSyncing = false,
   });
 
@@ -40,12 +43,19 @@ class QuickActions extends StatelessWidget {
           onTap: onAnalysePressed ?? () {},
           isDisabled: onAnalysePressed == null,
         ),
+        _buildActionButton(
+          faIcon: FontAwesomeIcons.bullseye,
+          label: 'Objectifs',
+          onTap: onGoalsPressed ?? () {},
+          isDisabled: onGoalsPressed == null,
+        ),
       ],
     );
   }
 
   Widget _buildActionButton({
-    required IconData? icon,
+    IconData? icon,
+    IconData? faIcon,
     required String label,
     required VoidCallback onTap,
     bool isPrimary = false,
@@ -57,8 +67,8 @@ class QuickActions extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: isPrimary
                   ? AppTheme.primaryColor
@@ -80,11 +90,21 @@ class QuickActions extends StatelessWidget {
             ),
             child: isLoading
                 ? const Padding(
-                    padding: EdgeInsets.all(16),
+                    padding: EdgeInsets.all(14),
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: AppTheme.primaryColor,
                     ),
+                  )
+                : faIcon != null
+                ? FaIcon(
+                    faIcon,
+                    color: isPrimary
+                        ? Colors.white
+                        : isDisabled
+                        ? Colors.grey
+                        : AppTheme.primaryColor,
+                    size: 20,
                   )
                 : Icon(
                     icon,
@@ -93,7 +113,7 @@ class QuickActions extends StatelessWidget {
                         : isDisabled
                         ? Colors.grey
                         : AppTheme.primaryColor,
-                    size: 24,
+                    size: 22,
                   ),
           ),
           const SizedBox(height: 8),
@@ -101,7 +121,7 @@ class QuickActions extends StatelessWidget {
             label,
             style: TextStyle(
               color: isDisabled ? Colors.grey : AppTheme.textSecondary,
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
             ),
           ),

@@ -4,6 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/analytics/presentation/screens/statistics_screen.dart';
+import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
+import 'package:sika_app/features/goals/presentation/screens/add_goal_screen.dart';
+import 'package:sika_app/features/goals/presentation/screens/goals_list_screen.dart';
+import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
+import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
 import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
@@ -22,6 +27,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentNavIndex = 0;
+  int _sliderPageIndex = 0;
+  final _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,8 +66,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         );
-      case 1: // Budget/Statistics
-        return const StatisticsScreen();
+      case 1: // Objectifs
+        return const GoalsListScreen();
       case 2: // Transactions
         return const TransactionsListScreen();
       case 3: // Profil
@@ -126,36 +139,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onSyncPressed: _onSyncPressed,
               isSyncing: importState.isImporting,
               onAnalysePressed: _onAnalysePressed,
+              onGoalsPressed: _onGoalsPressed,
             ),
           ),
 
-          // Section Title
+          // Section Title avec indicateur de slider
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: const Text(
-              'Transactions Récentes',
-              style: TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _sliderPageIndex == 0
+                        ? 'Transactions Récentes'
+                        : 'Mes Objectifs',
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // Dots indicator
+                Row(
+                  children: [
+                    _buildDot(0),
+                    const SizedBox(width: 6),
+                    _buildDot(1),
+                  ],
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Transaction List (3 récentes seulement)
-          transactions.isEmpty
-              ? _buildEmptyState()
-              : Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: transactions
-                        .take(3)
-                        .map((tx) => TransactionTile(txWithCategory: tx))
-                        .toList(),
-                  ),
-                ),
+          // PageView Slider (Transactions / Objectifs)
+          SizedBox(
+            height: 280,
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) =>
+                  setState(() => _sliderPageIndex = index),
+              children: [
+                // Page 1: Transactions
+                _buildTransactionsPage(transactions),
+                // Page 2: Objectifs
+                _buildGoalsPage(),
+              ],
+            ),
+          ),
 
           // Bottom padding
           const SizedBox(height: 20),
@@ -265,9 +298,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: 'Accueil',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart_outline),
-            activeIcon: Icon(Icons.pie_chart),
-            label: 'Budget',
+            icon: Icon(Icons.flag_outlined),
+            activeIcon: Icon(Icons.flag),
+            label: 'Objectifs',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
@@ -326,5 +359,96 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       context,
       MaterialPageRoute(builder: (_) => const StatisticsScreen()),
     );
+  }
+
+  void _onGoalsPressed() {
+    setState(() => _currentNavIndex = 1);
+  }
+
+  Widget _buildDot(int index) {
+    final isActive = _sliderPageIndex == index;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: isActive ? 20 : 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: isActive ? AppTheme.primaryColor : Colors.grey[300],
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+
+  Widget _buildTransactionsPage(List<TransactionWithCategory> transactions) {
+    if (transactions.isEmpty) {
+      return _buildEmptyState();
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: transactions
+            .take(3)
+            .map((tx) => TransactionTile(txWithCategory: tx))
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildGoalsPage() {
+    final goalsAsync = ref.watch(activeGoalsProvider);
+    return goalsAsync.when(
+      data: (goals) {
+        if (goals.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.flag_outlined, size: 48, color: Colors.grey[300]),
+                const SizedBox(height: 12),
+                Text(
+                  'Aucun objectif',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddGoalScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Créer un objectif'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: goals
+                .take(3)
+                .map(
+                  (goal) => GoalCard(
+                    goal: goal,
+                    onFeedPressed: () => _onFeedGoal(goal),
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      ),
+      error: (e, _) => Center(child: Text('Erreur: $e')),
+    );
+  }
+
+  Future<void> _onFeedGoal(GoalsTableData goal) async {
+    await FeedGoalBottomSheet.show(context, goal);
   }
 }
