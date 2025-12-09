@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/notifications/notification_controller.dart';
+import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/sms_listener/data/services/background_sms_service.dart';
 import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
 
@@ -81,30 +82,8 @@ class SikaApp extends StatelessWidget {
       title: 'SIKA',
       debugShowCheckedModeBanner: false,
 
-      // Thème sombre premium
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0A0E21),
-        primaryColor: const Color(0xFF00D9FF),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF00D9FF),
-          secondary: Color(0xFF00E676),
-          surface: Color(0xFF1A1F38),
-          error: Colors.redAccent,
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0A0E21),
-          elevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF1A1F38),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        fontFamily: 'Roboto',
-      ),
+      // Thème Neo-Bank Pro (Light)
+      theme: AppTheme.lightTheme,
 
       // Écran d'accueil
       home: const HomeScreen(),
