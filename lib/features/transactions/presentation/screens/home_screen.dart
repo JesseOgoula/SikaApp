@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/features/analytics/presentation/screens/statistics_screen.dart';
 import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
@@ -91,7 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAddPressed: _onAddPressed,
               onSyncPressed: _onSyncPressed,
               isSyncing: importState.isImporting,
-              onAnalysePressed: null, // TODO: Implémenter
+              onAnalysePressed: _onAnalysePressed,
             ),
           ),
 
@@ -298,5 +299,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     }
+  }
+
+  void _onAnalysePressed() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+    );
   }
 }

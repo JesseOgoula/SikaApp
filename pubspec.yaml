@@ -45,6 +45,7 @@ dependencies:
   url_launcher: ^6.3.2
   web: ^1.1.1
   font_awesome_flutter: ^10.7.0
+  fl_chart: ^0.69.2
 
 dev_dependencies:
   flutter_test:

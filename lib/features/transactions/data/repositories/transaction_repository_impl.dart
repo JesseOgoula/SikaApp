@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
+import '../../../analytics/domain/entities/category_stat.dart';
 import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../domain/repositories/transaction_repository.dart';
 
@@ -292,4 +293,87 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
     });
   }
+
+  // ==================== STATISTICS METHODS ====================
+
+  @override
+  Future<List<CategoryStat>> getExpensesByCategory(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    // Récupère toutes les dépenses du mois avec catégories
+    final query = _db.select(_db.transactionsTable).join([
+      leftOuterJoin(
+        _db.categoriesTable,
+        _db.categoriesTable.id.equalsExp(_db.transactionsTable.categoryId),
+      ),
+    ]);
+
+    query.where(_db.transactionsTable.type.equals('expense'));
+    query.where(
+      _db.transactionsTable.date.isBetweenValues(startOfMonth, endOfMonth),
+    );
+
+    final results = await query.get();
+
+    // Grouper par catégorie
+    final Map<String, _CategoryAccumulator> grouped = {};
+    double totalExpenses = 0;
+
+    for (final row in results) {
+      final tx = row.readTable(_db.transactionsTable);
+      final cat = row.readTableOrNull(_db.categoriesTable);
+
+      final categoryId = cat?.id ?? 'uncategorized';
+      final categoryName = cat?.name ?? 'Non catégorisé';
+
+      totalExpenses += tx.amount;
+
+      if (grouped.containsKey(categoryId)) {
+        grouped[categoryId]!.total += tx.amount;
+      } else {
+        grouped[categoryId] = _CategoryAccumulator(
+          id: categoryId,
+          name: categoryName,
+          iconKey: cat?.iconKey,
+          color: cat?.color,
+          total: tx.amount,
+        );
+      }
+    }
+
+    // Calculer les pourcentages et trier
+    final stats = grouped.values.map((acc) {
+      return CategoryStat(
+        categoryId: acc.id,
+        categoryName: acc.name,
+        iconKey: acc.iconKey,
+        color: acc.color,
+        totalAmount: acc.total,
+        percentage: totalExpenses > 0 ? (acc.total / totalExpenses) * 100 : 0,
+      );
+    }).toList();
+
+    // Trier par montant décroissant
+    stats.sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+
+    return stats;
+  }
+}
+
+/// Helper class pour accumuler les totaux par catégorie
+class _CategoryAccumulator {
+  final String id;
+  final String name;
+  final String? iconKey;
+  final String? color;
+  double total;
+
+  _CategoryAccumulator({
+    required this.id,
+    required this.name,
+    this.iconKey,
+    this.color,
+    required this.total,
+  });
 }

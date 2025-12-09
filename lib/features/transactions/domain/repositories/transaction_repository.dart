@@ -1,5 +1,6 @@
 import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../../../core/database/app_database.dart';
+import '../../../analytics/domain/entities/category_stat.dart';
 
 /// Interface du repository de transactions
 ///
@@ -100,4 +101,10 @@ abstract class TransactionRepository {
 
   /// Marque une liste de transactions comme synchronisées
   Future<void> markMultipleAsSynced(List<String> ids);
+
+  /// Récupère les dépenses groupées par catégorie pour un mois donné
+  ///
+  /// [month] : Le mois à analyser (seuls année et mois sont utilisés)
+  /// Retourne la liste des stats par catégorie (trié par montant décroissant)
+  Future<List<CategoryStat>> getExpensesByCategory(DateTime month);
 }
