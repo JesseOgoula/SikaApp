@@ -5,6 +5,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/features/ai_coach/data/services/gemini_service.dart';
+import 'package:sika_app/features/ai_coach/presentation/widgets/ai_insight_card.dart';
 import 'package:sika_app/features/analytics/domain/entities/category_stat.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 
@@ -19,6 +21,12 @@ class StatisticsScreen extends ConsumerStatefulWidget {
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   DateTime _selectedMonth = DateTime.now();
   int _touchedIndex = -1;
+
+  // AI Coach state
+  String? _aiInsight;
+  bool _isAiLoading = false;
+  String? _aiError;
+  List<CategoryStat> _currentStats = [];
 
   final _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',
@@ -61,6 +69,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           }
 
           final stats = snapshot.data ?? [];
+          _currentStats = stats; // Store for AI analysis
           final totalExpenses = stats.fold<double>(
             0,
             (sum, stat) => sum + stat.totalAmount,
@@ -82,6 +91,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
                 // Category Legend
                 _buildLegend(stats),
+
+                const SizedBox(height: 24),
+
+                // AI Coach Card
+                AiInsightCard(
+                  insight: _aiInsight,
+                  isLoading: _isAiLoading,
+                  error: _aiError,
+                  onAnalyzePressed: _analyzeWithAi,
+                ),
               ],
             ),
           );
@@ -93,6 +112,32 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   Future<List<CategoryStat>> _loadStats() {
     final repo = ref.read(transactionRepositoryProvider);
     return repo.getExpensesByCategory(_selectedMonth);
+  }
+
+  Future<void> _analyzeWithAi() async {
+    if (_currentStats.isEmpty) return;
+
+    setState(() {
+      _isAiLoading = true;
+      _aiError = null;
+    });
+
+    try {
+      final insight = await geminiService.analyzeBudget(_currentStats);
+      if (mounted) {
+        setState(() {
+          _aiInsight = insight;
+          _isAiLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _aiError = "Erreur: $e";
+          _isAiLoading = false;
+        });
+      }
+    }
   }
 
   Widget _buildMonthSelector() {

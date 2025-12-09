@@ -1,5 +1,4 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' show Value;
 
 import 'package:sika_app/core/database/app_database.dart';
