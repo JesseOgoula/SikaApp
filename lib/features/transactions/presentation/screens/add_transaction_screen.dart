@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -5,9 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' show Value;
 
 import 'package:sika_app/core/database/app_database.dart';
+import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 
-/// Écran d'ajout manuel d'une transaction (cash, etc.)
+/// Écran d'ajout manuel - Design Neo-Bank Premium
 class AddTransactionScreen extends ConsumerStatefulWidget {
   const AddTransactionScreen({super.key});
 
@@ -21,7 +23,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   final _noteController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  String _transactionType = 'expense'; // 'expense' ou 'income'
+  String _transactionType = 'expense';
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
@@ -44,319 +46,412 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0E21),
+      backgroundColor: AppTheme.scaffoldBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0E21),
+        backgroundColor: AppTheme.scaffoldBackground,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.close, color: AppTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Nouvelle Transaction',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         centerTitle: true,
       ),
       body: Form(
         key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // === MONTANT ===
-              const Text(
-                'Montant',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: InputDecoration(
-                  hintText: '0',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                  suffixText: 'FCFA',
-                  suffixStyle: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 18,
-                  ),
-                  border: InputBorder.none,
-                  filled: true,
-                  fillColor: const Color(0xFF1A1F38),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 20,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF00D9FF),
-                      width: 2,
-                    ),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Veuillez entrer un montant';
-                  }
-                  final amount = double.tryParse(value.replaceAll(' ', ''));
-                  if (amount == null || amount <= 0) {
-                    return 'Montant invalide';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 24),
-
-              // === TYPE (DÉPENSE / REVENU) ===
-              const Text(
-                'Type',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1A1F38),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
                   children: [
-                    _buildTypeButton(
-                      'expense',
-                      'Dépense',
-                      Icons.arrow_upward,
-                      Colors.redAccent,
-                    ),
-                    _buildTypeButton(
-                      'income',
-                      'Revenu',
-                      Icons.arrow_downward,
-                      const Color(0xFF00E676),
-                    ),
+                    const SizedBox(height: 20),
+
+                    // === MONTANT (La Star) ===
+                    _buildAmountSection(),
+
+                    const SizedBox(height: 32),
+
+                    // === TYPE SELECTOR ===
+                    _buildTypeSelector(),
+
+                    const SizedBox(height: 28),
+
+                    // === CATÉGORIES ===
+                    _buildCategorySection(categoriesAsync),
+
+                    const SizedBox(height: 28),
+
+                    // === DATE ===
+                    _buildDateField(),
+
+                    const SizedBox(height: 16),
+
+                    // === NOTE ===
+                    _buildNoteField(),
+
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 24),
-
-              // === CATÉGORIE ===
-              const Text(
-                'Catégorie',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              categoriesAsync.when(
-                data: (categories) => _buildCategoryGrid(categories),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Text(
-                  'Erreur: $e',
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // === NOTE ===
-              const Text(
-                'Note (optionnel)',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _noteController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Ex: Beignets au marché',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                  border: InputBorder.none,
-                  filled: true,
-                  fillColor: const Color(0xFF1A1F38),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: Color(0xFF00D9FF),
-                      width: 2,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // === DATE ===
-              const Text(
-                'Date',
-                style: TextStyle(color: Colors.white54, fontSize: 14),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _selectDate,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1A1F38),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today,
-                        color: Color(0xFF00D9FF),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        DateFormat(
-                          'EEEE dd MMMM yyyy',
-                          'fr_FR',
-                        ).format(_selectedDate),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 40),
-
-              // === BOUTON ENREGISTRER ===
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveTransaction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00D9FF),
-                    foregroundColor: const Color(0xFF0A0E21),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF0A0E21),
-                          ),
-                        )
-                      : const Text(
-                          'Enregistrer',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
+            // === BOUTON ENREGISTRER ===
+            _buildSubmitButton(),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTypeButton(
-    String type,
-    String label,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildAmountSection() {
+    return Column(
+      children: [
+        Text(
+          'Combien ?',
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            IntrinsicWidth(
+              child: TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 48,
+                  fontWeight: FontWeight.bold,
+                ),
+                decoration: const InputDecoration(
+                  hintText: '0',
+                  hintStyle: TextStyle(
+                    color: Color(0xFFD1D5DB),
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) return '';
+                  final amount = double.tryParse(value.replaceAll(' ', ''));
+                  if (amount == null || amount <= 0) return '';
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'FCFA',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTypeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _buildTypeTab('expense', 'Dépense', AppTheme.error),
+          _buildTypeTab('income', 'Revenu', AppTheme.success),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeTab(String type, String label, Color color) {
     final isSelected = _transactionType == type;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _transactionType = type),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
+            color: isSelected ? color.withOpacity(0.12) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: isSelected ? color : Colors.white38, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isSelected ? color : Colors.white38,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? color : AppTheme.textSecondary,
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryGrid(List<CategoriesTableData> categories) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: categories.map((cat) {
-        final isSelected = _selectedCategoryId == cat.id;
-        final color = _parseColor(cat.color) ?? Colors.grey;
-
-        return GestureDetector(
-          onTap: () => setState(() => _selectedCategoryId = cat.id),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? color.withOpacity(0.3)
-                  : const Color(0xFF1A1F38),
-              borderRadius: BorderRadius.circular(20),
-              border: isSelected ? Border.all(color: color, width: 2) : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FaIcon(_getCategoryIcon(cat.iconKey), color: color, size: 14),
-                const SizedBox(width: 6),
-                Text(
-                  cat.name,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white70,
-                    fontSize: 12,
-                    fontWeight: isSelected
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                  ),
-                ),
-              ],
+  Widget _buildCategorySection(
+    AsyncValue<List<CategoriesTableData>> categoriesAsync,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Catégorie',
+          style: TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 12),
+        categoriesAsync.when(
+          data: (categories) => SizedBox(
+            height: 80,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: categories.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final cat = categories[index];
+                return _buildCategoryItem(cat);
+              },
             ),
           ),
-        );
-      }).toList(),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Erreur: $e'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryItem(CategoriesTableData category) {
+    final isSelected = _selectedCategoryId == category.id;
+    final color = _parseColor(category.color) ?? AppTheme.primaryColor;
+
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCategoryId = category.id),
+      child: Column(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: isSelected ? color.withOpacity(0.15) : Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? color : const Color(0xFFE5E7EB),
+                width: isSelected ? 2.5 : 1.5,
+              ),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: FaIcon(
+                _getCategoryIcon(category.iconKey),
+                color: isSelected ? color : AppTheme.textSecondary,
+                size: 18,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            category.name,
+            style: TextStyle(
+              color: isSelected ? color : AppTheme.textSecondary,
+              fontSize: 11,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateField() {
+    return GestureDetector(
+      onTap: _selectDate,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.calendar_today,
+                color: AppTheme.primaryColor,
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Date',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    DateFormat('EEEE dd MMMM', 'fr_FR').format(_selectedDate),
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoteField() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.secondaryColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.edit,
+              color: AppTheme.secondaryColor.withOpacity(0.8),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: TextField(
+              controller: _noteController,
+              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
+              decoration: InputDecoration(
+                hintText: 'Ajouter une note...',
+                hintStyle: TextStyle(
+                  color: AppTheme.textSecondary.withOpacity(0.6),
+                  fontSize: 15,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: ElevatedButton(
+            onPressed: _isLoading ? null : _saveTransaction,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'Enregistrer',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -375,8 +470,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         return FontAwesomeIcons.rightLeft;
       case 'gamepad':
         return FontAwesomeIcons.gamepad;
-      case 'question':
-        return FontAwesomeIcons.question;
       default:
         return FontAwesomeIcons.tag;
     }
@@ -400,10 +493,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00D9FF),
-              surface: Color(0xFF1A1F38),
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppTheme.primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
             ),
           ),
           child: child!,
@@ -416,12 +510,38 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   Future<void> _saveTransaction() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_amountController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Veuillez entrer un montant'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final amount = double.tryParse(_amountController.text.replaceAll(' ', ''));
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Montant invalide'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final amount = double.parse(_amountController.text.replaceAll(' ', ''));
       final note = _noteController.text.trim();
 
       final companion = TransactionsTableCompanion(
@@ -434,10 +554,10 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         date: Value(_selectedDate),
         smsSender: const Value('MANUAL'),
         smsRawContent: const Value(''),
-        externalId: const Value.absent(), // UUID généré par le repository
+        externalId: const Value.absent(),
         isAiCategorized: const Value(false),
         syncStatus: const Value(0),
-        validationStatus: const Value(1), // Validé d'office
+        validationStatus: const Value(1),
       );
 
       final repo = ref.read(transactionRepositoryProvider);
@@ -451,7 +571,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }

@@ -68,25 +68,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
-    return CustomScrollView(
-      slivers: [
-        // Header
-        SliverToBoxAdapter(child: _buildHeader()),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          _buildHeader(),
 
-        // Balance Card
-        SliverToBoxAdapter(
-          child: Padding(
+          // Balance Card
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: BalanceCard(
               totalBalance: totalBalance,
               monthlyExpenses: monthlyExpenses,
             ),
           ),
-        ),
 
-        // Quick Actions
-        SliverToBoxAdapter(
-          child: Padding(
+          // Quick Actions
+          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
             child: QuickActions(
               onAddPressed: _onAddPressed,
@@ -95,16 +94,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onAnalysePressed: null, // TODO: Implémenter
             ),
           ),
-        ),
 
-        // Section Title
-        const SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+          // Section Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+                const Text(
                   'Transactions Récentes',
                   style: TextStyle(
                     color: AppTheme.textPrimary,
@@ -112,7 +109,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Text(
+                const Text(
                   'Voir tout',
                   style: TextStyle(
                     color: AppTheme.primaryColor,
@@ -123,29 +120,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-        ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+          const SizedBox(height: 16),
 
-        // Transaction List
-        transactions.isEmpty
-            ? SliverToBoxAdapter(child: _buildEmptyState())
-            : SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) =>
-                        TransactionTile(txWithCategory: transactions[index]),
-                    childCount: transactions.length > 10
-                        ? 10
-                        : transactions.length,
+          // Transaction List
+          transactions.isEmpty
+              ? _buildEmptyState()
+              : Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: transactions
+                        .take(10)
+                        .map((tx) => TransactionTile(txWithCategory: tx))
+                        .toList(),
                   ),
                 ),
-              ),
 
-        // Bottom padding
-        const SliverToBoxAdapter(child: SizedBox(height: 20)),
-      ],
+          // Bottom padding
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 

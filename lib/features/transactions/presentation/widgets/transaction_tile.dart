@@ -96,12 +96,16 @@ class TransactionTile extends StatelessWidget {
                         ' • ',
                         style: TextStyle(color: AppTheme.textSecondary),
                       ),
-                      Text(
-                        category.name,
-                        style: TextStyle(
-                          color: categoryColor,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+                      Flexible(
+                        child: Text(
+                          category.name,
+                          style: TextStyle(
+                            color: categoryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -111,12 +115,14 @@ class TransactionTile extends StatelessWidget {
             ),
           ),
 
+          const SizedBox(width: 8),
+
           // Montant
           Text(
             '$amountPrefix${currencyFormat.format(tx.amount)}',
             style: TextStyle(
               color: amountColor,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
             ),
           ),
