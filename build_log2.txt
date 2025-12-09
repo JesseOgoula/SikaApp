@@ -1,0 +1,77 @@
+﻿Running Gradle task 'assembleDebug'...                          
+flutter : 
+Au caractère Ligne:1 : 1
++ flutter build apk --debug 2>&1 | Out-File 
+-FilePath build_log2.txt -E ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandEr 
+   ror
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task 
+':app:cleanMergeDebugAssets'.
+> java.io.IOException: Unable to delete 
+directory 'C:\Users\adiri\Documents\My 
+Files\SIDE PROJECTS\SIKA\SikaApp\build\app\int
+ermediates\assets\debug\mergeDebugAssets'
+    Failed to delete some children. This 
+might happen because a process has files open 
+or has its working directory set in the 
+target directory.
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\fo
+nts
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages\awesome_notifications\test\assets\image
+s
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages\awesome_notifications\test\assets
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages\awesome_notifications\test
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages\awesome_notifications
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages\cupertino_icons\assets
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages\cupertino_icons
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\pa
+ckages
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets\sh
+aders
+    - C:\Users\adiri\Documents\My Files\SIDE P
+ROJECTS\SIKA\SikaApp\build\app\intermediates\a
+ssets\debug\mergeDebugAssets\flutter_assets
+
+* Try:
+> Run with --stacktrace option to get the 
+stack trace.
+> Run with --info or --debug option to get 
+more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 19s
+Running Gradle task 'assembleDebug'...                             19,7s
+Gradle task assembleDebug failed with exit 
+code 1

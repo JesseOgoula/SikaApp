@@ -1,0 +1,60 @@
+name: sika_app
+description: "SIKA - Personal Finance Management pour le Gabon"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # ===== DRIFT (SQLite ORM) =====
+  drift: ^2.22.1
+  sqlite3_flutter_libs: ^0.5.28
+  path_provider: ^2.1.5
+  path: ^1.9.1
+
+  # ===== STATE MANAGEMENT =====
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.6.1
+
+  # ===== UTILITIES =====
+  uuid: ^4.5.1
+  intl: ^0.19.0
+
+  # ===== SMS & PERMISSIONS (Android) =====
+  flutter_sms_inbox: ^1.0.4
+  permission_handler: ^11.3.1
+  # Note: telephony non compatible AGP 8.x - polling via flutter_sms_inbox
+
+  # ===== NOTIFICATIONS =====
+  flutter_local_notifications: ^18.0.1
+
+  # ===== STORAGE =====
+  shared_preferences: ^2.3.3
+  dtd: ^4.0.0
+  flutter_lints: ^6.0.0
+  google_fonts: ^6.3.3
+  json_rpc_2: ^4.0.0
+  stack_trace: ^1.12.1
+  url_launcher: ^6.3.2
+  web: ^1.1.1
+  font_awesome_flutter: ^10.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+
+  # ===== CODE GENERATION =====
+  build_runner: ^2.4.13
+  drift_dev: ^2.22.1
+  riverpod_generator: ^2.6.2
+
+flutter:
+  uses-material-design: true
