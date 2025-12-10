@@ -5,12 +5,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
-import 'package:sika_app/features/ai_coach/data/services/gemini_service.dart';
-import 'package:sika_app/features/ai_coach/presentation/widgets/ai_insight_card.dart';
+import 'package:sika_app/main.dart' show databaseProvider;
+import 'package:sika_app/features/transactions/data/repositories/transaction_repository_impl.dart';
 import 'package:sika_app/features/analytics/domain/entities/category_stat.dart';
-import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/features/analytics/domain/entities/daily_summary.dart';
+import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 
-/// Écran de statistiques - Design Neo-Bank avec PieChart
+/// Dashboard Analytics - Style moderne minimaliste
 class StatisticsScreen extends ConsumerStatefulWidget {
   const StatisticsScreen({super.key});
 
@@ -20,19 +21,70 @@ class StatisticsScreen extends ConsumerStatefulWidget {
 
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   DateTime _selectedMonth = DateTime.now();
-  int _touchedIndex = -1;
+  int _touchedPieIndex = -1;
 
-  // AI Coach state
-  String? _aiInsight;
-  bool _isAiLoading = false;
-  String? _aiError;
-  List<CategoryStat> _currentStats = [];
+  // Données
+  List<CategoryStat> _categoryStats = [];
+  List<DailySummary> _dailySummaries = [];
+  double _totalIncome = 0;
+  double _totalExpense = 0;
+  double _totalSavings = 0;
+  bool _isLoading = true;
 
   final _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',
-    symbol: 'FCFA',
+    symbol: '',
     decimalDigits: 0,
   );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final db = ref.read(databaseProvider);
+      final repo = TransactionRepositoryImpl(db);
+      final goalRepo = ref.read(goalRepositoryProvider);
+
+      final results = await Future.wait([
+        repo.getExpensesByCategory(_selectedMonth),
+        repo.getDailySummary(_selectedMonth),
+        repo.getTotalIncome(_selectedMonth),
+        repo.getTotalExpense(_selectedMonth),
+        goalRepo.getTotalSavedAmount(),
+      ]);
+
+      setState(() {
+        _categoryStats = results[0] as List<CategoryStat>;
+        _dailySummaries = results[1] as List<DailySummary>;
+        _totalIncome = results[2] as double;
+        _totalExpense = results[3] as double;
+        _totalSavings = results[4] as double;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _previousMonth() {
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+    });
+    _loadData();
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+    });
+    _loadData();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,12 +93,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.scaffoldBackground,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppTheme.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: const Text(
-          'Analyse',
+          'Statistiques',
           style: TextStyle(
             color: AppTheme.textPrimary,
             fontSize: 18,
@@ -55,259 +103,100 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         ),
         centerTitle: true,
       ),
-      body: FutureBuilder<List<CategoryStat>>(
-        future: _loadStats(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
+      body: _isLoading
+          ? const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor),
-            );
-          }
+            )
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              color: AppTheme.primaryColor,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Sélecteur de mois
+                    _buildMonthSelector(),
+                    const SizedBox(height: 24),
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Erreur: ${snapshot.error}'));
-          }
+                    // Résumé du mois
+                    _buildSummaryCard(),
+                    const SizedBox(height: 20),
 
-          final stats = snapshot.data ?? [];
-          _currentStats = stats; // Store for AI analysis
-          final totalExpenses = stats.fold<double>(
-            0,
-            (sum, stat) => sum + stat.totalAmount,
-          );
+                    // Graphique barres
+                    _buildBarChartCard(),
+                    const SizedBox(height: 20),
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                // Month Selector
-                _buildMonthSelector(),
-
-                const SizedBox(height: 24),
-
-                // Pie Chart Card
-                _buildChartCard(stats, totalExpenses),
-
-                const SizedBox(height: 24),
-
-                // Category Legend
-                _buildLegend(stats),
-
-                const SizedBox(height: 24),
-
-                // AI Coach Card
-                AiInsightCard(
-                  insight: _aiInsight,
-                  isLoading: _isAiLoading,
-                  error: _aiError,
-                  onAnalyzePressed: _analyzeWithAi,
+                    // Répartition
+                    _buildCategoryCard(),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-              ],
+              ),
             ),
-          );
-        },
-      ),
     );
-  }
-
-  Future<List<CategoryStat>> _loadStats() {
-    final repo = ref.read(transactionRepositoryProvider);
-    return repo.getExpensesByCategory(_selectedMonth);
-  }
-
-  Future<void> _analyzeWithAi() async {
-    if (_currentStats.isEmpty) return;
-
-    setState(() {
-      _isAiLoading = true;
-      _aiError = null;
-    });
-
-    try {
-      final insight = await geminiService.analyzeBudget(_currentStats);
-      if (mounted) {
-        setState(() {
-          _aiInsight = insight;
-          _isAiLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _aiError = "Erreur: $e";
-          _isAiLoading = false;
-        });
-      }
-    }
   }
 
   Widget _buildMonthSelector() {
-    final monthFormat = DateFormat('MMMM yyyy', 'fr_FR');
+    final monthName = DateFormat('MMMM yyyy', 'fr_FR').format(_selectedMonth);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: AppTheme.textSecondary),
-            onPressed: () {
-              setState(() {
-                _selectedMonth = DateTime(
-                  _selectedMonth.year,
-                  _selectedMonth.month - 1,
-                );
-              });
-            },
-          ),
-          Text(
-            monthFormat.format(_selectedMonth).toUpperCase(),
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8),
+              ],
+            ),
+            child: const Icon(
+              Icons.chevron_left,
+              color: AppTheme.primaryColor,
+              size: 20,
             ),
           ),
-          IconButton(
-            icon: const Icon(
-              Icons.chevron_right,
-              color: AppTheme.textSecondary,
-            ),
-            onPressed:
-                _selectedMonth.month < DateTime.now().month ||
-                    _selectedMonth.year < DateTime.now().year
-                ? () {
-                    setState(() {
-                      _selectedMonth = DateTime(
-                        _selectedMonth.year,
-                        _selectedMonth.month + 1,
-                      );
-                    });
-                  }
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChartCard(List<CategoryStat> stats, double total) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          SizedBox(
-            height: 220,
-            child: stats.isEmpty
-                ? _buildEmptyChart()
-                : PieChart(
-                    PieChartData(
-                      pieTouchData: PieTouchData(
-                        touchCallback: (event, response) {
-                          setState(() {
-                            if (!event.isInterestedForInteractions ||
-                                response == null ||
-                                response.touchedSection == null) {
-                              _touchedIndex = -1;
-                              return;
-                            }
-                            _touchedIndex =
-                                response.touchedSection!.touchedSectionIndex;
-                          });
-                        },
-                      ),
-                      borderData: FlBorderData(show: false),
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 60,
-                      sections: _buildChartSections(stats),
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Total Dépenses',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _currencyFormat.format(total),
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmptyChart() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.pie_chart_outline,
-            size: 64,
-            color: AppTheme.textSecondary.withOpacity(0.4),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Aucune dépense\nce mois-ci',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<PieChartSectionData> _buildChartSections(List<CategoryStat> stats) {
-    return stats.asMap().entries.map((entry) {
-      final index = entry.key;
-      final stat = entry.value;
-      final isTouched = index == _touchedIndex;
-      final color = _parseColor(stat.color) ?? _getDefaultColor(index);
-
-      return PieChartSectionData(
-        color: color,
-        value: stat.totalAmount,
-        title: isTouched ? '${stat.percentage.toStringAsFixed(0)}%' : '',
-        radius: isTouched ? 45 : 35,
-        titleStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
+          onPressed: _previousMonth,
         ),
-        badgeWidget: isTouched ? null : null,
-      );
-    }).toList();
+        Text(
+          monthName[0].toUpperCase() + monthName.substring(1),
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8),
+              ],
+            ),
+            child: const Icon(
+              Icons.chevron_right,
+              color: AppTheme.primaryColor,
+              size: 20,
+            ),
+          ),
+          onPressed: _nextMonth,
+        ),
+      ],
+    );
   }
 
-  Widget _buildLegend(List<CategoryStat> stats) {
-    if (stats.isEmpty) return const SizedBox.shrink();
+  Widget _buildSummaryCard() {
+    final balance = _totalIncome - _totalExpense;
+    final savingsRate = _totalIncome > 0
+        ? (_totalSavings / _totalIncome * 100).clamp(0, 100)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -317,8 +206,154 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Balance
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Solde du mois',
+                style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+              ),
+              Text(
+                '${balance >= 0 ? '+' : ''}${_currencyFormat.format(balance)} FCFA',
+                style: TextStyle(
+                  color: balance >= 0 ? AppTheme.success : AppTheme.error,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // Revenus / Dépenses
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatItem(
+                  label: 'Revenus',
+                  amount: _totalIncome,
+                  icon: Icons.arrow_downward,
+                  isPositive: true,
+                ),
+              ),
+              Container(width: 1, height: 50, color: Colors.grey[200]),
+              Expanded(
+                child: _buildStatItem(
+                  label: 'Dépenses',
+                  amount: _totalExpense,
+                  icon: Icons.arrow_upward,
+                  isPositive: false,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Taux d'épargne
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    FaIcon(
+                      FontAwesomeIcons.piggyBank,
+                      color: AppTheme.primaryColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      'Taux d\'épargne',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  '${savingsRate.toStringAsFixed(1)}%',
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem({
+    required String label,
+    required double amount,
+    required IconData icon,
+    required bool isPositive,
+  }) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isPositive
+                    ? AppTheme.success.withOpacity(0.1)
+                    : AppTheme.error.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: isPositive ? AppTheme.success : AppTheme.error,
+                size: 14,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${_currencyFormat.format(amount)} F',
+          style: const TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBarChartCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -326,118 +361,293 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Par catégorie',
+            'Activité',
             style: TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 16),
-          ...stats.asMap().entries.map((entry) {
-            final index = entry.key;
-            final stat = entry.value;
-            final color = _parseColor(stat.color) ?? _getDefaultColor(index);
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(10),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 160,
+            child: _dailySummaries.isEmpty
+                ? Center(
+                    child: Text(
+                      'Aucune donnée',
+                      style: TextStyle(color: AppTheme.textSecondary),
                     ),
-                    child: Center(
-                      child: FaIcon(
-                        _getCategoryIcon(stat.iconKey),
-                        color: color,
-                        size: 16,
+                  )
+                : BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: _getMaxY(),
+                      barTouchData: BarTouchData(enabled: false),
+                      titlesData: FlTitlesData(
+                        show: true,
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) {
+                              if (value.toInt() >= _dailySummaries.length) {
+                                return const SizedBox();
+                              }
+                              final day = _dailySummaries[value.toInt()].day;
+                              // Afficher seulement certains jours
+                              if (_dailySummaries.length > 10 &&
+                                  value.toInt() % 3 != 0) {
+                                return const SizedBox();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  '$day',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
                       ),
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      barGroups: _buildBarGroups(),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          stat.categoryName,
-                          style: const TextStyle(
-                            color: AppTheme.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          '${stat.percentage.toStringAsFixed(1)}%',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    _currencyFormat.format(stat.totalAmount),
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendDot(
+                AppTheme.primaryColor.withOpacity(0.7),
+                'Revenus',
               ),
-            );
-          }),
+              const SizedBox(width: 20),
+              _buildLegendDot(AppTheme.primaryColor, 'Dépenses'),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Color _getDefaultColor(int index) {
-    const colors = [
-      Color(0xFF1A237E),
-      Color(0xFFE91E63),
-      Color(0xFF4CAF50),
-      Color(0xFFFF9800),
-      Color(0xFF9C27B0),
-      Color(0xFF00BCD4),
-      Color(0xFF795548),
-    ];
-    return colors[index % colors.length];
+  List<BarChartGroupData> _buildBarGroups() {
+    return _dailySummaries.asMap().entries.map((entry) {
+      final index = entry.key;
+      final summary = entry.value;
+      final total = summary.totalIncome + summary.totalExpense;
+
+      return BarChartGroupData(
+        x: index,
+        barRods: [
+          BarChartRodData(
+            toY: total,
+            width: _dailySummaries.length > 15 ? 6 : 10,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+            rodStackItems: [
+              BarChartRodStackItem(
+                0,
+                summary.totalIncome,
+                AppTheme.primaryColor.withOpacity(0.4),
+              ),
+              BarChartRodStackItem(
+                summary.totalIncome,
+                total,
+                AppTheme.primaryColor,
+              ),
+            ],
+          ),
+        ],
+      );
+    }).toList();
   }
 
-  Color? _parseColor(String? hexColor) {
-    if (hexColor == null || !hexColor.startsWith('#')) return null;
-    try {
-      final hex = hexColor.replaceFirst('#', '');
-      return Color(int.parse('FF$hex', radix: 16));
-    } catch (_) {
-      return null;
+  double _getMaxY() {
+    double max = 0;
+    for (final summary in _dailySummaries) {
+      final total = summary.totalIncome + summary.totalExpense;
+      if (total > max) max = total;
     }
+    return max * 1.2;
   }
 
-  IconData _getCategoryIcon(String? iconKey) {
-    if (iconKey == null) return FontAwesomeIcons.question;
-    switch (iconKey) {
-      case 'utensils':
-        return FontAwesomeIcons.utensils;
-      case 'taxi':
-        return FontAwesomeIcons.taxi;
-      case 'bolt':
-        return FontAwesomeIcons.bolt;
-      case 'heartPulse':
-        return FontAwesomeIcons.heartPulse;
-      case 'exchangeAlt':
-        return FontAwesomeIcons.rightLeft;
-      case 'gamepad':
-        return FontAwesomeIcons.gamepad;
-      default:
-        return FontAwesomeIcons.tag;
+  Widget _buildLegendDot(Color color, String label) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryCard() {
+    final totalExpenses = _categoryStats.fold<double>(
+      0,
+      (sum, s) => sum + s.totalAmount,
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Répartition',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (_categoryStats.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'Aucune dépense',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+              ),
+            )
+          else
+            Row(
+              children: [
+                // PieChart
+                SizedBox(
+                  width: 120,
+                  height: 120,
+                  child: PieChart(
+                    PieChartData(
+                      pieTouchData: PieTouchData(
+                        touchCallback: (event, response) {
+                          setState(() {
+                            if (!event.isInterestedForInteractions ||
+                                response == null ||
+                                response.touchedSection == null) {
+                              _touchedPieIndex = -1;
+                              return;
+                            }
+                            _touchedPieIndex =
+                                response.touchedSection!.touchedSectionIndex;
+                          });
+                        },
+                      ),
+                      sections: _buildPieSections(),
+                      centerSpaceRadius: 30,
+                      sectionsSpace: 1,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 24),
+                // Liste catégories
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: _categoryStats.take(5).map((stat) {
+                      final percentage = totalExpenses > 0
+                          ? (stat.totalAmount / totalExpenses * 100)
+                          : 0.0;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: _parseColor(stat.color),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                stat.categoryName,
+                                style: const TextStyle(
+                                  color: AppTheme.textPrimary,
+                                  fontSize: 12,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              '${percentage.toStringAsFixed(0)}%',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<PieChartSectionData> _buildPieSections() {
+    return _categoryStats.asMap().entries.map((entry) {
+      final index = entry.key;
+      final stat = entry.value;
+      final isTouched = index == _touchedPieIndex;
+
+      return PieChartSectionData(
+        value: stat.totalAmount,
+        title: '',
+        color: _parseColor(stat.color),
+        radius: isTouched ? 28 : 22,
+      );
+    }).toList();
+  }
+
+  Color _parseColor(String? colorHex) {
+    if (colorHex == null || colorHex.isEmpty) return Colors.grey;
+    try {
+      return Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
+    } catch (_) {
+      return Colors.grey;
     }
   }
 }

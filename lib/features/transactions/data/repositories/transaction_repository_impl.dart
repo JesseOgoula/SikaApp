@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
+import '../../../analytics/domain/entities/daily_summary.dart';
 import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../domain/repositories/transaction_repository.dart';
 
@@ -359,6 +360,76 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     return stats;
   }
+
+  // ==================== DAILY SUMMARY METHODS ====================
+
+  @override
+  Future<List<DailySummary>> getDailySummary(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    final query = _db.select(_db.transactionsTable)
+      ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth));
+
+    final transactions = await query.get();
+
+    // Grouper par jour
+    final Map<int, _DailyAccumulator> dailyData = {};
+
+    for (final tx in transactions) {
+      final day = tx.date.day;
+      dailyData.putIfAbsent(
+        day,
+        () => _DailyAccumulator(date: DateTime(month.year, month.month, day)),
+      );
+
+      if (tx.type == 'income') {
+        dailyData[day]!.income += tx.amount;
+      } else {
+        dailyData[day]!.expense += tx.amount;
+      }
+    }
+
+    // Convertir en liste triée
+    final summaries = dailyData.values
+        .map(
+          (acc) => DailySummary(
+            date: acc.date,
+            totalIncome: acc.income,
+            totalExpense: acc.expense,
+          ),
+        )
+        .toList();
+
+    summaries.sort((a, b) => a.date.compareTo(b.date));
+    return summaries;
+  }
+
+  @override
+  Future<double> getTotalIncome(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    final query = _db.select(_db.transactionsTable)
+      ..where((t) => t.type.equals('income'))
+      ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth));
+
+    final transactions = await query.get();
+    return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
+
+  @override
+  Future<double> getTotalExpense(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    final query = _db.select(_db.transactionsTable)
+      ..where((t) => t.type.equals('expense'))
+      ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth));
+
+    final transactions = await query.get();
+    return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
 }
 
 /// Helper class pour accumuler les totaux par catégorie
@@ -376,4 +447,13 @@ class _CategoryAccumulator {
     this.color,
     required this.total,
   });
+}
+
+/// Helper class pour accumuler les totaux quotidiens
+class _DailyAccumulator {
+  final DateTime date;
+  double income;
+  double expense;
+
+  _DailyAccumulator({required this.date, this.income = 0, this.expense = 0});
 }

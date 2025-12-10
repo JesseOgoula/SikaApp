@@ -1,6 +1,7 @@
 import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
+import '../../../analytics/domain/entities/daily_summary.dart';
 
 /// Interface du repository de transactions
 ///
@@ -107,4 +108,16 @@ abstract class TransactionRepository {
   /// [month] : Le mois à analyser (seuls année et mois sont utilisés)
   /// Retourne la liste des stats par catégorie (trié par montant décroissant)
   Future<List<CategoryStat>> getExpensesByCategory(DateTime month);
+
+  /// Récupère le résumé quotidien des transactions pour un mois
+  ///
+  /// [month] : Le mois à analyser
+  /// Retourne une liste de DailySummary avec revenus et dépenses par jour
+  Future<List<DailySummary>> getDailySummary(DateTime month);
+
+  /// Récupère le total des revenus pour un mois
+  Future<double> getTotalIncome(DateTime month);
+
+  /// Récupère le total des dépenses pour un mois
+  Future<double> getTotalExpense(DateTime month);
 }

@@ -150,4 +150,10 @@ class GoalRepository {
       _db.goalsTable,
     )..where((g) => g.id.equals(goalId))).getSingleOrNull();
   }
+
+  /// Récupérer le total épargné sur tous les objectifs
+  Future<double> getTotalSavedAmount() async {
+    final goals = await _db.select(_db.goalsTable).get();
+    return goals.fold<double>(0, (sum, goal) => sum + goal.savedAmount);
+  }
 }
