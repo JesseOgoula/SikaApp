@@ -6,6 +6,8 @@ import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 
 /// Carte d'affichage d'un objectif d'épargne
+///
+/// Tap sur la carte pour alimenter l'objectif (si non terminé)
 class GoalCard extends StatelessWidget {
   final GoalsTableData goal;
   final VoidCallback? onTap;
@@ -30,15 +32,23 @@ class GoalCard extends StatelessWidget {
         ? (goal.savedAmount / goal.targetAmount).clamp(0.0, 1.0)
         : 0.0;
     final percentage = (progress * 100).toInt();
+    final remaining = goal.targetAmount - goal.savedAmount;
 
     return GestureDetector(
-      onTap: onTap,
+      // Tap sur la carte = alimenter l'objectif
+      onTap: goal.isCompleted ? onTap : (onFeedPressed ?? onTap),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
+          border: !goal.isCompleted
+              ? Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.2),
+                  width: 1,
+                )
+              : null,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -75,7 +85,7 @@ class GoalCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Nom
+                // Nom + Date limite
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,29 +112,56 @@ class GoalCard extends StatelessWidget {
                   ),
                 ),
 
-                // Pourcentage
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: goal.isCompleted
-                        ? AppTheme.success.withOpacity(0.1)
-                        : AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    goal.isCompleted ? '✓' : '$percentage%',
-                    style: TextStyle(
-                      color: goal.isCompleted
-                          ? AppTheme.success
-                          : AppTheme.primaryColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                // Pourcentage ou Icône tap
+                if (goal.isCompleted)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.success.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      '✓',
+                      style: TextStyle(
+                        color: AppTheme.success,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$percentage%',
+                          style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.add_circle_outline,
+                          color: AppTheme.primaryColor,
+                          size: 14,
+                        ),
+                      ],
                     ),
                   ),
-                ),
               ],
             ),
 
@@ -145,64 +182,75 @@ class GoalCard extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // Montants + Bouton Verser
+            // Montants
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      currencyFormat.format(goal.savedAmount),
-                      style: TextStyle(
-                        color: goal.isCompleted
-                            ? AppTheme.success
-                            : AppTheme.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'sur ${currencyFormat.format(goal.targetAmount)}',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                Text(
+                  currencyFormat.format(goal.savedAmount),
+                  style: TextStyle(
+                    color: goal.isCompleted
+                        ? AppTheme.success
+                        : AppTheme.primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-
-                // Bouton Verser (visible si non terminé)
-                if (!goal.isCompleted && onFeedPressed != null)
-                  GestureDetector(
-                    onTap: onFeedPressed,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: const [
-                          Icon(Icons.add, color: Colors.white, size: 16),
-                          SizedBox(width: 4),
-                          Text(
-                            'Verser',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                if (!goal.isCompleted)
+                  Text(
+                    'Reste ${currencyFormat.format(remaining)}',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  )
+                else
+                  Text(
+                    'Objectif atteint 🎉',
+                    style: TextStyle(
+                      color: AppTheme.success,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
               ],
             ),
+
+            // Hint "Appuyer pour épargner" (visible si non terminé)
+            if (!goal.isCompleted) ...[
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.touch_app,
+                        color: AppTheme.primaryColor.withOpacity(0.6),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Appuyer pour épargner',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor.withOpacity(0.6),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

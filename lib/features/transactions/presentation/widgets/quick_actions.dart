@@ -97,14 +97,16 @@ class QuickActions extends StatelessWidget {
                     ),
                   )
                 : faIcon != null
-                ? FaIcon(
-                    faIcon,
-                    color: isPrimary
-                        ? Colors.white
-                        : isDisabled
-                        ? Colors.grey
-                        : AppTheme.primaryColor,
-                    size: 20,
+                ? Center(
+                    child: FaIcon(
+                      faIcon,
+                      color: isPrimary
+                          ? Colors.white
+                          : isDisabled
+                          ? Colors.grey
+                          : AppTheme.primaryColor,
+                      size: 20,
+                    ),
                   )
                 : Icon(
                     icon,
