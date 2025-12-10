@@ -50,6 +50,13 @@ dependencies:
   fl_chart: ^0.69.2
   google_generative_ai: ^0.4.6
 
+  # ===== AUTH & CLOUD =====
+  supabase_flutter: ^2.8.0
+  google_sign_in: ^6.2.1
+  
+  # ===== POWERSYNC (Offline-First Sync) =====
+  powersync: ^1.8.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -60,5 +67,32 @@ dev_dependencies:
   drift_dev: ^2.22.1
   riverpod_generator: ^2.6.2
 
+  # ===== LAUNCHER ICON & SPLASH =====
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.0
+
+# ===== LAUNCHER ICON CONFIG =====
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/launcher.png"
+  adaptive_icon_background: "#303F9F"
+  adaptive_icon_foreground: "assets/icons/launcher.png"
+  min_sdk_android: 21
+
+# ===== SPLASH SCREEN CONFIG =====
+flutter_native_splash:
+  color: "#303F9F"
+  android: true
+  ios: true
+  android_12:
+    color: "#303F9F"
+    icon_background_color: "#303F9F"
+
 flutter:
   uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+

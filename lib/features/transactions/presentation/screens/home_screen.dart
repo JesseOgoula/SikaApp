@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
+import 'package:sika_app/core/services/sync_service.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/analytics/presentation/screens/statistics_screen.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/goals/presentation/screens/add_goal_screen.dart';
 import 'package:sika_app/features/goals/presentation/screens/goals_list_screen.dart';
 import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
 import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
+import 'package:sika_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
@@ -198,6 +202,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildHeader() {
+    // Récupère les infos utilisateur
+    final user = Supabase.instance.client.auth.currentUser;
+    final fullName = user?.userMetadata?['full_name'] as String?;
+    final firstName = getFirstName(fullName);
+    final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
+    final greeting = getGreetingMessage();
+    final emoji = getGreetingEmoji();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       child: Row(
@@ -207,29 +219,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Bonjour 👋',
+                '$greeting $emoji',
                 style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Bienvenue sur SIKA',
-                style: TextStyle(
+              Text(
+                firstName,
+                style: const TextStyle(
                   color: AppTheme.textPrimary,
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          // Avatar
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
+          // Avatar cliquable -> ProfileScreen
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: ClipOval(
+                child: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? Image.network(
+                        avatarUrl,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.person,
+                          color: AppTheme.primaryColor,
+                        ),
+                      )
+                    : const Icon(Icons.person, color: AppTheme.primaryColor),
+              ),
             ),
-            child: const Icon(Icons.person, color: AppTheme.primaryColor),
           ),
         ],
       ),
@@ -328,24 +365,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _onSyncPressed() async {
+    // 1. Import SMS
     final result = await ref
         .read(smsImportNotifierProvider.notifier)
         .importFromInbox();
+
+    // 2. Sync vers le cloud
+    final syncService = ref.read(syncServiceProvider);
+    SyncResult? cloudResult;
+
+    if (syncService.isLoggedIn) {
+      cloudResult = await syncService.syncAll();
+    }
+
     if (mounted) {
+      final message = cloudResult != null
+          ? '${result.imported} SMS + ${cloudResult.totalCount} sync cloud'
+          : '${result.imported} nouvelles transactions';
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AppTheme.primaryColor,
+          backgroundColor: cloudResult?.success == true
+              ? AppTheme.success
+              : AppTheme.primaryColor,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
           content: Row(
             children: [
-              const Icon(Icons.check_circle, color: Colors.white),
+              Icon(
+                cloudResult?.success == true
+                    ? Icons.cloud_done
+                    : Icons.check_circle,
+                color: Colors.white,
+              ),
               const SizedBox(width: 12),
-              Text(
-                '${result.imported} nouvelles transactions',
-                style: const TextStyle(color: Colors.white),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),

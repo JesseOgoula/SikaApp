@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
-import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 
 /// Écran d'ajout d'un objectif d'épargne avec claviers en bas

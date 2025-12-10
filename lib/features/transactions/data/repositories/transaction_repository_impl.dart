@@ -455,5 +455,5 @@ class _DailyAccumulator {
   double income;
   double expense;
 
-  _DailyAccumulator({required this.date, this.income = 0, this.expense = 0});
+  _DailyAccumulator({required this.date});
 }
