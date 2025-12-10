@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
 
 /// Écran affichant toutes les transactions
@@ -66,6 +67,19 @@ class TransactionsListScreen extends ConsumerWidget {
             style: const TextStyle(color: AppTheme.error),
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+          );
+          if (result == true) {
+            ref.invalidate(transactionWithCategoryListProvider);
+          }
+        },
+        backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }

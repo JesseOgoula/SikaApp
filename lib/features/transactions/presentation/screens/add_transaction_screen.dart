@@ -26,7 +26,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
-  bool _showKeypad = true; // Affiche le clavier par défaut
+  bool _showKeypad = false; // Clavier caché par défaut
 
   final _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',

@@ -176,7 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           // PageView Slider (Transactions / Objectifs)
           SizedBox(
-            height: 280,
+            height: 420,
             child: PageView(
               controller: _pageController,
               onPageChanged: (index) =>

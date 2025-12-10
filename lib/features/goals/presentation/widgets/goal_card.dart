@@ -43,12 +43,12 @@ class GoalCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: !goal.isCompleted
-              ? Border.all(
-                  color: AppTheme.primaryColor.withOpacity(0.2),
-                  width: 1,
-                )
-              : null,
+          border: Border.all(
+            color: goal.isCompleted
+                ? AppTheme.success.withOpacity(0.2)
+                : AppTheme.primaryColor.withOpacity(0.2),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -60,7 +60,7 @@ class GoalCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header: Icône + Nom + Pourcentage
+            // Header: Icône + Nom + Badge
             Row(
               children: [
                 // Icône
@@ -85,7 +85,7 @@ class GoalCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Nom + Date limite
+                // Nom + Reste
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -100,79 +100,74 @@ class GoalCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (goal.deadline != null)
-                        Text(
-                          'Échéance: ${DateFormat('dd MMM yyyy', 'fr_FR').format(goal.deadline!)}',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            fontSize: 12,
-                          ),
+                      const SizedBox(height: 2),
+                      Text(
+                        goal.isCompleted
+                            ? 'Objectif atteint 🎉'
+                            : 'Reste ${currencyFormat.format(remaining)}',
+                        style: TextStyle(
+                          color: goal.isCompleted
+                              ? AppTheme.success
+                              : AppTheme.textSecondary,
+                          fontSize: 12,
                         ),
+                      ),
                     ],
                   ),
                 ),
 
-                // Pourcentage ou Icône tap
-                if (goal.isCompleted)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.success.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      '✓',
-                      style: TextStyle(
-                        color: AppTheme.success,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$percentage%',
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontSize: 13,
+                // Badge pourcentage/complet
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: goal.isCompleted
+                        ? AppTheme.success.withOpacity(0.1)
+                        : AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: goal.isCompleted
+                      ? const Text(
+                          '✓',
+                          style: TextStyle(
+                            color: AppTheme.success,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$percentage%',
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.add_circle_outline,
+                              color: AppTheme.primaryColor,
+                              size: 14,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.add_circle_outline,
-                          color: AppTheme.primaryColor,
-                          size: 14,
-                        ),
-                      ],
-                    ),
-                  ),
+                ),
               ],
             ),
 
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             // Barre de progression
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
               child: LinearProgressIndicator(
                 value: progress,
-                minHeight: 8,
+                minHeight: 6,
                 backgroundColor: Colors.grey[200],
                 valueColor: AlwaysStoppedAnimation<Color>(
                   goal.isCompleted ? AppTheme.success : AppTheme.primaryColor,
@@ -180,7 +175,7 @@ class GoalCard extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
             // Montants
             Row(
@@ -192,65 +187,16 @@ class GoalCard extends StatelessWidget {
                     color: goal.isCompleted
                         ? AppTheme.success
                         : AppTheme.primaryColor,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (!goal.isCompleted)
-                  Text(
-                    'Reste ${currencyFormat.format(remaining)}',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                    ),
-                  )
-                else
-                  Text(
-                    'Objectif atteint 🎉',
-                    style: TextStyle(
-                      color: AppTheme.success,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                Text(
+                  'sur ${currencyFormat.format(goal.targetAmount)}',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                ),
               ],
             ),
-
-            // Hint "Appuyer pour épargner" (visible si non terminé)
-            if (!goal.isCompleted) ...[
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.touch_app,
-                        color: AppTheme.primaryColor.withOpacity(0.6),
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Appuyer pour épargner',
-                        style: TextStyle(
-                          color: AppTheme.primaryColor.withOpacity(0.6),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
