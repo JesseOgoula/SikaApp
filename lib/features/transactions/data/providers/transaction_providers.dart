@@ -114,3 +114,22 @@ final pendingSyncCountProvider = FutureProvider<int>((ref) async {
   final pending = await ref.watch(pendingSyncTransactionsProvider.future);
   return pending.length;
 });
+
+/// Provider pour le total de tous les revenus (historique complet)
+final totalIncomeAllTimeProvider = FutureProvider<double>((ref) async {
+  final repository = ref.watch(transactionRepositoryProvider);
+  return repository.getTotalIncomeAllTime();
+});
+
+/// Provider pour le total de toutes les dépenses (historique complet)
+final totalExpenseAllTimeProvider = FutureProvider<double>((ref) async {
+  final repository = ref.watch(transactionRepositoryProvider);
+  return repository.getTotalExpenseAllTime();
+});
+
+/// Provider pour le total épargné dans les objectifs
+final totalSavedInGoalsProvider = FutureProvider<double>((ref) async {
+  final db = ref.watch(databaseProvider);
+  final goals = await db.select(db.goalsTable).get();
+  return goals.fold<double>(0, (sum, goal) => sum + goal.savedAmount);
+});

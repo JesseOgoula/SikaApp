@@ -17,7 +17,6 @@ import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
-import 'package:sika_app/features/transactions/presentation/widgets/balance_card.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/quick_actions.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
 
@@ -32,11 +31,14 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentNavIndex = 0;
   int _sliderPageIndex = 0;
+  int _balancePageIndex = 0;
   final _pageController = PageController();
+  final _balancePageController = PageController();
 
   @override
   void dispose() {
     _pageController.dispose();
+    _balancePageController.dispose();
     super.dispose();
   }
 
@@ -101,7 +103,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     List<TransactionWithCategory> transactions,
     SmsImportState importState,
   ) {
-    // Calculs
+    // Calculs locaux
     double totalBalance = 0;
     double monthlyExpenses = 0;
     final now = DateTime.now();
@@ -119,84 +121,218 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          _buildHeader(),
+    // Récupère le total épargné dans les objectifs
+    final totalSavedAsync = ref.watch(totalSavedInGoalsProvider);
+    final totalSaved = totalSavedAsync.valueOrNull ?? 0.0;
 
-          // Balance Card
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: BalanceCard(
-              totalBalance: totalBalance,
-              monthlyExpenses: monthlyExpenses,
-            ),
+    // Récupère le total historique des revenus
+    final totalIncomeAllTimeAsync = ref.watch(totalIncomeAllTimeProvider);
+    final totalIncomeAllTime = totalIncomeAllTimeAsync.valueOrNull ?? 0.0;
+
+    // Solde disponible = Solde total - Épargne objectifs
+    final soldeDisponible = totalBalance - totalSaved;
+
+    // Layout sans scroll vertical
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        _buildHeader(),
+
+        // PageView des cartes de solde (hauteur fixe)
+        SizedBox(
+          height: 160,
+          child: PageView(
+            controller: _balancePageController,
+            onPageChanged: (index) => setState(() => _balancePageIndex = index),
+            children: [
+              // Carte 1 : Solde Disponible
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildBalanceCard(
+                  title: 'SOLDE DISPONIBLE',
+                  amount: soldeDisponible,
+                  subtitle:
+                      'Dépenses ce mois: ${_formatCurrency(monthlyExpenses)}',
+                  showSubtitle: true,
+                ),
+              ),
+              // Carte 2 : Solde Total Historique
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _buildBalanceCard(
+                  title: 'SOLDE TOTAL (Historique)',
+                  amount: totalIncomeAllTime,
+                  subtitle: 'Total revenus depuis le début',
+                  showSubtitle: false,
+                ),
+              ),
+            ],
           ),
+        ),
 
-          // Quick Actions
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            child: QuickActions(
-              onAddPressed: _onAddPressed,
-              onSyncPressed: _onSyncPressed,
-              isSyncing: importState.isImporting,
-              onAnalysePressed: _onAnalysePressed,
-              onGoalsPressed: _onGoalsPressed,
-            ),
-          ),
-
-          // Section Title avec indicateur de slider
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+        // Dots indicator pour les cartes de solde
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: Text(
-                    _sliderPageIndex == 0
-                        ? 'Transactions Récentes'
-                        : 'Mes Objectifs',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                _buildBalanceDot(0),
+                const SizedBox(width: 6),
+                _buildBalanceDot(1),
+              ],
+            ),
+          ),
+        ),
+
+        // Quick Actions
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: QuickActions(
+            onAddPressed: _onAddPressed,
+            onSyncPressed: _onSyncPressed,
+            isSyncing: importState.isImporting,
+            onAnalysePressed: _onAnalysePressed,
+            onGoalsPressed: _onGoalsPressed,
+          ),
+        ),
+
+        // Section Title avec indicateur de slider
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _sliderPageIndex == 0
+                      ? 'Transactions Récentes'
+                      : 'Mes Objectifs',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                // Dots indicator
-                Row(
-                  children: [
-                    _buildDot(0),
-                    const SizedBox(width: 6),
-                    _buildDot(1),
-                  ],
-                ),
-              ],
-            ),
+              ),
+              // Dots indicator
+              Row(
+                children: [
+                  _buildDot(0),
+                  const SizedBox(width: 6),
+                  _buildDot(1),
+                ],
+              ),
+            ],
           ),
+        ),
 
-          const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-          // PageView Slider (Transactions / Objectifs)
-          SizedBox(
-            height: 420,
-            child: PageView(
-              controller: _pageController,
-              onPageChanged: (index) =>
-                  setState(() => _sliderPageIndex = index),
-              children: [
-                // Page 1: Transactions
-                _buildTransactionsPage(transactions),
-                // Page 2: Objectifs
-                _buildGoalsPage(),
-              ],
-            ),
+        // PageView Slider (Transactions / Objectifs) - prend l'espace restant
+        Expanded(
+          child: PageView(
+            controller: _pageController,
+            onPageChanged: (index) => setState(() => _sliderPageIndex = index),
+            children: [
+              // Page 1: Transactions
+              _buildTransactionsPage(transactions),
+              // Page 2: Objectifs
+              _buildGoalsPage(),
+            ],
           ),
+        ),
+      ],
+    );
+  }
 
-          // Bottom padding
-          const SizedBox(height: 20),
+  /// Formate un montant en FCFA
+  String _formatCurrency(double amount) {
+    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} FCFA';
+  }
+
+  /// Carte de solde générique
+  Widget _buildBalanceCard({
+    required String title,
+    required double amount,
+    required String subtitle,
+    required bool showSubtitle,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: AppTheme.cardGradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryColor.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Label
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // Montant principal
+          Text(
+            _formatCurrency(amount),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -1,
+            ),
+          ),
+
+          if (showSubtitle) ...[
+            const SizedBox(height: 12),
+            // Info secondaire
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Dot indicator pour les cartes de solde
+  Widget _buildBalanceDot(int index) {
+    final isActive = _balancePageIndex == index;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: isActive ? 20 : 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: isActive ? AppTheme.primaryColor : Colors.grey.shade300,
+        borderRadius: BorderRadius.circular(4),
       ),
     );
   }

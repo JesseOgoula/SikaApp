@@ -120,4 +120,10 @@ abstract class TransactionRepository {
 
   /// Récupère le total des dépenses pour un mois
   Future<double> getTotalExpense(DateTime month);
+
+  /// Récupère le total de tous les revenus depuis la création du compte
+  Future<double> getTotalIncomeAllTime();
+
+  /// Récupère le total de toutes les dépenses depuis la création du compte
+  Future<double> getTotalExpenseAllTime();
 }

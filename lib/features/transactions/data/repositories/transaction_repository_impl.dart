@@ -430,6 +430,26 @@ class TransactionRepositoryImpl implements TransactionRepository {
     final transactions = await query.get();
     return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
   }
+
+  /// Calcule le total de tous les revenus depuis la création du compte
+  @override
+  Future<double> getTotalIncomeAllTime() async {
+    final query = _db.select(_db.transactionsTable)
+      ..where((t) => t.type.equals('income'));
+
+    final transactions = await query.get();
+    return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
+
+  /// Calcule le total de toutes les dépenses depuis la création du compte
+  @override
+  Future<double> getTotalExpenseAllTime() async {
+    final query = _db.select(_db.transactionsTable)
+      ..where((t) => t.type.equals('expense'));
+
+    final transactions = await query.get();
+    return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
 }
 
 /// Helper class pour accumuler les totaux par catégorie

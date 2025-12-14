@@ -3,16 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/database/supabase_connector.dart';
-import 'package:sika_app/main.dart' show powerSyncDatabase;
+import 'package:sika_app/main.dart' show powerSyncDatabase, databaseProvider;
 
 /// Provider pour le AuthRepository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository();
+  final db = ref.watch(databaseProvider);
+  return AuthRepository(db);
 });
 
 /// Repository pour gérer l'authentification Google + Supabase
 class AuthRepository {
+  final AppDatabase _db;
   final _supabase = Supabase.instance.client;
 
   // Web Client ID from Google Cloud Console (configuré dans Supabase)
@@ -23,6 +26,8 @@ class AuthRepository {
     scopes: ['email', 'profile'],
     serverClientId: _webClientId, // Important pour obtenir idToken sur Android
   );
+
+  AuthRepository(this._db);
 
   /// Utilisateur actuellement connecté
   User? get currentUser => _supabase.auth.currentUser;
@@ -121,6 +126,225 @@ class AuthRepository {
     } catch (e) {
       debugPrint('❌ [Auth] Sign-out error: $e');
       throw Exception('Erreur de déconnexion: $e');
+    }
+  }
+
+  /// Efface toutes les données locales (PowerSync database)
+  Future<void> clearLocalData() async {
+    try {
+      if (powerSyncDatabase != null) {
+        // Déconnecte et efface la base locale
+        await powerSyncDatabase!.disconnect();
+        await powerSyncDatabase!.disconnectAndClear();
+        debugPrint('✅ [Auth] Local data cleared');
+      }
+    } catch (e) {
+      debugPrint('❌ [Auth] Clear local data error: $e');
+      throw Exception('Erreur lors de l\'effacement des données: $e');
+    }
+  }
+
+  /// Supprime toutes les données utilisateur (local + cloud)
+  /// Le compte reste actif, seules les données sont effacées
+  Future<void> deleteAllUserData() async {
+    try {
+      final userId = currentUser?.id;
+      if (userId == null) {
+        throw Exception('Aucun utilisateur connecté');
+      }
+
+      debugPrint('🗑️ [Auth] Deleting all user data for: $userId');
+
+      // 1. Efface les données locales Drift (SQLite)
+      try {
+        // Supprimer les transactions locales
+        final txDeleted = await (_db.delete(_db.transactionsTable)).go();
+        debugPrint('✅ [Auth] Local transactions deleted: $txDeleted rows');
+
+        // Supprimer les objectifs locaux
+        final goalsDeleted = await (_db.delete(_db.goalsTable)).go();
+        debugPrint('✅ [Auth] Local goals deleted: $goalsDeleted rows');
+
+        // Supprimer les catégories locales (sauf système)
+        final catDeleted = await (_db.delete(
+          _db.categoriesTable,
+        )..where((c) => c.isSystem.equals(false))).go();
+        debugPrint('✅ [Auth] Local categories deleted: $catDeleted rows');
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
+      }
+
+      // 2. Efface le cache PowerSync
+      try {
+        if (powerSyncDatabase != null) {
+          await powerSyncDatabase!.disconnect();
+          await powerSyncDatabase!.disconnectAndClear();
+          debugPrint('✅ [Auth] PowerSync cache cleared');
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Auth] PowerSync clear error: $e');
+      }
+
+      // 3. Supprime les données cloud Supabase
+      debugPrint('🔄 [Auth] Deleting cloud data...');
+
+      // Transactions
+      try {
+        final txResult = await _supabase
+            .from('transactions')
+            .delete()
+            .eq('user_id', userId)
+            .select();
+        debugPrint('✅ [Auth] Transactions deleted: ${txResult.length} rows');
+      } catch (e) {
+        debugPrint('❌ [Auth] Transactions delete error: $e');
+      }
+
+      // Goals
+      try {
+        final goalsResult = await _supabase
+            .from('goals')
+            .delete()
+            .eq('user_id', userId)
+            .select();
+        debugPrint('✅ [Auth] Goals deleted: ${goalsResult.length} rows');
+      } catch (e) {
+        debugPrint('❌ [Auth] Goals delete error: $e');
+      }
+
+      // Categories
+      try {
+        final catResult = await _supabase
+            .from('categories')
+            .delete()
+            .eq('user_id', userId)
+            .select();
+        debugPrint('✅ [Auth] Categories deleted: ${catResult.length} rows');
+      } catch (e) {
+        debugPrint('❌ [Auth] Categories delete error: $e');
+      }
+
+      // Accounts
+      try {
+        final accResult = await _supabase
+            .from('accounts')
+            .delete()
+            .eq('user_id', userId)
+            .select();
+        debugPrint('✅ [Auth] Accounts deleted: ${accResult.length} rows');
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Accounts may not exist: $e');
+      }
+
+      // 3. Reconnecte PowerSync pour récupérer les données vides
+      try {
+        if (powerSyncDatabase != null) {
+          final connector = SupabaseConnector();
+          await powerSyncDatabase!.connect(connector: connector);
+          debugPrint('✅ [Auth] PowerSync reconnected');
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Auth] PowerSync reconnect error: $e');
+      }
+
+      debugPrint('✅ [Auth] All user data deleted successfully');
+    } catch (e) {
+      debugPrint('❌ [Auth] Delete all data error: $e');
+      throw Exception('Erreur lors de la suppression des données: $e');
+    }
+  }
+
+  /// Supprime le compte utilisateur DÉFINITIVEMENT
+  ///
+  /// ATTENTION: Cette action est irréversible !
+  /// 1. Efface toutes les données locales (Drift)
+  /// 2. Efface toutes les données cloud (Supabase)
+  /// 3. Déconnecte de Supabase et Google
+  Future<void> deleteAccount() async {
+    try {
+      final userId = currentUser?.id;
+      if (userId == null) {
+        throw Exception('Aucun utilisateur connecté');
+      }
+
+      debugPrint('🗑️ [Auth] Starting ACCOUNT deletion for: $userId');
+
+      // 1. Efface les données locales Drift (SQLite)
+      try {
+        // Supprimer les transactions locales
+        final txDeleted = await (_db.delete(_db.transactionsTable)).go();
+        debugPrint('✅ [Auth] Local transactions deleted: $txDeleted rows');
+
+        // Supprimer les objectifs locaux
+        final goalsDeleted = await (_db.delete(_db.goalsTable)).go();
+        debugPrint('✅ [Auth] Local goals deleted: $goalsDeleted rows');
+
+        // Supprimer TOUTES les catégories locales
+        final catDeleted = await (_db.delete(_db.categoriesTable)).go();
+        debugPrint('✅ [Auth] Local categories deleted: $catDeleted rows');
+
+        // Supprimer les comptes locaux
+        final accDeleted = await (_db.delete(_db.accountsTable)).go();
+        debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
+      }
+
+      // 2. Efface le cache PowerSync
+      try {
+        if (powerSyncDatabase != null) {
+          await powerSyncDatabase!.disconnect();
+          await powerSyncDatabase!.disconnectAndClear();
+        }
+        debugPrint('✅ [Auth] PowerSync cleared');
+      } catch (e) {
+        debugPrint('⚠️ [Auth] PowerSync error: $e');
+      }
+
+      // 3. Appelle l'Edge Function pour supprimer l'utilisateur Supabase Auth
+      debugPrint('🔄 [Auth] Calling delete-user Edge Function...');
+      try {
+        final response = await _supabase.functions.invoke(
+          'delete-user',
+          method: HttpMethod.post,
+        );
+
+        if (response.status == 200) {
+          debugPrint('✅ [Auth] Supabase Auth user deleted via Edge Function');
+        } else {
+          debugPrint('⚠️ [Auth] Edge Function error: ${response.data}');
+          // Continue anyway - local data is already deleted
+        }
+      } catch (e) {
+        debugPrint('⚠️ [Auth] Edge Function call error: $e');
+        // Si l'Edge Function n'existe pas, on continue avec la suppression manuelle
+
+        // Fallback: Supprime les données cloud directement
+        try {
+          await _supabase.from('transactions').delete().eq('user_id', userId);
+          await _supabase.from('goals').delete().eq('user_id', userId);
+          await _supabase.from('categories').delete().eq('user_id', userId);
+          try {
+            await _supabase.from('accounts').delete().eq('user_id', userId);
+          } catch (_) {}
+          debugPrint('✅ [Auth] Cloud data deleted (fallback)');
+        } catch (cloudErr) {
+          debugPrint('⚠️ [Auth] Cloud deletion error: $cloudErr');
+        }
+      }
+
+      // 4. Déconnecte Google
+      await _googleSignIn.signOut();
+      debugPrint('✅ [Auth] Google signed out');
+
+      // 5. Déconnecte Supabase
+      await _supabase.auth.signOut();
+      debugPrint('✅ [Auth] Supabase signed out');
+
+      debugPrint('✅ [Auth] Account deletion complete');
+    } catch (e) {
+      debugPrint('❌ [Auth] Delete account error: $e');
+      throw Exception('Erreur lors de la suppression du compte: $e');
     }
   }
 }

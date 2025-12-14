@@ -1,4 +1,5 @@
 /// Utilitaires pour la gestion du temps et des salutations
+library;
 
 /// Retourne un message de salutation basé sur l'heure actuelle
 ///

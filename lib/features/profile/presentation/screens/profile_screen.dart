@@ -2,58 +2,70 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:sika_app/core/providers/powersync_providers.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/utils/time_utils.dart';
+import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 
-/// Écran de profil utilisateur - Design Neo-Bank épuré
-class ProfileScreen extends ConsumerWidget {
+/// Écran de profil avancé avec gestion Cloud
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
     final fullName =
         user?.userMetadata?['full_name'] as String? ?? 'Utilisateur';
     final email = user?.email ?? '';
     final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
+    final syncStatus = ref.watch(syncStatusProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header avec bouton retour
-              _buildAppBar(context),
-
-              const SizedBox(height: 20),
-
-              // Carte profil principale
-              _buildProfileCard(avatarUrl, fullName, email),
-
-              const SizedBox(height: 24),
-
-              // Section Paramètres
-              _buildSettingsCard(context, ref),
-
-              const SizedBox(height: 24),
-
-              // Section Danger (Déconnexion)
-              _buildDangerCard(context, ref),
-
-              const SizedBox(height: 32),
-
-              // Footer
-              _buildFooter(),
-            ],
-          ),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildAppBar(),
+                  const SizedBox(height: 16),
+                  _buildProfileHeader(avatarUrl, fullName, email),
+                  const SizedBox(height: 24),
+                  _buildSyncSection(syncStatus),
+                  const SizedBox(height: 16),
+                  _buildDataSection(),
+                  const SizedBox(height: 16),
+                  _buildAccountSection(),
+                  const SizedBox(height: 32),
+                  _buildFooter(),
+                ],
+              ),
+            ),
+            if (_isLoading)
+              Container(
+                color: Colors.black26,
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  /// AppBar personnalisée
-  Widget _buildAppBar(BuildContext context) {
+  Widget _buildAppBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
       child: Row(
@@ -73,101 +85,87 @@ class ProfileScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(width: 48), // Équilibre avec le bouton retour
+          const SizedBox(width: 48),
         ],
       ),
     );
   }
 
-  /// Carte profil avec photo, nom et email
-  Widget _buildProfileCard(String? avatarUrl, String fullName, String email) {
+  Widget _buildProfileHeader(String? avatarUrl, String fullName, String email) {
+    final greeting = getGreetingMessage();
+    final emoji = getGreetingEmoji();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
+        gradient: AppTheme.cardGradient,
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+            color: AppTheme.primaryColor.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
           // Photo de profil
           Container(
-            width: 80,
-            height: 80,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFF5F7FA),
+              color: Colors.white.withOpacity(0.2),
               border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.2),
-                width: 3,
+                color: Colors.white.withOpacity(0.5),
+                width: 2,
               ),
             ),
             child: ClipOval(
               child: avatarUrl != null && avatarUrl.isNotEmpty
                   ? Image.network(
                       avatarUrl,
-                      width: 80,
-                      height: 80,
+                      width: 72,
+                      height: 72,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _buildDefaultAvatar(),
                     )
                   : _buildDefaultAvatar(),
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // Nom complet
-          Text(
-            fullName,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Email
-          Text(
-            email,
-            style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Statut du compte
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F7FA),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          const SizedBox(width: 16),
+          // Infos
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.verified_user_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 16,
-                ),
-                const SizedBox(width: 6),
                 Text(
-                  'Compte vérifié',
+                  '$greeting $emoji',
                   style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  getFirstName(fullName),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  email,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
                     fontSize: 12,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -177,22 +175,82 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  /// Avatar par défaut
   Widget _buildDefaultAvatar() {
     return Container(
-      width: 80,
-      height: 80,
-      color: const Color(0xFFF5F7FA),
-      child: const Icon(
-        Icons.person_outline,
-        size: 36,
-        color: AppTheme.primaryColor,
-      ),
+      color: Colors.white.withOpacity(0.2),
+      child: const Icon(Icons.person, size: 36, color: Colors.white),
     );
   }
 
-  /// Carte des paramètres
-  Widget _buildSettingsCard(BuildContext context, WidgetRef ref) {
+  Widget _buildSyncSection(SyncState syncStatus) {
+    return _buildSection(
+      title: 'SYNCHRONISATION',
+      children: [
+        // Toggle Sync
+        _buildSwitchTile(
+          icon: Icons.cloud_outlined,
+          title: 'Synchronisation cloud',
+          subtitle: syncStatus == SyncState.connected
+              ? 'Activée • Données synchronisées en ligne'
+              : 'Désactivée • Données conservées en local',
+          value: syncStatus == SyncState.connected,
+          onChanged: (value) async {
+            await ref.read(syncStatusProvider.notifier).toggle();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDataSection() {
+    return _buildSection(
+      title: 'DONNÉES',
+      children: [
+        // Effacer toutes les données (local + cloud)
+        _buildActionTile(
+          icon: Icons.delete_sweep_outlined,
+          title: 'Effacer toutes mes données',
+          subtitle: 'Supprime les données locales et en ligne',
+          isDanger: true,
+          onTap: () => _confirmDeleteAllData(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountSection() {
+    return _buildSection(
+      title: 'COMPTE',
+      children: [
+        _buildActionTile(
+          icon: Icons.info_outline,
+          title: 'À propos',
+          subtitle: 'SIKA v1.0.0',
+          onTap: () => _showAboutDialog(),
+        ),
+        _buildDivider(),
+        _buildActionTile(
+          icon: Icons.logout_outlined,
+          title: 'Déconnexion',
+          subtitle: 'Se déconnecter de l\'application',
+          onTap: () => _confirmLogout(),
+        ),
+        _buildDivider(),
+        _buildActionTile(
+          icon: Icons.person_remove_outlined,
+          title: 'Supprimer mon compte',
+          subtitle: 'Supprime définitivement votre profil',
+          isDanger: true,
+          onTap: () => _confirmDeleteAccount(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSection({
+    required String title,
+    required List<Widget> children,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
@@ -210,11 +268,10 @@ class ProfileScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Titre de section
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Text(
-              'PARAMÈTRES',
+              title,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -223,129 +280,74 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ),
-
-          // Options
-          _buildOptionTile(
-            icon: Icons.category_outlined,
-            title: 'Catégories',
-            subtitle: 'Gérer les catégories de transactions',
-            onTap: () => _showComingSoon(context),
-          ),
-
-          _buildDivider(),
-
-          _buildOptionTile(
-            icon: Icons.cloud_sync_outlined,
-            title: 'Synchronisation',
-            subtitle: 'Vos données sont synchronisées',
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.secondaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Actif',
-                style: TextStyle(
-                  color: AppTheme.secondaryColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            onTap: () => _showComingSoon(context),
-          ),
-
-          _buildDivider(),
-
-          _buildOptionTile(
-            icon: Icons.notifications_outlined,
-            title: 'Notifications',
-            subtitle: 'Gérer les alertes et rappels',
-            onTap: () => _showComingSoon(context),
-          ),
-
-          _buildDivider(),
-
-          _buildOptionTile(
-            icon: Icons.info_outline,
-            title: 'À propos',
-            subtitle: 'SIKA v1.0.0',
-            onTap: () => _showAboutDialog(context),
-          ),
-
+          ...children,
           const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  /// Carte de danger (Déconnexion)
-  Widget _buildDangerCard(BuildContext context, WidgetRef ref) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: _buildOptionTile(
-        icon: Icons.logout_outlined,
-        iconColor: AppTheme.error,
-        title: 'Déconnexion',
-        titleColor: AppTheme.error,
-        subtitle: 'Se déconnecter de l\'application',
-        onTap: () => _confirmLogout(context, ref),
-      ),
-    );
-  }
-
-  /// Tuile d'option
-  Widget _buildOptionTile({
+  Widget _buildSwitchTile({
     required IconData icon,
     required String title,
     required String subtitle,
-    required VoidCallback onTap,
-    Color? iconColor,
-    Color? titleColor,
-    Widget? trailing,
+    required bool value,
+    required ValueChanged<bool> onChanged,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: (iconColor ?? AppTheme.primaryColor).withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: iconColor ?? AppTheme.primaryColor, size: 20),
-      ),
+      leading: Icon(icon, color: AppTheme.textSecondary, size: 22),
       title: Text(
         title,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: titleColor ?? AppTheme.textPrimary,
+          color: AppTheme.textPrimary,
         ),
       ),
       subtitle: Text(
         subtitle,
         style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
       ),
-      trailing:
-          trailing ??
-          Icon(
-            Icons.chevron_right,
-            color: AppTheme.textSecondary.withOpacity(0.5),
-          ),
+      trailing: Switch.adaptive(
+        value: value,
+        onChanged: onChanged,
+        activeColor: AppTheme.primaryColor,
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    bool isDanger = false,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      leading: Icon(
+        icon,
+        color: isDanger ? AppTheme.error : AppTheme.textSecondary,
+        size: 22,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: isDanger ? AppTheme.error : AppTheme.textPrimary,
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+      ),
+      trailing: Icon(
+        Icons.chevron_right,
+        color: Colors.grey.shade400,
+        size: 20,
+      ),
       onTap: onTap,
     );
   }
@@ -353,13 +355,12 @@ class ProfileScreen extends ConsumerWidget {
   Widget _buildDivider() {
     return Divider(
       height: 1,
-      indent: 72,
+      indent: 56,
       endIndent: 20,
       color: Colors.grey.shade100,
     );
   }
 
-  /// Footer
   Widget _buildFooter() {
     return Column(
       children: [
@@ -374,11 +375,6 @@ class ProfileScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Budget with AI',
-          style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-        ),
-        const SizedBox(height: 8),
-        Text(
           'Made with ❤️ in Gabon',
           style: TextStyle(
             fontSize: 11,
@@ -390,37 +386,183 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  /// Dialog Coming Soon
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Bientôt disponible'),
-        backgroundColor: AppTheme.primaryColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  // ============= DIALOGS =============
+
+  void _confirmDeleteAllData() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.delete_sweep_outlined, color: AppTheme.error),
+            const SizedBox(width: 12),
+            const Text('Effacer les données'),
+          ],
+        ),
+        content: const Text(
+          '⚠️ Cette action supprimera TOUTES vos données:\n\n'
+          '• Transactions\n'
+          '• Objectifs\n'
+          '• Catégories\n\n'
+          'Les données seront effacées localement ET dans le cloud.\n\n'
+          'Votre compte restera actif.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _executeDeleteAllData();
+            },
+            child: const Text('Effacer tout'),
+          ),
+        ],
       ),
     );
   }
 
-  /// Dialog À propos
-  void _showAboutDialog(BuildContext context) {
+  Future<void> _executeDeleteAllData() async {
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(authRepositoryProvider).deleteAllUserData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Toutes les données ont été effacées'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _confirmDeleteAccount() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.info_outline,
-                color: AppTheme.primaryColor,
-              ),
+            Icon(Icons.person_remove_outlined, color: AppTheme.error),
+            const SizedBox(width: 12),
+            const Text('Supprimer le compte'),
+          ],
+        ),
+        content: const Text(
+          '🚨 ACTION IRRÉVERSIBLE !\n\n'
+          'Cette action supprimera définitivement:\n\n'
+          '• Votre profil utilisateur\n'
+          '• Toutes vos données\n'
+          '• Votre authentification\n\n'
+          'Vous ne pourrez plus récupérer ces informations.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
             ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _executeDeleteAccount();
+            },
+            child: const Text('Supprimer définitivement'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _executeDeleteAccount() async {
+    setState(() => _isLoading = true);
+    try {
+      await ref.read(authRepositoryProvider).deleteAccount();
+      if (mounted) {
+        Navigator.pop(context);
+        ref.read(authControllerProvider.notifier).logout();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.logout_outlined, color: AppTheme.textSecondary),
+            const SizedBox(width: 12),
+            const Text('Déconnexion'),
+          ],
+        ),
+        content: const Text(
+          'Voulez-vous vous déconnecter ?\n\nVos données locales seront conservées.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+              ref.read(authControllerProvider.notifier).logout();
+            },
+            child: const Text('Déconnexion'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAboutDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: AppTheme.textSecondary),
             const SizedBox(width: 12),
             const Text('À propos'),
           ],
@@ -435,7 +577,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             SizedBox(height: 12),
             Text(
-              'Application de gestion financière personnelle avec synchronisation cloud et intelligence artificielle.',
+              'Gestion financière personnelle avec synchronisation cloud et intelligence artificielle.',
               style: TextStyle(fontSize: 14, height: 1.4),
             ),
             SizedBox(height: 16),
@@ -444,64 +586,11 @@ class ProfileScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: Text(
               'Fermer',
               style: TextStyle(color: AppTheme.primaryColor),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Confirmation de déconnexion
-  void _confirmLogout(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.logout_outlined, color: AppTheme.error),
-            ),
-            const SizedBox(width: 12),
-            const Text('Déconnexion'),
-          ],
-        ),
-        content: const Text(
-          'Êtes-vous sûr de vouloir vous déconnecter ?\n\nVos données locales seront conservées.',
-          style: TextStyle(height: 1.4),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Annuler',
-              style: TextStyle(color: AppTheme.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(context); // Ferme le dialog
-              Navigator.pop(context); // Retourne au home
-              ref.read(authControllerProvider.notifier).logout();
-            },
-            child: const Text('Déconnexion'),
           ),
         ],
       ),
