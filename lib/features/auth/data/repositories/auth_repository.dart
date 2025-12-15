@@ -301,36 +301,23 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] PowerSync error: $e');
       }
 
-      // 3. Appelle l'Edge Function pour supprimer l'utilisateur Supabase Auth
-      debugPrint('🔄 [Auth] Calling delete-user Edge Function...');
+      // 3. Appelle la fonction RPC pour supprimer l'utilisateur Supabase (données + auth)
+      debugPrint('🔄 [Auth] Calling delete_user_account RPC...');
       try {
-        final response = await _supabase.functions.invoke(
-          'delete-user',
-          method: HttpMethod.post,
-        );
+        final response = await _supabase.rpc('delete_user_account');
+        debugPrint('✅ [Auth] RPC response: $response');
 
-        if (response.status == 200) {
-          debugPrint('✅ [Auth] Supabase Auth user deleted via Edge Function');
+        if (response != null && response['success'] == true) {
+          debugPrint('✅ [Auth] Supabase user + data deleted via RPC');
         } else {
-          debugPrint('⚠️ [Auth] Edge Function error: ${response.data}');
-          // Continue anyway - local data is already deleted
+          debugPrint('⚠️ [Auth] RPC returned: $response');
+          // Fallback - suppression manuelle des données cloud
+          await _deleteCloudDataManually(userId);
         }
       } catch (e) {
-        debugPrint('⚠️ [Auth] Edge Function call error: $e');
-        // Si l'Edge Function n'existe pas, on continue avec la suppression manuelle
-
-        // Fallback: Supprime les données cloud directement
-        try {
-          await _supabase.from('transactions').delete().eq('user_id', userId);
-          await _supabase.from('goals').delete().eq('user_id', userId);
-          await _supabase.from('categories').delete().eq('user_id', userId);
-          try {
-            await _supabase.from('accounts').delete().eq('user_id', userId);
-          } catch (_) {}
-          debugPrint('✅ [Auth] Cloud data deleted (fallback)');
-        } catch (cloudErr) {
-          debugPrint('⚠️ [Auth] Cloud deletion error: $cloudErr');
-        }
+        debugPrint('⚠️ [Auth] RPC call error: $e');
+        // Fallback - Si la fonction RPC n'existe pas, suppression manuelle
+        await _deleteCloudDataManually(userId);
       }
 
       // 4. Déconnecte Google
@@ -345,6 +332,21 @@ class AuthRepository {
     } catch (e) {
       debugPrint('❌ [Auth] Delete account error: $e');
       throw Exception('Erreur lors de la suppression du compte: $e');
+    }
+  }
+
+  /// Helper: Supprime les données cloud manuellement (fallback si RPC échoue)
+  Future<void> _deleteCloudDataManually(String userId) async {
+    try {
+      await _supabase.from('transactions').delete().eq('user_id', userId);
+      await _supabase.from('goals').delete().eq('user_id', userId);
+      await _supabase.from('categories').delete().eq('user_id', userId);
+      try {
+        await _supabase.from('accounts').delete().eq('user_id', userId);
+      } catch (_) {}
+      debugPrint('✅ [Auth] Cloud data deleted manually (fallback)');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Manual cloud deletion error: $e');
     }
   }
 }

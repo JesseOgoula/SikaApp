@@ -472,8 +472,8 @@ class _CategoryAccumulator {
 /// Helper class pour accumuler les totaux quotidiens
 class _DailyAccumulator {
   final DateTime date;
-  double income;
-  double expense;
+  double income = 0.0;
+  double expense = 0.0;
 
   _DailyAccumulator({required this.date});
 }
