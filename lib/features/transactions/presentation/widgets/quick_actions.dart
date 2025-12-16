@@ -9,6 +9,7 @@ class QuickActions extends StatelessWidget {
   final VoidCallback onSyncPressed;
   final VoidCallback? onAnalysePressed;
   final VoidCallback? onGoalsPressed;
+  final VoidCallback? onDebtsPressed;
   final bool isSyncing;
 
   const QuickActions({
@@ -17,6 +18,7 @@ class QuickActions extends StatelessWidget {
     required this.onSyncPressed,
     this.onAnalysePressed,
     this.onGoalsPressed,
+    this.onDebtsPressed,
     this.isSyncing = false,
   });
 
@@ -48,6 +50,12 @@ class QuickActions extends StatelessWidget {
           label: 'Objectifs',
           onTap: onGoalsPressed ?? () {},
           isDisabled: onGoalsPressed == null,
+        ),
+        _buildActionButton(
+          faIcon: FontAwesomeIcons.handHoldingDollar,
+          label: 'Dettes',
+          onTap: onDebtsPressed ?? () {},
+          isDisabled: onDebtsPressed == null,
         ),
       ],
     );

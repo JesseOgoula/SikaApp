@@ -19,6 +19,8 @@ import 'package:sika_app/features/transactions/presentation/screens/add_transact
 import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/quick_actions.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
+import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
+import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
@@ -129,8 +131,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final totalIncomeAllTimeAsync = ref.watch(totalIncomeAllTimeProvider);
     final totalIncomeAllTime = totalIncomeAllTimeAsync.valueOrNull ?? 0.0;
 
-    // Solde disponible = Solde total - Épargne objectifs
-    final soldeDisponible = totalBalance - totalSaved;
+    // Récupère le montant des factures en attente pour le mois
+    final pendingBillsAsync = ref.watch(pendingBillsAmountProvider);
+    final pendingBills = pendingBillsAsync.valueOrNull ?? 0.0;
+
+    // Solde disponible = Solde total - Épargne objectifs - Factures en attente
+    final soldeDisponible = totalBalance - totalSaved - pendingBills;
 
     // Layout sans scroll vertical
     return Column(
@@ -153,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   title: 'SOLDE DISPONIBLE',
                   amount: soldeDisponible,
                   subtitle:
-                      'Dépenses ce mois: ${_formatCurrency(monthlyExpenses)}',
+                      'Engagés: ${_formatCurrency(pendingBills)} (Factures)',
                   showSubtitle: true,
                 ),
               ),
@@ -195,6 +201,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             isSyncing: importState.isImporting,
             onAnalysePressed: _onAnalysePressed,
             onGoalsPressed: _onGoalsPressed,
+            onDebtsPressed: _navigateToDebts,
           ),
         ),
 
@@ -559,6 +566,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onGoalsPressed() {
     setState(() => _currentNavIndex = 1);
+  }
+
+  void _navigateToDebts() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const DebtsScreen()),
+    );
   }
 
   Widget _buildDot(int index) {

@@ -10,12 +10,14 @@ import 'tables/transactions_table.dart';
 import 'tables/accounts_table.dart';
 import 'tables/categories_table.dart';
 import 'tables/goals_table.dart';
+import 'tables/debts_table.dart';
 
 // Export des tables pour faciliter les imports
 export 'tables/transactions_table.dart';
 export 'tables/accounts_table.dart';
 export 'tables/categories_table.dart';
 export 'tables/goals_table.dart';
+export 'tables/debts_table.dart';
 
 // Fichier généré par build_runner (drift)
 part 'app_database.g.dart';
@@ -44,7 +46,13 @@ class TransactionWithCategory {
 /// final transactions = await db.select(db.transactionsTable).get();
 /// ```
 @DriftDatabase(
-  tables: [TransactionsTable, AccountsTable, CategoriesTable, GoalsTable],
+  tables: [
+    TransactionsTable,
+    AccountsTable,
+    CategoriesTable,
+    GoalsTable,
+    DebtsTable,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   /// Constructeur par défaut - ouvre la base de données
@@ -56,11 +64,11 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   /// Migrations de la base de données
   ///
-  /// Gère les mises à jour du schéma entre les versions.
+  /// Gère les mises à jour du schema entre les versions.
   /// IMPORTANT: Toujours ajouter des migrations, ne jamais modifier les anciennes.
   @override
   MigrationStrategy get migration {
@@ -83,6 +91,16 @@ class AppDatabase extends _$AppDatabase {
         if (from < 3) {
           // Ajout de la table GoalsTable
           await m.createTable(goalsTable);
+        }
+        if (from < 5) {
+          // Ajout de la table DebtsTable (si elle n'existe pas déjà)
+          // Utilise createTable qui gère la création si inexistant
+          try {
+            await m.createTable(debtsTable);
+          } catch (e) {
+            // Si la table existe déjà (cas bizarre de v4), on ignore
+            print('Erreur migration v5 (DebtsTable): $e');
+          }
         }
       },
       // Exécuté à chaque ouverture de la base

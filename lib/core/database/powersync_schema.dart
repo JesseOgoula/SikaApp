@@ -69,4 +69,21 @@ const schema = Schema([
     Column.text('created_at'),
     Column.text('updated_at'),
   ]),
+  // Table des dettes et factures
+  Table('debts', [
+    Column.text('user_id'),
+    Column.text('name'),
+    Column.real('amount'),
+    Column.text('type'),
+    Column.text('due_date'),
+    Column.text('status'),
+    Column.text('person_name'),
+    Column.text('notes'),
+    Column.integer('is_recurring'),
+    Column.text('recurrence_rule'),
+    Column.integer('notification_id'),
+    Column.integer('sync_status'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
 ]);

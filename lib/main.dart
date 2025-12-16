@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sika_app/core/services/notification_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -105,6 +106,10 @@ void main() async {
   } catch (e) {
     debugPrint('❌ [MAIN] Error initializing BackgroundSmsService: $e');
   }
+
+  // Init Services
+  await NotificationService().init();
+  await NotificationService().requestPermissions();
 
   runApp(
     // Wrap avec ProviderScope pour Riverpod
