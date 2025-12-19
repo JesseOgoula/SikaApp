@@ -17,6 +17,9 @@ abstract class DebtRepository {
   /// Supprime une dette ou facture
   Future<void> deleteDebt(String id);
 
+  /// Vérifie et marque les dettes en retard comme 'overdue'
+  Future<void> checkOverdueDebts();
+
   /// Marque une dette comme payée
   /// Si [createTransaction] est vrai, crée automatiquement une transaction de dépense
   Future<void> markAsPaid(

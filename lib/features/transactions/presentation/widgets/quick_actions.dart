@@ -40,12 +40,6 @@ class QuickActions extends StatelessWidget {
           isLoading: isSyncing,
         ),
         _buildActionButton(
-          icon: Icons.bar_chart,
-          label: 'Analyse',
-          onTap: onAnalysePressed ?? () {},
-          isDisabled: onAnalysePressed == null,
-        ),
-        _buildActionButton(
           faIcon: FontAwesomeIcons.bullseye,
           label: 'Objectifs',
           onTap: onGoalsPressed ?? () {},

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import '../../data/providers/debt_providers.dart';
 import '../../domain/entities/debt.dart';
-import 'add_debt_screen.dart'; // To be created
+import 'add_debt_screen.dart';
 
 class DebtsScreen extends ConsumerStatefulWidget {
   const DebtsScreen({super.key});
@@ -12,22 +14,7 @@ class DebtsScreen extends ConsumerStatefulWidget {
   ConsumerState<DebtsScreen> createState() => _DebtsScreenState();
 }
 
-class _DebtsScreenState extends ConsumerState<DebtsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
+class _DebtsScreenState extends ConsumerState<DebtsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -36,34 +23,17 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen>
         title: const Text('Engagements'),
         backgroundColor: AppTheme.scaffoldBackground,
         elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.primaryColor,
-          labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: AppTheme.textSecondary,
-          tabs: const [
-            Tab(text: 'À Payer'),
-            Tab(text: 'On me doit'),
-          ],
-        ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _DebtsList(typeFilter: [DebtType.bill, DebtType.debtOut]),
-          _DebtsList(typeFilter: [DebtType.debtIn]),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
+      body: const _DebtsList(typeFilter: [DebtType.bill, DebtType.debtOut]),
+      floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AddDebtScreen()),
           );
         },
-        label: const Text('Ajouter'),
-        icon: const Icon(Icons.add),
         backgroundColor: AppTheme.primaryColor,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -77,6 +47,12 @@ class _DebtsList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final allDebtsAsync = ref.watch(allDebtsProvider);
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: 'FCFA',
+      decimalDigits: 0,
+    );
+    final dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
 
     return allDebtsAsync.when(
       data: (allDebts) {
@@ -97,8 +73,9 @@ class _DebtsList extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text(
                   'Aucun engagement',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  style: const TextStyle(
                     color: AppTheme.textSecondary,
+                    fontSize: 16,
                   ),
                 ),
               ],
@@ -107,122 +84,219 @@ class _DebtsList extends ConsumerWidget {
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           itemCount: filteredDebts.length,
           itemBuilder: (context, index) {
             final debt = filteredDebts[index];
-            return Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              color: AppTheme.cardBackground,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
-                ),
-                leading: CircleAvatar(
-                  backgroundColor: _getColorForType(debt.type).withOpacity(0.1),
-                  child: Icon(
-                    _getIconForType(debt.type),
-                    color: _getColorForType(debt.type),
-                  ),
-                ),
-                title: Text(
-                  debt.name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                subtitle: Text(
-                  'Échéance : ${_formatDate(debt.dueDate)}',
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-                trailing: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${debt.amount.toStringAsFixed(0)} F',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: _getColorForType(debt.type),
-                      ),
+            final isPaid = debt.status == DebtStatus.paid;
+            final isOverdue = debt.status == DebtStatus.overdue;
+
+            return GestureDetector(
+              onTap: () {
+                if (isPaid) return;
+                _showPaymentDialog(context, ref, debt);
+              },
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade100, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.03),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
                     ),
-                    if (debt.status == DebtStatus.paid)
-                      const Text(
-                        'Payé',
-                        style: TextStyle(color: Colors.green, fontSize: 12),
-                      ),
                   ],
                 ),
-                onTap: () {
-                  if (debt.status == DebtStatus.paid) return;
-
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text(
-                        debt.type == DebtType.debtIn
-                            ? 'Confirmer réception ?'
-                            : 'Confirmer paiement ?',
+                child: Row(
+                  children: [
+                    // Icône - Style unifié avec Transactions
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF5F7FA),
+                        shape: BoxShape.circle,
                       ),
-                      content: Text(
-                        'Voulez-vous marquer "${debt.name}" comme ${debt.type == DebtType.debtIn ? 'reçu' : 'payé'} ?',
+                      child: Center(
+                        child: FaIcon(
+                          _getIconForType(debt.type),
+                          color: AppTheme.primaryColor,
+                          size: 18,
+                        ),
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Annuler'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            ref.read(debtRepositoryProvider).markAsPaid(debt);
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Confirmer'),
-                        ),
-                      ],
                     ),
-                  );
-                },
+                    const SizedBox(width: 14),
+
+                    // Infos
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            debt.name,
+                            style: const TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                isPaid ? 'Payé le' : 'Échéance :',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              Text(
+                                dateFormat.format(debt.dueDate),
+                                style: TextStyle(
+                                  color: isOverdue && !isPaid
+                                      ? AppTheme.error
+                                      : AppTheme.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: isOverdue && !isPaid
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    // Montant & Type
+                    SizedBox(
+                      width: 100, // Largeur fixe pour éviter les décalages
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            currencyFormat.format(debt.amount),
+                            style: TextStyle(
+                              color: isPaid
+                                  ? AppTheme.success
+                                  : AppTheme.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              decoration: isPaid
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          // Indicateur de Type (Facture vs Dette)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: debt.type == DebtType.bill
+                                      ? Colors.orange.withOpacity(0.6)
+                                      : Colors.redAccent.withOpacity(0.6),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                debt.type == DebtType.bill
+                                    ? 'Facture'
+                                    : 'Dette',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          // Badge de statut (Seulement si pertinent)
+                          if (isPaid || isOverdue)
+                            Text(
+                              _getStatusLabel(debt.status),
+                              style: TextStyle(
+                                fontSize: 9,
+                                color: isPaid
+                                    ? AppTheme.success
+                                    : AppTheme.error,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      ),
       error: (err, stack) => Center(child: Text('Erreur: $err')),
     );
   }
 
-  Color _getColorForType(DebtType type) {
-    switch (type) {
-      case DebtType.bill:
-        return Colors.orange;
-      case DebtType.debtOut:
-        return Colors.redAccent;
-      case DebtType.debtIn:
-        return Colors.greenAccent;
+  String _getStatusLabel(DebtStatus status) {
+    switch (status) {
+      case DebtStatus.pending:
+        return 'En attente';
+      case DebtStatus.paid:
+        return 'Payé';
+      case DebtStatus.overdue:
+        return 'En retard';
     }
+  }
+
+  void _showPaymentDialog(BuildContext context, WidgetRef ref, Debt debt) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmer paiement ?'),
+        content: Text(
+          'Voulez-vous marquer "${debt.name}" comme payé ?\nCeci créera une transaction de dépense.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(debtRepositoryProvider).markAsPaid(debt);
+              Navigator.pop(context);
+            },
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
   }
 
   IconData _getIconForType(DebtType type) {
     switch (type) {
       case DebtType.bill:
-        return Icons.receipt_long;
+        return FontAwesomeIcons.fileInvoiceDollar;
       case DebtType.debtOut:
-        return Icons.money_off;
-      case DebtType.debtIn:
-        return Icons.attach_money;
+        return FontAwesomeIcons.handHoldingDollar;
     }
-  }
-
-  String _formatDate(DateTime date) {
-    // Basic formatting
-    return '${date.day}/${date.month}/${date.year}';
   }
 }

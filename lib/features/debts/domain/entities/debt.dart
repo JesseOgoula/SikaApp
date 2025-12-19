@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 
 enum DebtType {
-  debtIn, // On me doit de l'argent (Créance)
   debtOut, // Je dois de l'argent (Dette)
   bill, // Facture à payer
 }

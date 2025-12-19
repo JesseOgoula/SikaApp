@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/database/app_database.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/repositories/debt_repository.dart';
@@ -79,8 +80,6 @@ class DebtRepositoryImpl implements DebtRepository {
         return 'Facture à payer demain';
       case DebtType.debtOut:
         return 'Dette à rembourser demain';
-      case DebtType.debtIn:
-        return 'Rappel : On doit vous rembourser';
     }
   }
 
@@ -114,6 +113,15 @@ class DebtRepositoryImpl implements DebtRepository {
   }
 
   @override
+  Future<void> checkOverdueDebts() async {
+    final now = DateTime.now();
+    await (_db.update(_db.debtsTable)
+          ..where((t) => t.status.equals('pending'))
+          ..where((t) => t.dueDate.isSmallerThanValue(now)))
+        .write(const DebtsTableCompanion(status: Value('overdue')));
+  }
+
+  @override
   Future<void> markAsPaid(
     Debt debt, {
     bool createTransaction = true,
@@ -129,28 +137,37 @@ class DebtRepositoryImpl implements DebtRepository {
 
     // 2. Créer une transaction si demandé
     if (createTransaction && accountId != null) {
-      // Déterminer le type de transaction
-      // bill -> expense
-      // debt_out (je rembourse) -> expense
-      // debt_in (on me rembourse) -> income
+      // Pour les factures et dettes sortantes, c'est toujours une dépense (expense)
+      await _db
+          .into(_db.transactionsTable)
+          .insert(
+            TransactionsTableCompanion.insert(
+              id: const Uuid().v4(),
+              amount: debt.amount,
+              type: 'expense',
+              merchantName: Value(debt.personName ?? debt.name),
+              categoryId: Value(categoryId),
+              accountId: Value(accountId),
+              date: DateTime.now(),
+              syncStatus: const Value(0),
+              createdAt: Value(DateTime.now()),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
 
-      final isIncome = debt.type == DebtType.debtIn;
+      // Mettre à jour le solde du compte
+      final account = await (_db.select(
+        _db.accountsTable,
+      )..where((t) => t.id.equals(accountId))).getSingle();
 
-      // TODO: Utiliser TransactionRepository pour créer la transaction
-      // J'ai besoin d'accéder au TransactionRepository ici.
-      // Idéalement via un Provider, mais ici on est dans le Repository.
-      // On va insérer directement dans la DB pour l'instant pour éviter les dépendances circulaires
-      // ou on injectera le TransactionRepository plus tard.
-
-      // Pour faire simple et robuste, on insère directement via Drift comme AuthRepository le fait
-      /*
-      await _db.into(_db.transactionsTable).insert(
-        TransactionsTableCompanion.insert(
-           // ...
-        )
+      await (_db.update(
+        _db.accountsTable,
+      )..where((t) => t.id.equals(accountId))).write(
+        AccountsTableCompanion(
+          balance: Value(account.balance - debt.amount),
+          updatedAt: Value(DateTime.now()),
+        ),
       );
-      */
-      // Mais c'est mieux d'utiliser le repository pour la logique métier (balance update etc).
     }
   }
 

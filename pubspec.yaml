@@ -48,6 +48,7 @@ dependencies:
   web: ^1.1.1
   font_awesome_flutter: ^10.7.0
   fl_chart: ^0.69.2
+  flutter_svg: ^2.0.10
   google_generative_ai: ^0.4.6
 
   # ===== AUTH & CLOUD =====
@@ -81,13 +82,14 @@ flutter_launcher_icons:
   min_sdk_android: 21
 
 # ===== SPLASH SCREEN CONFIG =====
+# Native splash désactivé - on utilise le splash screen Flutter custom
 flutter_native_splash:
-  color: "#303F9F"
+  color: "#FFFFFF"
   android: true
   ios: true
+  fullscreen: false
   android_12:
-    color: "#303F9F"
-    icon_background_color: "#303F9F"
+    color: "#FFFFFF"
 
 flutter:
   uses-material-design: true

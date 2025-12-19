@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/services/sync_service.dart';
@@ -20,7 +22,9 @@ import 'package:sika_app/features/transactions/presentation/screens/transactions
 import 'package:sika_app/features/transactions/presentation/widgets/quick_actions.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
 import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
+import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
+import 'package:sika_app/features/debts/domain/entities/debt.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
@@ -74,31 +78,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         );
-      case 1: // Objectifs
-        return const GoalsListScreen();
+      case 1: // Analyse
+        return const StatisticsScreen();
       case 2: // Transactions
         return const TransactionsListScreen();
-      case 3: // Profil
-        return _buildProfilePlaceholder();
+      case 3: // Objectifs
+        return const GoalsListScreen();
+      case 4: // Dettes
+        return const DebtsScreen();
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  Widget _buildProfilePlaceholder() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.person, size: 64, color: Colors.grey[300]),
-          const SizedBox(height: 16),
-          Text(
-            'Profil (bientôt)',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 16),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildContent(
@@ -199,9 +189,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onAddPressed: _onAddPressed,
             onSyncPressed: _onSyncPressed,
             isSyncing: importState.isImporting,
-            onAnalysePressed: _onAnalysePressed,
-            onGoalsPressed: _onGoalsPressed,
-            onDebtsPressed: _navigateToDebts,
+            onGoalsPressed: _onAddGoalPressed,
+            onDebtsPressed: _onAddDebtPressed,
           ),
         ),
 
@@ -214,7 +203,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Text(
                   _sliderPageIndex == 0
                       ? 'Transactions Récentes'
-                      : 'Mes Objectifs',
+                      : _sliderPageIndex == 1
+                      ? 'Mes Objectifs'
+                      : 'Mes Engagements',
                   style: const TextStyle(
                     color: AppTheme.textPrimary,
                     fontSize: 18,
@@ -228,6 +219,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildDot(0),
                   const SizedBox(width: 6),
                   _buildDot(1),
+                  const SizedBox(width: 6),
+                  _buildDot(2),
                 ],
               ),
             ],
@@ -246,6 +239,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildTransactionsPage(transactions),
               // Page 2: Objectifs
               _buildGoalsPage(),
+              // Page 3: Engagements
+              _buildDebtsPage(),
             ],
           ),
         ),
@@ -478,9 +473,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: 'Accueil',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.flag_outlined),
-            activeIcon: Icon(Icons.flag),
-            label: 'Objectifs',
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: 'Analyse',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.receipt_long_outlined),
@@ -488,9 +483,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: 'Transactions',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
+            icon: Icon(Icons.flag_outlined),
+            activeIcon: Icon(Icons.flag),
+            label: 'Objectifs',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            activeIcon: Icon(Icons.account_balance_wallet),
+            label: 'Dettes',
           ),
         ],
       ),
@@ -557,21 +557,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _onAnalysePressed() {
+  void _onAddGoalPressed() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+      MaterialPageRoute(builder: (_) => const AddGoalScreen()),
     );
   }
 
-  void _onGoalsPressed() {
-    setState(() => _currentNavIndex = 1);
-  }
-
-  void _navigateToDebts() {
+  void _onAddDebtPressed() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const DebtsScreen()),
+      MaterialPageRoute(builder: (_) => const AddDebtScreen()),
     );
   }
 
@@ -655,6 +651,135 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: CircularProgressIndicator(color: AppTheme.primaryColor),
       ),
       error: (e, _) => Center(child: Text('Erreur: $e')),
+    );
+  }
+
+  Widget _buildDebtsPage() {
+    final debtsAsync = ref.watch(allDebtsProvider);
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: 'FCFA',
+      decimalDigits: 0,
+    );
+    final dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
+
+    return debtsAsync.when(
+      data: (debts) {
+        if (debts.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.assignment_turned_in_outlined,
+                  size: 48,
+                  color: Colors.grey[300],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Aucun engagement',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: _onAddDebtPressed,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Ajouter'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // On n'affiche que les 3 prochains engagements non payés ou récents
+        final displayDebts = debts
+            .where((d) => d.status != DebtStatus.paid)
+            .toList();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            children: displayDebts
+                .take(3)
+                .map((debt) => _buildDebtTile(debt, currencyFormat, dateFormat))
+                .toList(),
+          ),
+        );
+      },
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      ),
+      error: (e, _) => Center(child: Text('Erreur: $e')),
+    );
+  }
+
+  Widget _buildDebtTile(
+    Debt debt,
+    NumberFormat currencyFormat,
+    DateFormat dateFormat,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5F7FA),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: FaIcon(
+                debt.type == DebtType.bill
+                    ? FontAwesomeIcons.fileInvoiceDollar
+                    : FontAwesomeIcons.handHoldingDollar,
+                color: AppTheme.primaryColor,
+                size: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  debt.name,
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Échéance: ${dateFormat.format(debt.dueDate)}',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            currencyFormat.format(debt.amount),
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
