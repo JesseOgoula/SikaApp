@@ -171,6 +171,15 @@ class DebtRepositoryImpl implements DebtRepository {
     }
   }
 
+  @override
+  Future<double> getTotalPendingDebt() async {
+    final query = _db.select(_db.debtsTable)
+      ..where((t) => t.status.isIn(['pending', 'overdue']));
+
+    final results = await query.get();
+    return results.fold<double>(0.0, (sum, row) => sum + row.amount);
+  }
+
   Debt _mapToEntity(DebtsTableData row) {
     return Debt(
       id: row.id,

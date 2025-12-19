@@ -28,4 +28,7 @@ abstract class DebtRepository {
     String? accountId,
     String? categoryId,
   });
+
+  /// Récupère le montant total de toutes les dettes et factures en attente
+  Future<double> getTotalPendingDebt();
 }

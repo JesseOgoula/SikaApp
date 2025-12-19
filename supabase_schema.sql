@@ -140,6 +140,12 @@ COMMENT ON TABLE public.goals IS 'Objectifs d''épargne de l''utilisateur';
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 
+-- Suppression des anciennes politiques si elles existent
+DROP POLICY IF EXISTS "Users can view their own categories" ON public.categories;
+DROP POLICY IF EXISTS "Users can insert their own categories" ON public.categories;
+DROP POLICY IF EXISTS "Users can update their own categories" ON public.categories;
+DROP POLICY IF EXISTS "Users can delete their own categories" ON public.categories;
+
 -- Politique SELECT: Les utilisateurs ne voient que leurs propres catégories
 CREATE POLICY "Users can view their own categories"
     ON public.categories FOR SELECT
@@ -166,6 +172,11 @@ CREATE POLICY "Users can delete their own categories"
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own accounts" ON public.accounts;
+DROP POLICY IF EXISTS "Users can insert their own accounts" ON public.accounts;
+DROP POLICY IF EXISTS "Users can update their own accounts" ON public.accounts;
+DROP POLICY IF EXISTS "Users can delete their own accounts" ON public.accounts;
+
 CREATE POLICY "Users can view their own accounts"
     ON public.accounts FOR SELECT
     USING (auth.uid() = user_id);
@@ -188,6 +199,11 @@ CREATE POLICY "Users can delete their own accounts"
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can insert their own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can update their own transactions" ON public.transactions;
+DROP POLICY IF EXISTS "Users can delete their own transactions" ON public.transactions;
+
 CREATE POLICY "Users can view their own transactions"
     ON public.transactions FOR SELECT
     USING (auth.uid() = user_id);
@@ -209,6 +225,11 @@ CREATE POLICY "Users can delete their own transactions"
 -- RLS pour goals
 -- -----------------------------------------------------------------------------
 ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own goals" ON public.goals;
+DROP POLICY IF EXISTS "Users can insert their own goals" ON public.goals;
+DROP POLICY IF EXISTS "Users can update their own goals" ON public.goals;
+DROP POLICY IF EXISTS "Users can delete their own goals" ON public.goals;
 
 CREATE POLICY "Users can view their own goals"
     ON public.goals FOR SELECT
@@ -320,6 +341,81 @@ GRANT ALL ON public.accounts TO authenticated;
 GRANT ALL ON public.transactions TO authenticated;
 GRANT ALL ON public.goals TO authenticated;
 
+-- -----------------------------------------------------------------------------
+-- Table: debts
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.debts (
+    id TEXT PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    
+    name TEXT NOT NULL CHECK (char_length(name) >= 1 AND char_length(name) <= 100),
+    amount REAL NOT NULL,
+    type TEXT NOT NULL, -- 'bill', 'debt_out', 'debt_in'
+    due_date TIMESTAMPTZ NOT NULL,
+    status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue')),
+    person_name TEXT,
+    notes TEXT,
+    is_recurring BOOLEAN DEFAULT FALSE,
+    recurrence_rule TEXT,
+    notification_id INTEGER,
+    sync_status INTEGER DEFAULT 0,
+    
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_debts_user_id ON public.debts(user_id);
+CREATE INDEX IF NOT EXISTS idx_debts_status ON public.debts(status);
+CREATE INDEX IF NOT EXISTS idx_debts_due_date ON public.debts(due_date);
+
+-- Commentaire descriptif
+COMMENT ON TABLE public.debts IS 'Dettes, créances et factures de l''utilisateur';
+
+-- -----------------------------------------------------------------------------
+-- RLS pour debts
+-- -----------------------------------------------------------------------------
+ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;
+
+-- Suppression des anciennes politiques si elles existent
+DROP POLICY IF EXISTS "Users can view their own debts" ON public.debts;
+DROP POLICY IF EXISTS "Users can insert their own debts" ON public.debts;
+DROP POLICY IF EXISTS "Users can update their own debts" ON public.debts;
+DROP POLICY IF EXISTS "Users can delete their own debts" ON public.debts;
+
+CREATE POLICY "Users can view their own debts"
+    ON public.debts FOR SELECT
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own debts"
+    ON public.debts FOR INSERT
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own debts"
+    ON public.debts FOR UPDATE
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own debts"
+    ON public.debts FOR DELETE
+    USING (auth.uid() = user_id);
+
+-- -----------------------------------------------------------------------------
+-- Triggers pour debts
+-- -----------------------------------------------------------------------------
+DROP TRIGGER IF EXISTS trigger_debts_user_id ON public.debts;
+CREATE TRIGGER trigger_debts_user_id
+    BEFORE INSERT ON public.debts
+    FOR EACH ROW EXECUTE FUNCTION public.auto_set_user_id();
+
+DROP TRIGGER IF EXISTS trigger_debts_updated_at ON public.debts;
+CREATE TRIGGER trigger_debts_updated_at
+    BEFORE UPDATE ON public.debts
+    FOR EACH ROW EXECUTE FUNCTION public.auto_update_timestamp();
+
+-- Permissions
+GRANT ALL ON public.debts TO authenticated;
+
 -- =============================================================================
 -- FIN DU SCRIPT
 -- =============================================================================
@@ -329,5 +425,5 @@ SELECT table_name,
        (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as columns_count
 FROM information_schema.tables t
 WHERE table_schema = 'public' 
-  AND table_name IN ('categories', 'accounts', 'transactions', 'goals')
+  AND table_name IN ('categories', 'accounts', 'transactions', 'goals', 'debts')
 ORDER BY table_name;

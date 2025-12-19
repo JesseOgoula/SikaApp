@@ -35,6 +35,7 @@ class SyncService {
     int categoriesCount = 0;
     int transactionsCount = 0;
     int goalsCount = 0;
+    int debtsCount = 0;
     List<String> errors = [];
 
     try {
@@ -64,7 +65,16 @@ class SyncService {
       debugPrint('❌ [Sync] Goals error: $e');
     }
 
-    final total = categoriesCount + transactionsCount + goalsCount;
+    try {
+      // 4. Sync des dettes
+      debtsCount = await _syncDebts();
+      debugPrint('✅ [Sync] Debts: $debtsCount');
+    } catch (e) {
+      errors.add('Debts: $e');
+      debugPrint('❌ [Sync] Debts error: $e');
+    }
+
+    final total = categoriesCount + transactionsCount + goalsCount + debtsCount;
     debugPrint('✅ [Sync] Complete! Total: $total items');
 
     return SyncResult(
@@ -75,6 +85,7 @@ class SyncService {
       categoriesCount: categoriesCount,
       transactionsCount: transactionsCount,
       goalsCount: goalsCount,
+      debtsCount: debtsCount,
     );
   }
 
@@ -169,6 +180,38 @@ class SyncService {
 
     return goals.length;
   }
+
+  /// Synchronise les dettes
+  Future<int> _syncDebts() async {
+    final debts = await _localDb.select(_localDb.debtsTable).get();
+
+    if (debts.isEmpty) return 0;
+
+    final data = debts
+        .map(
+          (d) => {
+            'id': d.id,
+            'user_id': userId,
+            'name': d.name,
+            'amount': d.amount,
+            'type': d.type,
+            'due_date': d.dueDate.toIso8601String(),
+            'status': d.status,
+            'person_name': d.personName,
+            'notes': d.notes,
+            'is_recurring': d.isRecurring,
+            'recurrence_rule': d.recurrenceRule,
+            'notification_id': d.notificationId,
+            'created_at': d.createdAt.toIso8601String(),
+            'updated_at': d.updatedAt.toIso8601String(),
+          },
+        )
+        .toList();
+
+    await _supabase.from('debts').upsert(data, onConflict: 'id');
+
+    return debts.length;
+  }
 }
 
 /// Résultat de la synchronisation
@@ -178,6 +221,7 @@ class SyncResult {
   final int categoriesCount;
   final int transactionsCount;
   final int goalsCount;
+  final int debtsCount;
 
   SyncResult({
     required this.success,
@@ -185,7 +229,9 @@ class SyncResult {
     this.categoriesCount = 0,
     this.transactionsCount = 0,
     this.goalsCount = 0,
+    this.debtsCount = 0,
   });
 
-  int get totalCount => categoriesCount + transactionsCount + goalsCount;
+  int get totalCount =>
+      categoriesCount + transactionsCount + goalsCount + debtsCount;
 }

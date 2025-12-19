@@ -404,6 +404,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           '⚠️ Cette action supprimera TOUTES vos données:\n\n'
           '• Transactions\n'
           '• Objectifs\n'
+          '• Dettes et Factures\n'
           '• Catégories\n\n'
           'Les données seront effacées localement ET dans le cloud.\n\n'
           'Votre compte restera actif.',

@@ -61,26 +61,7 @@ class _DebtsList extends ConsumerWidget {
             .toList();
 
         if (filteredDebts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.assignment_turned_in_outlined,
-                  size: 64,
-                  color: AppTheme.textSecondary.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Aucun engagement',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          );
+          return _buildEmptyState(context);
         }
 
         return ListView.builder(
@@ -298,5 +279,55 @@ class _DebtsList extends ConsumerWidget {
       case DebtType.debtOut:
         return FontAwesomeIcons.handHoldingDollar;
     }
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.assignment_turned_in_outlined,
+            size: 64,
+            color: Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Aucun engagement',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Planifiez vos prochaines factures ou dettes',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _addDebt(context),
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter un engagement'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _addDebt(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const AddDebtScreen()),
+    );
   }
 }

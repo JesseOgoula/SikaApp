@@ -28,12 +28,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   bool _isLoading = false;
   bool _showKeypad = false; // Clavier caché par défaut
 
-  final _currencyFormat = NumberFormat.currency(
-    locale: 'fr_FR',
-    symbol: 'FCFA',
-    decimalDigits: 0,
-  );
-
   @override
   void dispose() {
     _noteController.dispose();
@@ -81,6 +75,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ),
         ),
         centerTitle: true,
+        actions: const [SizedBox(width: 48)],
       ),
       body: Column(
         children: [

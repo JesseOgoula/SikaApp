@@ -600,7 +600,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
               'Répéter mensuellement',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
-            activeColor: AppTheme.primaryColor,
+            activeThumbColor: AppTheme.primaryColor,
           ),
         ],
       ),

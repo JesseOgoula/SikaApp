@@ -36,6 +36,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentNavIndex = 0;
+  bool _isAmountVisible = true;
   int _sliderPageIndex = 0;
   int _balancePageIndex = 0;
   final _pageController = PageController();
@@ -135,9 +136,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Header
         _buildHeader(),
 
-        // PageView des cartes de solde (hauteur fixe)
+        // PageView des cartes de solde (hauteur ajustée pour le nouveau design)
         SizedBox(
-          height: 160,
+          height: 200,
           child: PageView(
             controller: _balancePageController,
             onPageChanged: (index) => setState(() => _balancePageIndex = index),
@@ -146,20 +147,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildBalanceCard(
-                  title: 'SOLDE DISPONIBLE',
+                  title: 'Solde disponible',
                   amount: soldeDisponible,
-                  subtitle:
-                      'Engagés: ${_formatCurrency(pendingBills)} (Factures)',
+                  subtitle: 'Compte principal',
                   showSubtitle: true,
                 ),
               ),
-              // Carte 2 : Solde Total Historique
+              // Carte 2 : Solde Total
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _buildBalanceCard(
-                  title: 'SOLDE TOTAL (Historique)',
+                  title: 'Solde total',
                   amount: totalIncomeAllTime,
-                  subtitle: 'Total revenus depuis le début',
+                  subtitle: 'Tous comptes confondus',
                   showSubtitle: false,
                 ),
               ),
@@ -249,80 +249,207 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// Formate un montant en FCFA
-  String _formatCurrency(double amount) {
-    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} FCFA';
+  /// Formate un montant en fonction de la devise du pays
+  String _formatCurrency(double amount, String currencyCode) {
+    final currency = currencyCode.split('(').last.replaceAll(')', '').trim();
+    return '${amount.toStringAsFixed(0).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]} ')} $currency';
   }
 
-  /// Carte de solde générique
+  /// Carte de solde premium (Style Apple Wallet / Revolut)
   Widget _buildBalanceCard({
     required String title,
     required double amount,
     required String subtitle,
     required bool showSubtitle,
   }) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final metadata = user?.userMetadata ?? {};
+    final locale =
+        (metadata['locale'] ?? metadata['preferred_locale'] ?? 'fr-GA')
+            as String;
+    debugPrint('SIKA_DEBUG: User Metadata: $metadata');
+    debugPrint('SIKA_DEBUG: Selected Locale: $locale');
+    final userInfo = _getCountryAndCurrency(locale);
+
+    // Date et Heure "de connexion" (Heure actuelle simulée pour le design)
+    final now = DateTime.now();
+    final formattedDate = DateFormat('dd/MM/yy').format(now);
+    final formattedTime = DateFormat('HH:mm').format(now);
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppTheme.cardGradient,
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: Colors.black.withOpacity(0.06),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
+        border: Border.all(color: Colors.grey.shade100, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Label
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Montant principal
-          Text(
-            _formatCurrency(amount),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -1,
-            ),
-          ),
-
-          if (showSubtitle) ...[
-            const SizedBox(height: 12),
-            // Info secondaire
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.9),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+          // Top Row: Info Pays + Logo Carte
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.scaffoldBackground,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Text(userInfo.flag, style: const TextStyle(fontSize: 16)),
+                    const SizedBox(width: 8),
+                    Text(
+                      userInfo.currencyName,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ],
+          ),
+
+          const Spacer(),
+
+          // Middle: Label + Amount + Visibility
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
-          ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  _isAmountVisible
+                      ? _formatCurrency(amount, userInfo.currencyName)
+                      : '••••••••',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () =>
+                    setState(() => _isAmountVisible = !_isAmountVisible),
+                icon: Icon(
+                  _isAmountVisible
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: AppTheme.textSecondary.withOpacity(0.5),
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+
+          const Spacer(),
+
+          // Bottom: Account Info + Time/Date
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Numéro de compte',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '**** ${user?.id.substring(0, 4).toUpperCase() ?? "9934"}',
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text(
+                    'Dernière activité',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$formattedDate • $formattedTime',
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  /// Helper pour obtenir les infos pays/devise
+  _CountryInfo _getCountryAndCurrency(String locale) {
+    if (locale.contains('GA') || locale.contains('fr-GA')) {
+      return _CountryInfo('🇬🇦', 'Gabon', 'Franc CFA (XAF)');
+    } else if (locale.contains('CI') || locale.contains('fr-CI')) {
+      return _CountryInfo('🇨🇮', 'Côte d\'Ivoire', 'Franc CFA (XOF)');
+    } else if (locale.contains('SN') || locale.contains('fr-SN')) {
+      return _CountryInfo('🇸🇳', 'Sénégal', 'Franc CFA (XOF)');
+    } else if (locale.contains('CM') || locale.contains('fr-CM')) {
+      return _CountryInfo('🇨🇲', 'Cameroun', 'Franc CFA (XAF)');
+    } else if (locale.contains('BJ') || locale.contains('fr-BJ')) {
+      return _CountryInfo('🇧🇯', 'Bénin', 'Franc CFA (XOF)');
+    } else if (locale.contains('TG') || locale.contains('fr-TG')) {
+      return _CountryInfo('🇹🇬', 'Togo', 'Franc CFA (XOF)');
+    } else if (locale.contains('ML') || locale.contains('fr-ML')) {
+      return _CountryInfo('🇲🇱', 'Mali', 'Franc CFA (XOF)');
+    } else if (locale.contains('BF') || locale.contains('fr-BF')) {
+      return _CountryInfo('🇧🇫', 'Burkina Faso', 'Franc CFA (XOF)');
+    } else if (locale.contains('FR') || locale.contains('fr-FR')) {
+      return _CountryInfo('🇫🇷', 'France', 'Euro (EUR)');
+    } else if (locale.contains('US') || locale.contains('en-US')) {
+      return _CountryInfo('🇺🇸', 'USA', 'US Dollar (USD)');
+    } else {
+      // Valeur par défaut pour SIKA (Afrique)
+      return _CountryInfo('🇬🇦', 'Gabon', 'Franc CFA (XAF)');
+    }
   }
 
   /// Dot indicator pour les cartes de solde
@@ -786,4 +913,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _onFeedGoal(GoalsTableData goal) async {
     await FeedGoalBottomSheet.show(context, goal);
   }
+}
+
+class _CountryInfo {
+  final String flag;
+  final String name;
+  final String currencyName;
+
+  _CountryInfo(this.flag, this.name, this.currencyName);
 }

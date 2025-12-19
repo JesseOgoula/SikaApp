@@ -170,6 +170,10 @@ class AuthRepository {
           _db.categoriesTable,
         )..where((c) => c.isSystem.equals(false))).go();
         debugPrint('✅ [Auth] Local categories deleted: $catDeleted rows');
+
+        // Supprimer les dettes et factures locales
+        final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
+        debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
       } catch (e) {
         debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
       }
@@ -236,6 +240,18 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] Accounts may not exist: $e');
       }
 
+      // Debts & Bills
+      try {
+        final debtsResult = await _supabase
+            .from('debts')
+            .delete()
+            .eq('user_id', userId)
+            .select();
+        debugPrint('✅ [Auth] Debts deleted: ${debtsResult.length} rows');
+      } catch (e) {
+        debugPrint('❌ [Auth] Debts delete error: $e');
+      }
+
       // 3. Reconnecte PowerSync pour récupérer les données vides
       try {
         if (powerSyncDatabase != null) {
@@ -286,6 +302,10 @@ class AuthRepository {
         // Supprimer les comptes locaux
         final accDeleted = await (_db.delete(_db.accountsTable)).go();
         debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
+
+        // Supprimer les dettes locales
+        final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
+        debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
       } catch (e) {
         debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
       }
@@ -343,6 +363,9 @@ class AuthRepository {
       await _supabase.from('categories').delete().eq('user_id', userId);
       try {
         await _supabase.from('accounts').delete().eq('user_id', userId);
+      } catch (_) {}
+      try {
+        await _supabase.from('debts').delete().eq('user_id', userId);
       } catch (_) {}
       debugPrint('✅ [Auth] Cloud data deleted manually (fallback)');
     } catch (e) {

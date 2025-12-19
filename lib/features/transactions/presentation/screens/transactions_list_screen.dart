@@ -32,22 +32,7 @@ class TransactionsListScreen extends ConsumerWidget {
       body: transactionsAsync.when(
         data: (transactions) {
           if (transactions.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.receipt_long, size: 64, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Aucune transaction',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return _buildEmptyState(context, ref);
           }
 
           return ListView.builder(
@@ -69,18 +54,59 @@ class TransactionsListScreen extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
-          );
-          if (result == true) {
-            ref.invalidate(transactionWithCategoryListProvider);
-          }
-        },
+        onPressed: () => _addTransaction(context, ref),
         backgroundColor: AppTheme.primaryColor,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
+  }
+
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            'Aucune transaction',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Ajoutez votre première transaction manuelle',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => _addTransaction(context, ref),
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter une transaction'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addTransaction(BuildContext context, WidgetRef ref) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+    );
+    if (result == true) {
+      ref.invalidate(transactionWithCategoryListProvider);
+    }
   }
 }
