@@ -301,8 +301,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<List<CategoryStat>> getExpensesByCategory(DateTime month) async {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    return getExpensesByCategoryRange(startOfMonth, endOfMonth);
+  }
 
-    // Récupère toutes les dépenses du mois avec catégories
+  @override
+  Future<List<CategoryStat>> getExpensesByCategoryRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    // Récupère toutes les dépenses de la période avec catégories
     final query = _db.select(_db.transactionsTable).join([
       leftOuterJoin(
         _db.categoriesTable,
@@ -311,8 +318,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
     ]);
 
     query.where(_db.transactionsTable.type.equals('expense'));
+    query.where(_db.transactionsTable.categoryId.equals('cat-epargne').not());
     query.where(
-      _db.transactionsTable.date.isBetweenValues(startOfMonth, endOfMonth),
+      _db.transactionsTable.date.isBetweenValues(startDate, endDate),
     );
 
     final results = await query.get();
@@ -367,26 +375,39 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<List<DailySummary>> getDailySummary(DateTime month) async {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    return getDailySummaryRange(startOfMonth, endOfMonth);
+  }
 
+  @override
+  Future<List<DailySummary>> getDailySummaryRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final query = _db.select(_db.transactionsTable)
-      ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth));
+      ..where((t) => t.date.isBetweenValues(startDate, endDate));
 
     final transactions = await query.get();
 
-    // Grouper par jour
-    final Map<int, _DailyAccumulator> dailyData = {};
+    // Grouper par jour (clé : yyyy-MM-dd pour gérer plusieurs mois)
+    final Map<String, _DailyAccumulator> dailyData = {};
 
     for (final tx in transactions) {
-      final day = tx.date.day;
+      final key =
+          '${tx.date.year}-${tx.date.month.toString().padLeft(2, '0')}-${tx.date.day.toString().padLeft(2, '0')}';
       dailyData.putIfAbsent(
-        day,
-        () => _DailyAccumulator(date: DateTime(month.year, month.month, day)),
+        key,
+        () => _DailyAccumulator(
+          date: DateTime(tx.date.year, tx.date.month, tx.date.day),
+        ),
       );
 
       if (tx.type == 'income') {
-        dailyData[day]!.income += tx.amount;
-      } else {
-        dailyData[day]!.expense += tx.amount;
+        dailyData[key]!.income += tx.amount;
+      } else if (tx.type == 'expense') {
+        // Exclure l'épargne du total des dépenses journalières
+        if (tx.categoryId != 'cat-epargne') {
+          dailyData[key]!.expense += tx.amount;
+        }
       }
     }
 
@@ -409,10 +430,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<double> getTotalIncome(DateTime month) async {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    return getTotalIncomeRange(startOfMonth, endOfMonth);
+  }
 
+  @override
+  Future<double> getTotalIncomeRange(DateTime startDate, DateTime endDate) async {
     final query = _db.select(_db.transactionsTable)
       ..where((t) => t.type.equals('income'))
-      ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth));
+      ..where((t) => t.date.isBetweenValues(startDate, endDate));
 
     final transactions = await query.get();
     return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
@@ -422,10 +447,32 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<double> getTotalExpense(DateTime month) async {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+    return getTotalExpenseRange(startOfMonth, endOfMonth);
+  }
 
+  @override
+  Future<double> getTotalExpenseRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final query = _db.select(_db.transactionsTable)
       ..where((t) => t.type.equals('expense'))
-      ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth));
+      ..where((t) => t.categoryId.equals('cat-epargne').not())
+      ..where((t) => t.date.isBetweenValues(startDate, endDate));
+
+    final transactions = await query.get();
+    return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
+
+  @override
+  Future<double> getTotalSavingsRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    final query = _db.select(_db.transactionsTable)
+      ..where((t) => t.type.equals('expense'))
+      ..where((t) => t.categoryId.equals('cat-epargne'))
+      ..where((t) => t.date.isBetweenValues(startDate, endDate));
 
     final transactions = await query.get();
     return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
@@ -449,6 +496,22 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     final transactions = await query.get();
     return transactions.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
+
+  @override
+  Stream<double> watchTotalIncomeAllTime() {
+    return (_db.select(_db.transactionsTable)
+          ..where((t) => t.type.equals('income')))
+        .watch()
+        .map((txs) => txs.fold<double>(0, (sum, tx) => sum + tx.amount));
+  }
+
+  @override
+  Stream<double> watchTotalExpenseAllTime() {
+    return (_db.select(_db.transactionsTable)
+          ..where((t) => t.type.equals('expense')))
+        .watch()
+        .map((txs) => txs.fold<double>(0, (sum, tx) => sum + tx.amount));
   }
 }
 

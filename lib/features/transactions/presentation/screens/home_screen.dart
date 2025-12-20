@@ -108,7 +108,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         totalBalance += tx.amount;
       } else if (tx.type == 'expense') {
         totalBalance -= tx.amount;
-        if (tx.date.isAfter(firstOfMonth)) {
+        // N'ajouter aux dépenses mensuelles que ce qui n'est pas de l'épargne
+        if (tx.date.isAfter(firstOfMonth) &&
+            txWithCat.transaction.categoryId != 'cat-epargne') {
           monthlyExpenses += tx.amount;
         }
       }
@@ -126,8 +128,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final pendingBillsAsync = ref.watch(pendingBillsAmountProvider);
     final pendingBills = pendingBillsAsync.valueOrNull ?? 0.0;
 
-    // Solde disponible = Solde total - Épargne objectifs - Factures en attente
-    final soldeDisponible = totalBalance - totalSaved - pendingBills;
+    // Solde disponible = Argent restant en compte (donc déjà déduit de l'épargne faite par transactions)
+    // On ne soustrait plus totalSaved ici car chaque "ajout à un objectif" crée une transaction de dépense
+    // qui réduit déjà totalBalance.
+    final soldeDisponible = totalBalance - pendingBills;
 
     // Layout sans scroll vertical
     return Column(
@@ -280,16 +284,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        gradient: AppTheme.cardGradient,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: AppTheme.primaryColor.withOpacity(0.2),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade100, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +307,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.scaffoldBackground,
+                  color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -316,7 +319,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                   ],
@@ -330,8 +333,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Middle: Label + Amount + Visibility
           Text(
             title,
-            style: const TextStyle(
-              color: AppTheme.textSecondary,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -346,7 +349,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ? _formatCurrency(amount, userInfo.currencyName)
                       : '••••••••',
                   style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: Colors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
@@ -360,7 +363,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _isAmountVisible
                       ? Icons.visibility_off_outlined
                       : Icons.visibility_outlined,
-                  color: AppTheme.textSecondary.withOpacity(0.5),
+                  color: Colors.white.withOpacity(0.7),
                   size: 20,
                 ),
               ),
@@ -379,7 +382,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const Text(
                     'Numéro de compte',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: Colors.white70,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -388,7 +391,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     '**** ${user?.id.substring(0, 4).toUpperCase() ?? "9934"}',
                     style: const TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -401,7 +404,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const Text(
                     'Dernière activité',
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: Colors.white70,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -410,7 +413,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text(
                     '$formattedDate • $formattedTime',
                     style: const TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                     ),
@@ -715,7 +718,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (transactions.isEmpty) {
       return _buildEmptyState();
     }
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: transactions
@@ -759,7 +763,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           );
         }
-        return Padding(
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: goals
@@ -826,7 +831,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             .where((d) => d.status != DebtStatus.paid)
             .toList();
 
-        return Padding(
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
             children: displayDebts

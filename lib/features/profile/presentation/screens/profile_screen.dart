@@ -33,22 +33,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildAppBar(),
-                  const SizedBox(height: 16),
-                  _buildProfileHeader(avatarUrl, fullName, email),
-                  const SizedBox(height: 24),
-                  _buildSyncSection(syncStatus),
-                  const SizedBox(height: 16),
-                  _buildDataSection(),
-                  const SizedBox(height: 16),
-                  _buildAccountSection(),
-                  const SizedBox(height: 32),
-                  _buildFooter(),
-                ],
-              ),
+            Column(
+              children: [
+                _buildAppBar(),
+                const SizedBox(height: 16),
+                _buildProfileHeader(avatarUrl, fullName, email),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      children: [
+                        _buildSyncSection(syncStatus),
+                        const SizedBox(height: 16),
+                        _buildDataSection(),
+                        const SizedBox(height: 16),
+                        _buildAccountSection(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (_isLoading)
               Container(
@@ -361,31 +367,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        Text(
-          'SIKA',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Made with ❤️ in Gabon',
-          style: TextStyle(
-            fontSize: 11,
-            color: AppTheme.textSecondary.withOpacity(0.7),
-          ),
-        ),
-        const SizedBox(height: 32),
-      ],
-    );
-  }
-
   // ============= DIALOGS =============
 
   void _confirmDeleteAllData() {
@@ -397,7 +378,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Icon(Icons.delete_sweep_outlined, color: AppTheme.error),
             const SizedBox(width: 12),
-            const Text('Effacer les données'),
+            const Expanded(child: Text('Effacer les données')),
           ],
         ),
         content: const Text(
@@ -465,7 +446,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Icon(Icons.person_remove_outlined, color: AppTheme.error),
             const SizedBox(width: 12),
-            const Text('Supprimer le compte'),
+            const Expanded(child: Text('Supprimer le compte')),
           ],
         ),
         content: const Text(

@@ -98,6 +98,8 @@ class NotificationService {
               'Notifications pour les factures et dettes à payer',
           importance: Importance.max,
           priority: Priority.high,
+          color: Color(0xFF1A237E), // Bleu Nuit
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
