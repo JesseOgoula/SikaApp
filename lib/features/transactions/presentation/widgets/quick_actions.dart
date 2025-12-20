@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
@@ -65,7 +66,12 @@ class QuickActions extends StatelessWidget {
     bool isDisabled = false,
   }) {
     return GestureDetector(
-      onTap: isDisabled ? null : onTap,
+      onTap: () {
+        if (!isDisabled) {
+          HapticFeedback.lightImpact();
+          onTap();
+        }
+      },
       child: Column(
         children: [
           Container(

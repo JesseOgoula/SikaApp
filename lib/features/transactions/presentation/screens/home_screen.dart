@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -357,8 +358,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               IconButton(
-                onPressed: () =>
-                    setState(() => _isAmountVisible = !_isAmountVisible),
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _isAmountVisible = !_isAmountVisible);
+                },
                 icon: Icon(
                   _isAmountVisible
                       ? Icons.visibility_off_outlined
@@ -547,28 +550,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.receipt_long,
-            size: 48,
-            color: AppTheme.textSecondary.withOpacity(0.5),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.receipt_long_rounded,
+              size: 40,
+              color: AppTheme.primaryColor.withOpacity(0.4),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           const Text(
             'Aucune transaction',
             style: TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Importez vos SMS ou ajoutez manuellement',
-            style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
+            'Importez vos SMS pour voir vos finances s\'animer ici.',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 14,
+              height: 1.5,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -739,25 +761,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.flag_outlined, size: 48, color: Colors.grey[300]),
-                const SizedBox(height: 12),
-                Text(
-                  'Aucun objectif',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AddGoalScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Créer un objectif'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(
+                    Icons.flag_rounded,
+                    size: 40,
+                    color: AppTheme.primaryColor.withOpacity(0.4),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Aucun objectif',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Épargnez pour vos rêves.',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -802,24 +830,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.assignment_turned_in_outlined,
-                  size: 48,
-                  color: Colors.grey[300],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Aucun engagement',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: _onAddDebtPressed,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Ajouter'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.05),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(
+                    Icons.assignment_turned_in_rounded,
+                    size: 40,
+                    color: AppTheme.primaryColor.withOpacity(0.4),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Aucun engagement',
+                  style: TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tout est en ordre !',
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
                 ),
               ],
             ),
