@@ -16,6 +16,7 @@ import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/analytics/presentation/widgets/health_score_card.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 /// Dashboard Analytics - Redesign Premium avec Financial Health Score
 class StatisticsScreen extends ConsumerStatefulWidget {
@@ -154,39 +155,65 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       final savings = results[4] as double;
       final pendingDebt = results[9] as double;
 
-      // Calcul du Score de Santé Financière (cohérent avec HomeScreen)
-      // Score basé sur 3 composantes:
-      // 1. Taux d'épargne (0-40 points): Épargne / Revenus
-      // 2. Ratio dette (0-30 points): inversement proportionnel aux dettes
-      // 3. Ratio dépenses (0-30 points): si dépenses < revenus = bon
+      // Récupère les données des comptes pour le score amélioré
+      final totalAccountsBalance = ref.read(totalAccountsBalanceProvider);
+      final accountsData = ref.read(activeAccountsProvider);
+      final activeAccountsCount = accountsData.valueOrNull?.length ?? 0;
+
+      // Calcul du Score de Santé Financière AMÉLIORÉ
+      // 5 composantes pour 100 points total:
+      // 1. Taux d'épargne (0-30 points)
+      // 2. Ratio dépenses (0-20 points)
+      // 3. Ratio dette (0-20 points)
+      // 4. Coussin de sécurité (0-20 points)
+      // 5. Diversification comptes (0-10 points)
 
       double savingsScore = 0;
       double expenseScore = 0;
-      double debtScore = 30; // Score max de base si pas de dette
+      double debtScore = 20;
+      double cushionScore = 0;
+      double diversificationScore = 0;
 
       if (income > 0) {
-        // Taux d'épargne : 20% = score max (40 points)
+        // Taux d'épargne : 20% = score max (30 points)
         final savingsRate = savings / income;
-        savingsScore = (savingsRate * 200).clamp(0, 40).toDouble();
+        savingsScore = (savingsRate * 150).clamp(0, 30).toDouble();
 
-        // Ratio dépenses : si dépenses < 80% des revenus = bon score
+        // Ratio dépenses : si dépenses < 80% des revenus = bon score (20 pts)
         final expenseRate = expense / income;
-        expenseScore = ((1 - expenseRate) * 60).clamp(0, 30).toDouble();
+        expenseScore = ((1 - expenseRate) * 40).clamp(0, 20).toDouble();
 
-        // Ratio dette : si dette < 30% des revenus = bon score
+        // Ratio dette : si dette < 30% des revenus = bon score (20 pts)
         final debtRatio = pendingDebt / income;
-        debtScore = ((1 - debtRatio) * 30).clamp(0, 30).toDouble();
-      } else {
-        // Pas de revenu : score basé sur présence d'épargne
-        if (savings > 0) {
-          expenseScore = 15;
-          savingsScore = 10;
-        }
+        debtScore = ((1 - debtRatio) * 20).clamp(0, 20).toDouble();
+      } else if (savings > 0) {
+        expenseScore = 10;
+        savingsScore = 5;
       }
 
-      final totalScore = (savingsScore + debtScore + expenseScore)
-          .round()
-          .clamp(0, 100);
+      // Coussin de sécurité (20 pts)
+      if (expense > 0) {
+        final monthsCovered = totalAccountsBalance / expense;
+        cushionScore = (monthsCovered / 3 * 20).clamp(0, 20).toDouble();
+      } else if (totalAccountsBalance > 0) {
+        cushionScore = 10;
+      }
+
+      // Diversification comptes (10 pts)
+      if (activeAccountsCount >= 3) {
+        diversificationScore = 10;
+      } else if (activeAccountsCount == 2) {
+        diversificationScore = 5;
+      }
+
+      final totalScore =
+          (savingsScore +
+                  expenseScore +
+                  debtScore +
+                  cushionScore +
+                  diversificationScore)
+              .round()
+              .clamp(0, 100);
 
       if (mounted) {
         setState(() {
@@ -364,13 +391,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   }
 
   Widget _buildOverviewSection() {
-    final balance = _totalIncome - _totalExpense;
     final incomeTrend = _prevIncome > 0
         ? ((_totalIncome - _prevIncome) / _prevIncome * 100)
         : 0.0;
     final expenseTrend = _prevExpense > 0
         ? ((_totalExpense - _prevExpense) / _prevExpense * 100)
         : 0.0;
+
+    // Utilise le solde total des comptes comme solde net
+    final totalAccountsBalance = ref.watch(totalAccountsBalanceProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,8 +418,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             Expanded(
               child: _buildBalanceCard(
                 label: 'Solde Net',
-                amount: balance,
-                color: balance >= 0 ? AppTheme.success : AppTheme.error,
+                amount: totalAccountsBalance,
+                color: totalAccountsBalance >= 0
+                    ? AppTheme.success
+                    : AppTheme.error,
                 isMain: true,
               ),
             ),

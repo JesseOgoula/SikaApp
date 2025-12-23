@@ -131,13 +131,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final pendingBillsAsync = ref.watch(pendingBillsAmountProvider);
     final pendingBills = pendingBillsAsync.valueOrNull ?? 0.0;
 
+    // Récupère le solde total des comptes et le nombre de comptes actifs
+    final totalAccountsBalance = ref.watch(totalAccountsBalanceProvider);
+    final accountsAsync = ref.watch(activeAccountsProvider);
+    final activeAccountsCount = accountsAsync.valueOrNull?.length ?? 0;
+
     // Solde disponible = Argent restant en compte (donc déjà déduit de l'épargne faite par transactions)
-    // On ne soustrait plus totalSaved ici car chaque "ajout à un objectif" crée une transaction de dépense
-    // qui réduit déjà totalBalance.
     final soldeDisponible = totalBalance - pendingBills;
 
-    // Calcul du score de santé financière (simplifié)
-    // Basé sur: taux d'épargne, ratio dette/revenu, ratio dépenses/revenus
+    // Calcul du score de santé financière AMÉLIORÉ
+    // 5 composantes pour 100 points total:
+    // 1. Taux d'épargne (0-30 points)
+    // 2. Ratio dépenses (0-20 points)
+    // 3. Ratio dette (0-20 points)
+    // 4. Coussin de sécurité (0-20 points) - NOUVEAU
+    // 5. Diversification comptes (0-10 points) - NOUVEAU
+
     double monthlyIncome = 0;
     double monthlySavings = 0;
     for (final txWithCat in transactions) {
@@ -151,39 +160,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
-    // Score basé sur 3 composantes:
-    // 1. Taux d'épargne (0-40 points): Épargne / Revenus
-    // 2. Ratio dette (0-30 points): inversement proportionnel aux dettes
-    // 3. Ratio dépenses (0-30 points): si dépenses < revenus = bon
-
     double savingsScore = 0;
     double expenseScore = 0;
-    double debtScore = 30; // Score max de base si pas de dette
+    double debtScore = 20; // Score max de base si pas de dette
+    double cushionScore = 0; // NOUVEAU: Coussin de sécurité
+    double diversificationScore = 0; // NOUVEAU: Diversification
 
     if (monthlyIncome > 0) {
-      // Taux d'épargne : 20% = score max (40 points)
+      // Taux d'épargne : 20% = score max (30 points)
       final savingsRate = monthlySavings / monthlyIncome;
-      savingsScore = (savingsRate * 200).clamp(0, 40).toDouble();
+      savingsScore = (savingsRate * 150).clamp(0, 30).toDouble();
 
-      // Ratio dépenses : si dépenses < 80% des revenus = bon score
+      // Ratio dépenses : si dépenses < 80% des revenus = bon score (20 pts)
       final expenseRate = monthlyExpenses / monthlyIncome;
-      expenseScore = ((1 - expenseRate) * 60).clamp(0, 30).toDouble();
+      expenseScore = ((1 - expenseRate) * 40).clamp(0, 20).toDouble();
 
-      // Ratio dette : si dette < 30% des revenus = bon score
+      // Ratio dette : si dette < 30% des revenus = bon score (20 pts)
       final debtRatio = pendingBills / monthlyIncome;
-      debtScore = ((1 - debtRatio) * 30).clamp(0, 30).toDouble();
-    } else {
-      // Pas de revenu ce mois : score basé sur le solde disponible
-      if (soldeDisponible > 0) {
-        expenseScore = 15; // Score moyen
-        savingsScore = 10;
-      }
+      debtScore = ((1 - debtRatio) * 20).clamp(0, 20).toDouble();
+    } else if (soldeDisponible > 0) {
+      expenseScore = 10;
+      savingsScore = 5;
     }
 
-    final healthScore = (savingsScore + debtScore + expenseScore).round().clamp(
-      0,
-      100,
-    );
+    // NOUVEAU: Coussin de sécurité (20 pts)
+    // Objectif: avoir 3 mois de dépenses en réserve
+    if (monthlyExpenses > 0) {
+      final monthsCovered = totalAccountsBalance / monthlyExpenses;
+      cushionScore = (monthsCovered / 3 * 20).clamp(0, 20).toDouble();
+    } else if (totalAccountsBalance > 0) {
+      cushionScore = 10; // Score moyen si pas de dépenses
+    }
+
+    // NOUVEAU: Diversification comptes (10 pts)
+    // 1 compte = 0, 2 = 5, 3+ = 10
+    if (activeAccountsCount >= 3) {
+      diversificationScore = 10;
+    } else if (activeAccountsCount == 2) {
+      diversificationScore = 5;
+    }
+
+    final healthScore =
+        (savingsScore +
+                expenseScore +
+                debtScore +
+                cushionScore +
+                diversificationScore)
+            .round()
+            .clamp(0, 100);
 
     // Layout sans scroll vertical
     return Column(
@@ -203,8 +227,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: QuickActions(
             onAddPressed: _onAddPressed,
-            onSyncPressed: _onSyncPressed,
-            isSyncing: importState.isImporting,
             onGoalsPressed: _onAddGoalPressed,
             onDebtsPressed: _onAddDebtPressed,
           ),
@@ -884,56 +906,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (result == true) {
       ref.invalidate(transactionWithCategoryListProvider);
-    }
-  }
-
-  Future<void> _onSyncPressed() async {
-    // 1. Import SMS
-    final result = await ref
-        .read(smsImportNotifierProvider.notifier)
-        .importFromInbox();
-
-    // 2. Sync vers le cloud
-    final syncService = ref.read(syncServiceProvider);
-    SyncResult? cloudResult;
-
-    if (syncService.isLoggedIn) {
-      cloudResult = await syncService.syncAll();
-    }
-
-    if (mounted) {
-      final message = cloudResult != null
-          ? '${result.imported} SMS + ${cloudResult.totalCount} sync cloud'
-          : '${result.imported} nouvelles transactions';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: cloudResult?.success == true
-              ? AppTheme.success
-              : AppTheme.primaryColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          content: Row(
-            children: [
-              Icon(
-                cloudResult?.success == true
-                    ? Icons.cloud_done
-                    : Icons.check_circle,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
     }
   }
 

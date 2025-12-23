@@ -4,23 +4,19 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
 
-/// Boutons d'actions rapides (Ajouter, Sync, Analyse, Objectifs)
+/// Boutons d'actions rapides (Ajouter, Objectifs, Dettes)
 class QuickActions extends StatelessWidget {
   final VoidCallback onAddPressed;
-  final VoidCallback onSyncPressed;
   final VoidCallback? onAnalysePressed;
   final VoidCallback? onGoalsPressed;
   final VoidCallback? onDebtsPressed;
-  final bool isSyncing;
 
   const QuickActions({
     super.key,
     required this.onAddPressed,
-    required this.onSyncPressed,
     this.onAnalysePressed,
     this.onGoalsPressed,
     this.onDebtsPressed,
-    this.isSyncing = false,
   });
 
   @override
@@ -33,12 +29,6 @@ class QuickActions extends StatelessWidget {
           label: 'Ajouter',
           onTap: onAddPressed,
           isPrimary: true,
-        ),
-        _buildActionButton(
-          icon: isSyncing ? null : Icons.sync,
-          label: 'Sync',
-          onTap: onSyncPressed,
-          isLoading: isSyncing,
         ),
         _buildActionButton(
           faIcon: FontAwesomeIcons.bullseye,
