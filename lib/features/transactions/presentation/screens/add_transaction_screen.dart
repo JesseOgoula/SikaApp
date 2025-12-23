@@ -9,6 +9,7 @@ import 'package:sika_app/features/transactions/data/providers/transaction_provid
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 /// Écran d'ajout manuel - Design Neo-Bank avec Keypad personnalisé
 class AddTransactionScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   String _amountText = '';
   String _transactionType = 'expense';
   String? _selectedCategoryId;
+  String? _selectedAccountId;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
   bool _showKeypad = false; // Clavier numérique caché par défaut
@@ -136,6 +138,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
                   // === CATÉGORIES ===
                   _buildCategorySection(categoriesAsync),
+
+                  const SizedBox(height: 20),
+
+                  // === COMPTE ===
+                  _buildAccountSection(),
 
                   const SizedBox(height: 20),
 
@@ -379,6 +386,108 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     );
   }
 
+  /// Section de sélection du compte
+  Widget _buildAccountSection() {
+    final accountsAsync = ref.watch(activeAccountsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Compte',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: accountsAsync.when(
+            data: (accounts) {
+              if (accounts.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Aucun compte configuré'),
+                );
+              }
+              return DropdownButtonFormField<String>(
+                value: _selectedAccountId,
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                hint: const Text('Sélectionner un compte'),
+                items: accounts.map((acc) {
+                  final iconData = _getAccountIcon(acc.iconKey);
+                  final color = Color(
+                    int.parse(acc.color.replaceFirst('#', '0xFF')),
+                  );
+                  return DropdownMenuItem<String>(
+                    value: acc.id,
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(iconData, color: color, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(acc.name),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) =>
+                    setState(() => _selectedAccountId = value),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Erreur de chargement'),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _getAccountIcon(String iconKey) {
+    switch (iconKey) {
+      case 'phone_android':
+        return Icons.phone_android;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'payments':
+        return Icons.payments;
+      default:
+        return Icons.account_balance_wallet;
+    }
+  }
+
   Widget _buildDateField() {
     return GestureDetector(
       onTap: _selectDate,
@@ -588,6 +697,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         merchantName: Value(note.isNotEmpty ? note : 'Transaction manuelle'),
         categoryId: _selectedCategoryId != null
             ? Value(_selectedCategoryId!)
+            : const Value.absent(),
+        accountId: _selectedAccountId != null
+            ? Value(_selectedAccountId!)
             : const Value.absent(),
         date: Value(_selectedDate),
         smsSender: const Value('MANUAL'),
