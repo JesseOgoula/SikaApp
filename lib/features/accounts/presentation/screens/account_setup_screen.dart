@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 
 /// Clé SharedPreferences pour savoir si le setup est terminé
 const String kHasCompletedAccountSetup = 'has_completed_account_setup';
@@ -49,6 +50,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
   ];
 
   bool _isLoading = false;
+  int? _focusedIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -68,93 +70,160 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Titre
-              const Text(
-                'Vos comptes',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Sélectionnez les comptes que vous utilisez et entrez vos soldes actuels.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                  height: 1.4,
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Liste des comptes
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _accounts.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    return _buildAccountCard(_accounts[index]);
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Bouton Continuer
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _hasSelectedAccounts() ? _onContinue : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Titre
+                    const Text(
+                      'Vos comptes',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textPrimary,
+                      ),
                     ),
-                    elevation: 0,
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Continuer',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sélectionnez les comptes que vous utilisez et entrez vos soldes actuels.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Liste des comptes
+                    ..._accounts.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final account = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildAccountCard(account, index),
+                      );
+                    }),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+
+            // Zone du bas : Bouton Continuer OU Pavé numérique
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_focusedIndex != null) ...[
+                    // Barre de validation pour le pavé numérique
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _focusedIndex = null;
+                              });
+                            },
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('OK'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Pavé numérique
+                    NumberPad(
+                      onKeyPressed: _onKeyPressed,
+                      onBackspace: _onBackspace,
+                    ),
+                  ] else ...[
+                    // Bouton Continuer
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: _hasSelectedAccounts()
+                              ? _onContinue
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.shade300,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Continuer',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildAccountCard(_AccountConfig account) {
+  Widget _buildAccountCard(_AccountConfig account, int index) {
     final isEnabled = account.enabled;
+    final isFocused = _focusedIndex == index;
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardBackground,
         borderRadius: BorderRadius.circular(20),
+        border: isFocused
+            ? Border.all(color: AppTheme.primaryColor, width: 1.5)
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,6 +284,12 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                     account.enabled = value;
                     if (!value) {
                       account.balanceController.clear();
+                      if (_focusedIndex == index) {
+                        _focusedIndex = null;
+                      }
+                    } else {
+                      // Focus automatically on enable
+                      _focusedIndex = index;
                     }
                   });
                 },
@@ -226,50 +301,81 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
           // Champ de solde (visible si activé)
           if (isEnabled) ...[
             const SizedBox(height: 16),
-            TextField(
-              controller: account.balanceController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[\d\s]')),
-              ],
-              decoration: InputDecoration(
-                hintText: 'Solde actuel',
-                hintStyle: TextStyle(color: AppTheme.textSecondary),
-                suffixText: 'FCFA',
-                suffixStyle: TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w500,
-                ),
-                filled: true,
-                fillColor: AppTheme.scaffoldBackground,
-                contentPadding: const EdgeInsets.symmetric(
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _focusedIndex = index;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 14,
                 ),
-                border: OutlineInputBorder(
+                decoration: BoxDecoration(
+                  color: AppTheme.scaffoldBackground,
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+                  border: isFocused
+                      ? Border.all(color: AppTheme.primaryColor, width: 1.5)
+                      : null,
                 ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(
-                    color: AppTheme.primaryColor,
-                    width: 1.5,
-                  ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        account.balanceController.text.isEmpty
+                            ? 'Solde actuel'
+                            : account.balanceController.text,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: account.balanceController.text.isEmpty
+                              ? AppTheme.textSecondary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'FCFA',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
               ),
             ),
           ],
         ],
       ),
     );
+  }
+
+  void _onKeyPressed(String value) {
+    if (_focusedIndex == null) return;
+
+    final controller = _accounts[_focusedIndex!].balanceController;
+    final currentText = controller.text;
+
+    if (value == '.' && currentText.contains('.')) return;
+    if (currentText == '0' && value != '.') {
+      controller.text = value;
+    } else {
+      controller.text = currentText + value;
+    }
+    setState(() {}); // Rebuild to update UI
+  }
+
+  void _onBackspace() {
+    if (_focusedIndex == null) return;
+
+    final controller = _accounts[_focusedIndex!].balanceController;
+    final currentText = controller.text;
+    if (currentText.isNotEmpty) {
+      controller.text = currentText.substring(0, currentText.length - 1);
+      setState(() {});
+    }
   }
 
   String _getTypeLabel(String type) {
