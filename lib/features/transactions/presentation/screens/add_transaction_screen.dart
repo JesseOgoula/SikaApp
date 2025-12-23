@@ -7,6 +7,7 @@ import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
 
 /// Écran d'ajout manuel - Design Neo-Bank avec Keypad personnalisé
@@ -19,23 +20,25 @@ class AddTransactionScreen extends ConsumerStatefulWidget {
 }
 
 class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
-  final _noteController = TextEditingController();
+  String _noteText = '';
 
   String _amountText = '';
   String _transactionType = 'expense';
   String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
-  bool _showKeypad = false; // Clavier caché par défaut
+  bool _showKeypad = false; // Clavier numérique caché par défaut
+  bool _showTextPad = false; // Clavier texte caché par défaut
 
   @override
   void dispose() {
-    _noteController.dispose();
     super.dispose();
   }
 
   void _onKeyPressed(String key) {
     setState(() {
+      // Ferme le TextPad si ouvert
+      if (_showTextPad) _showTextPad = false;
       // Limite à 10 caractères
       if (_amountText.length < 10) {
         // Empêche plusieurs points
@@ -50,6 +53,40 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       if (_amountText.isNotEmpty) {
         _amountText = _amountText.substring(0, _amountText.length - 1);
       }
+    });
+  }
+
+  void _onNoteKeyPressed(String key) {
+    setState(() {
+      // Ferme le NumberPad si ouvert
+      if (_showKeypad) _showKeypad = false;
+      _noteText += key;
+    });
+  }
+
+  void _onNoteBackspace() {
+    setState(() {
+      if (_noteText.isNotEmpty) {
+        _noteText = _noteText.substring(0, _noteText.length - 1);
+      }
+    });
+  }
+
+  void _onNoteDone() {
+    setState(() => _showTextPad = false);
+  }
+
+  void _toggleTextPad() {
+    setState(() {
+      _showTextPad = !_showTextPad;
+      if (_showTextPad) _showKeypad = false; // Ferme le NumberPad
+    });
+  }
+
+  void _toggleKeypad() {
+    setState(() {
+      _showKeypad = !_showKeypad;
+      if (_showKeypad) _showTextPad = false; // Ferme le TextPad
     });
   }
 
@@ -116,7 +153,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ),
           ),
 
-          // === KEYPAD AVEC ANIMATION ===
+          // === NUMBERPAD AVEC ANIMATION ===
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
@@ -127,6 +164,23 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     child: NumberPad(
                       onKeyPressed: _onKeyPressed,
                       onBackspace: _onBackspace,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
+          // === TEXTPAD AVEC ANIMATION ===
+          AnimatedSize(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: _showTextPad
+                ? AnimatedOpacity(
+                    opacity: _showTextPad ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: TextPad(
+                      onKeyPressed: _onNoteKeyPressed,
+                      onBackspace: _onNoteBackspace,
+                      onDone: _onNoteDone,
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -143,7 +197,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     final displayAmount = _amountText.isEmpty ? '0' : _amountText;
 
     return GestureDetector(
-      onTap: () => setState(() => _showKeypad = !_showKeypad),
+      onTap: _toggleKeypad,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         decoration: BoxDecoration(
@@ -374,43 +428,60 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   }
 
   Widget _buildNoteField() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: BorderRadius.circular(10),
+    return GestureDetector(
+      onTap: _toggleTextPad,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: _showTextPad
+              ? AppTheme.primaryColor.withOpacity(0.05)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: _showTextPad
+              ? Border.all(
+                  color: AppTheme.primaryColor.withOpacity(0.2),
+                  width: 1,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: Icon(Icons.edit, color: Colors.grey[700], size: 18),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: TextField(
-              controller: _noteController,
-              style: const TextStyle(color: AppTheme.textPrimary, fontSize: 15),
-              decoration: InputDecoration(
-                hintText: 'Ajouter une note...',
-                hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.edit, color: Colors.grey[700], size: 18),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                _noteText.isEmpty ? 'Ajouter une note...' : _noteText,
+                style: TextStyle(
+                  color: _noteText.isEmpty
+                      ? Colors.grey[400]
+                      : AppTheme.textPrimary,
+                  fontSize: 15,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-        ],
+            Icon(
+              _showTextPad ? Icons.keyboard_hide : Icons.keyboard,
+              size: 16,
+              color: AppTheme.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -509,7 +580,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final note = _noteController.text.trim();
+      final note = _noteText.trim();
 
       final companion = TransactionsTableCompanion(
         amount: Value(amount),

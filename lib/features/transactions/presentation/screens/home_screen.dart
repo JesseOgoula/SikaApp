@@ -545,22 +545,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+    return Center(
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(20),
@@ -574,24 +561,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: AppTheme.primaryColor.withOpacity(0.4),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           const Text(
             'Aucune transaction',
             style: TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Importez vos SMS pour voir vos finances s\'animer ici.',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
+            'Importez vos SMS pour commencer.',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
           ),
         ],
       ),
