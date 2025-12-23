@@ -244,7 +244,7 @@ class SmsParserService {
     // Nettoyage agressif des caractères non numériques sauf virgule et point
     // On garde les chiffres et les séparateurs potentiels
     String cleaned = amountStr.trim();
-    
+
     // Si on a XAF701,874.00, on veut extraire juste le chiffre
     final numericMatch = RegExp(r'[\d\s,.]+').firstMatch(cleaned);
     if (numericMatch == null) return null;
@@ -557,7 +557,7 @@ class SmsParserService {
       r'Ref[:\s]*(\w+)',
       caseSensitive: false,
     ).firstMatch(body);
-    final ref = refMatch?.group(1) ?? '';
+    final ref = refMatch?.group(1) ?? 'MOOV_${body.hashCode}';
 
     // 1. RÉCEPTION NOUVEAU FORMAT (NOUVEAU)
     match = _moovReceiveNew.firstMatch(body);
@@ -665,8 +665,7 @@ class SmsParserService {
       r'Ref[:\s]*(\w+)',
       caseSensitive: false,
     ).firstMatch(body);
-    final ref =
-        refMatch?.group(1) ?? 'UBA${DateTime.now().millisecondsSinceEpoch}';
+    final ref = refMatch?.group(1) ?? 'UBA_${body.hashCode}';
 
     RegExpMatch? match;
 

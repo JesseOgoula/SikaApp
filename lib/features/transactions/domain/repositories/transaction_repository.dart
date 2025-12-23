@@ -64,6 +64,10 @@ abstract class TransactionRepository {
   /// [transaction] : Companion Drift avec tous les champs
   Future<void> addManualTransaction(TransactionsTableCompanion transaction);
 
+  /// Lie rétroactivement les transactions sans accountId aux comptes
+  /// basé sur le champ smsSender
+  Future<int> linkExistingTransactionsToAccounts();
+
   /// Met à jour une transaction existante
   ///
   /// [id] : UUID de la transaction

@@ -27,6 +27,7 @@ import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dar
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
 import 'package:sika_app/features/analytics/presentation/widgets/health_score_badge.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
@@ -191,53 +192,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Header
         _buildHeader(),
 
-        // PageView des cartes de solde (hauteur ajustée pour le nouveau design)
-        SizedBox(
-          height: 200,
-          child: PageView(
-            controller: _balancePageController,
-            onPageChanged: (index) => setState(() => _balancePageIndex = index),
-            children: [
-              // Carte 1 : Solde Disponible
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildBalanceCard(
-                  title: 'Solde disponible',
-                  amount: soldeDisponible,
-                  subtitle: 'Compte principal',
-                  showSubtitle: true,
-                  healthScore: healthScore,
-                ),
-              ),
-              // Carte 2 : Solde Total
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildBalanceCard(
-                  title: 'Solde total',
-                  amount: totalIncomeAllTime,
-                  subtitle: 'Tous comptes confondus',
-                  showSubtitle: false,
-                  healthScore: healthScore,
-                ),
-              ),
-            ],
-          ),
-        ),
+        // PageView des cartes de compte dynamiques
+        _buildDynamicAccountCards(healthScore, soldeDisponible),
 
-        // Dots indicator pour les cartes de solde
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildBalanceDot(0),
-                const SizedBox(width: 6),
-                _buildBalanceDot(1),
-              ],
-            ),
-          ),
-        ),
+        // Dots indicator dynamiques
+        _buildDynamicBalanceDots(),
 
         // Quick Actions
         Padding(
@@ -302,6 +261,240 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Construit les cartes de compte dynamiques avec soldes calculés
+  Widget _buildDynamicAccountCards(int healthScore, double defaultBalance) {
+    final accountsAsync = ref.watch(accountsWithBalanceProvider);
+    final totalBalance = ref.watch(totalAccountsBalanceProvider);
+
+    return accountsAsync.when(
+      data: (accounts) {
+        // Si aucun compte, afficher une carte par défaut
+        if (accounts.isEmpty) {
+          return SizedBox(
+            height: 200,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildBalanceCard(
+                title: 'Solde disponible',
+                amount: defaultBalance,
+                subtitle: 'Configurez vos comptes',
+                showSubtitle: true,
+                healthScore: healthScore,
+              ),
+            ),
+          );
+        }
+
+        // Construire les cartes: Total + chaque compte
+        final cards = <Widget>[
+          // Carte Total
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _buildBalanceCard(
+              title: 'Solde total',
+              amount: totalBalance,
+              subtitle: 'Tous comptes',
+              showSubtitle: true,
+              healthScore: healthScore,
+            ),
+          ),
+          // Cartes pour chaque compte avec solde calculé
+          ...accounts.map(
+            (acc) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildAccountCardDynamic(acc),
+            ),
+          ),
+        ];
+
+        return SizedBox(
+          height: 200,
+          child: PageView(
+            controller: _balancePageController,
+            onPageChanged: (index) => setState(() => _balancePageIndex = index),
+            children: cards,
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 200,
+        child: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
+        ),
+      ),
+      error: (_, __) => SizedBox(
+        height: 200,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _buildBalanceCard(
+            title: 'Solde disponible',
+            amount: defaultBalance,
+            subtitle: 'Erreur de chargement',
+            showSubtitle: true,
+            healthScore: healthScore,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Carte individuelle pour un compte avec solde calculé (design premium)
+  Widget _buildAccountCardDynamic(AccountWithBalance acc) {
+    final accountColor = Color(int.parse(acc.color.replaceFirst('#', '0xFF')));
+    final now = DateTime.now();
+    final formattedDate = DateFormat('dd/MM/yy').format(now);
+    final formattedTime = DateFormat('HH:mm').format(now);
+
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        accountColor,
+        HSLColor.fromColor(accountColor).withLightness(0.3).toColor(),
+      ],
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: accountColor.withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _getAccountTypeLabel(acc.type),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$formattedDate • $formattedTime',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            acc.name,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatAmount(acc.balance),
+            style: const TextStyle(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -1,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            'FCFA',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getAccountTypeLabel(String type) {
+    switch (type) {
+      case 'mobileMoney':
+        return 'Mobile Money';
+      case 'bank':
+        return 'Compte bancaire';
+      case 'cash':
+        return 'Espèces';
+      default:
+        return type;
+    }
+  }
+
+  String _formatAmount(double amount) {
+    return amount
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]} ',
+        );
+  }
+
+  /// Dots indicator dynamiques selon le nombre de comptes
+  Widget _buildDynamicBalanceDots() {
+    final accountsAsync = ref.watch(accountsWithBalanceProvider);
+
+    return accountsAsync.when(
+      data: (accounts) {
+        final dotCount = accounts.isEmpty ? 1 : accounts.length + 1;
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                dotCount,
+                (index) => Padding(
+                  padding: EdgeInsets.only(left: index > 0 ? 6 : 0),
+                  child: _buildBalanceDot(index),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

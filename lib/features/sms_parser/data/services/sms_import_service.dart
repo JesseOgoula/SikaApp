@@ -147,6 +147,13 @@ class SmsImportService {
       }
     }
 
+    // 5. Lie rétroactivement les transactions sans accountId aux comptes
+    try {
+      await _repository.linkExistingTransactionsToAccounts();
+    } catch (e) {
+      errors.add('Liaison comptes: $e');
+    }
+
     return SmsImportResult(
       totalAnalyzed: filteredMessages.length,
       imported: imported,

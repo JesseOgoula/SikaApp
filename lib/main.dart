@@ -15,9 +15,9 @@ import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/constants/supabase_constants.dart';
 import 'package:sika_app/features/sms_listener/data/services/background_sms_service.dart';
-import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
 import 'package:sika_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
+import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
 
 /// Instance globale de PowerSyncDatabase pour l'accès depuis AuthRepository
 PowerSyncDatabase? powerSyncDatabase;
@@ -262,7 +262,7 @@ class _AuthGateState extends ConsumerState<_AuthGate>
         );
 
       case AuthStatus.authenticated:
-        return const HomeScreen();
+        return const AccountSetupChecker();
 
       case AuthStatus.unauthenticated:
       case AuthStatus.error:

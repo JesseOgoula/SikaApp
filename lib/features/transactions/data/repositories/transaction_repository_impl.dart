@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
@@ -55,6 +56,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   TransactionsTableCompanion _parsedToCompanion(
     ParsedTransaction parsed,
     String? categoryId,
+    String? accountId,
   ) {
     return TransactionsTableCompanion(
       id: Value(_uuid.v4()),
@@ -62,7 +64,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
       type: Value(_transactionTypeToString(parsed.type)),
       merchantName: Value(parsed.merchantName),
       categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
-      accountId: const Value.absent(),
+      accountId: accountId != null ? Value(accountId) : const Value.absent(),
       date: Value(parsed.date),
       smsSender: Value(_operatorToString(parsed.operator)),
       smsRawContent: Value(parsed.rawSmsContent),
@@ -70,6 +72,60 @@ class TransactionRepositoryImpl implements TransactionRepository {
       isAiCategorized: const Value(false),
       syncStatus: const Value(0),
     );
+  }
+
+  /// Variante avec externalId explicite (pour déduplication par hash)
+  TransactionsTableCompanion _parsedToCompanionWithId(
+    ParsedTransaction parsed,
+    String? categoryId,
+    String? accountId,
+    String externalId,
+  ) {
+    return TransactionsTableCompanion(
+      id: Value(_uuid.v4()),
+      amount: Value(parsed.amount),
+      type: Value(_transactionTypeToString(parsed.type)),
+      merchantName: Value(parsed.merchantName),
+      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
+      accountId: accountId != null ? Value(accountId) : const Value.absent(),
+      date: Value(parsed.date),
+      smsSender: Value(_operatorToString(parsed.operator)),
+      smsRawContent: Value(parsed.rawSmsContent),
+      externalId: Value(externalId),
+      isAiCategorized: const Value(false),
+      syncStatus: const Value(0),
+    );
+  }
+
+  /// Trouve le compte correspondant à l'opérateur SMS
+  Future<String?> _getAccountIdForOperator(MobileOperator operator) async {
+    String accountName;
+    switch (operator) {
+      case MobileOperator.airtelMoney:
+        accountName = 'Airtel Money';
+        break;
+      case MobileOperator.moovMoney:
+        accountName = 'Moov Money';
+        break;
+      case MobileOperator.uba:
+        accountName = 'UBA';
+        break;
+      case MobileOperator.unknown:
+        debugPrint('📱 [Account] Operator unknown');
+        return null;
+    }
+    debugPrint('📱 [Account] Looking for: $accountName');
+    final account =
+        await (_db.select(_db.accountsTable)
+              ..where((a) => a.name.equals(accountName))
+              ..where((a) => a.isActive.equals(true)))
+            .getSingleOrNull();
+    if (account != null) {
+      debugPrint('✅ [Account] Found: ${account.id}');
+    } else {
+      debugPrint('❌ [Account] Not found for $accountName');
+    }
+    return account?.id;
   }
 
   /// Tente de deviner la catégorie basée sur les mots-clés
@@ -200,13 +256,23 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<bool> addParsedTransaction(ParsedTransaction parsedTx) async {
-    // DÉDUPLICATION : Vérifie si une transaction avec le même external_id existe
-    if (parsedTx.transactionId.isNotEmpty) {
-      final exists = await existsByExternalId(parsedTx.transactionId);
-      if (exists) {
-        // Transaction déjà présente, on ignore
-        return false;
-      }
+    // Génère un externalId unique si vide (hash du contenu SMS)
+    String externalId = parsedTx.transactionId;
+    if (externalId.isEmpty) {
+      // Crée un ID unique basé sur: montant + date + contenu SMS hash
+      final contentKey =
+          '${parsedTx.amount}_${parsedTx.date.millisecondsSinceEpoch}_${parsedTx.rawSmsContent.hashCode}';
+      externalId = 'sms_$contentKey';
+      debugPrint('📥 [AddTransaction] Generated hash ID: $externalId');
+    } else {
+      debugPrint('📥 [AddTransaction] Using SMS transactionId: "$externalId"');
+    }
+
+    // DÉDUPLICATION : Vérifie si existe déjà
+    final exists = await existsByExternalId(externalId);
+    if (exists) {
+      debugPrint('⏭️ [Dedup] SKIPPED - already exists');
+      return false;
     }
 
     // Devine la catégorie
@@ -215,8 +281,19 @@ class TransactionRepositoryImpl implements TransactionRepository {
       parsedTx.rawSmsContent,
     );
 
-    // Convertit et insère la nouvelle transaction
-    final companion = _parsedToCompanion(parsedTx, categoryId);
+    // Trouve le compte correspondant à l'opérateur
+    final accountId = await _getAccountIdForOperator(parsedTx.operator);
+    debugPrint(
+      '🔗 [Transaction] Linking to account: $accountId for operator ${parsedTx.operator}',
+    );
+
+    // Convertit et insère avec l'externalId potentiellement généré
+    final companion = _parsedToCompanionWithId(
+      parsedTx,
+      categoryId,
+      accountId,
+      externalId,
+    );
     await _db.into(_db.transactionsTable).insert(companion);
     return true;
   }
@@ -231,6 +308,65 @@ class TransactionRepositoryImpl implements TransactionRepository {
         : transaction.copyWith(id: Value(_uuid.v4()));
 
     await _db.into(_db.transactionsTable).insert(companion);
+  }
+
+  /// Lie rétroactivement les transactions existantes aux comptes
+  /// basé sur le champ smsSender
+  Future<int> linkExistingTransactionsToAccounts() async {
+    int linkedCount = 0;
+
+    // Récupère les transactions sans accountId
+    final transactions = await (_db.select(
+      _db.transactionsTable,
+    )..where((t) => t.accountId.isNull())).get();
+
+    debugPrint(
+      '🔗 [LinkAccounts] Found ${transactions.length} transactions without accountId',
+    );
+
+    for (final tx in transactions) {
+      if (tx.smsSender == null) continue;
+
+      // Détermine l'opérateur depuis le smsSender stocké
+      String? accountName;
+      final sender = tx.smsSender!.toUpperCase();
+
+      if (sender.contains('AIRTEL') || sender == 'AIRTEL_MONEY') {
+        accountName = 'Airtel Money';
+      } else if (sender.contains('MOOV') || sender == 'MOOV_MONEY') {
+        accountName = 'Moov Money';
+      } else if (sender.contains('UBA')) {
+        accountName = 'UBA';
+      }
+
+      if (accountName == null) continue;
+
+      // Cherche le compte correspondant
+      final account =
+          await (_db.select(_db.accountsTable)
+                ..where((a) => a.name.equals(accountName!))
+                ..where((a) => a.isActive.equals(true)))
+              .getSingleOrNull();
+
+      if (account != null) {
+        // Met à jour la transaction avec l'accountId
+        await (_db.update(
+          _db.transactionsTable,
+        )..where((t) => t.id.equals(tx.id))).write(
+          TransactionsTableCompanion(
+            accountId: Value(account.id),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        linkedCount++;
+        debugPrint(
+          '✅ [LinkAccounts] Linked tx ${tx.id.substring(0, 8)} to ${account.name}',
+        );
+      }
+    }
+
+    debugPrint('🔗 [LinkAccounts] Total linked: $linkedCount');
+    return linkedCount;
   }
 
   @override
@@ -319,9 +455,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     query.where(_db.transactionsTable.type.equals('expense'));
     query.where(_db.transactionsTable.categoryId.equals('cat-epargne').not());
-    query.where(
-      _db.transactionsTable.date.isBetweenValues(startDate, endDate),
-    );
+    query.where(_db.transactionsTable.date.isBetweenValues(startDate, endDate));
 
     final results = await query.get();
 
@@ -434,7 +568,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<double> getTotalIncomeRange(DateTime startDate, DateTime endDate) async {
+  Future<double> getTotalIncomeRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final query = _db.select(_db.transactionsTable)
       ..where((t) => t.type.equals('income'))
       ..where((t) => t.date.isBetweenValues(startDate, endDate));
