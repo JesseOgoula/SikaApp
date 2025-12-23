@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/core/database/app_database.dart';
 import '../../data/providers/debt_providers.dart';
 import '../../domain/entities/debt.dart';
 import 'add_debt_screen.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 class DebtsScreen extends ConsumerStatefulWidget {
   const DebtsScreen({super.key});
@@ -72,157 +74,162 @@ class _DebtsList extends ConsumerWidget {
             final isPaid = debt.status == DebtStatus.paid;
             final isOverdue = debt.status == DebtStatus.overdue;
 
-            return GestureDetector(
-              onTap: () {
-                if (isPaid) return;
-                _showPaymentDialog(context, ref, debt);
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.grey.shade100, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    // Icône - Style unifié avec Transactions
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF5F7FA),
-                        shape: BoxShape.circle,
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  print('🔔 Debt tapped: ${debt.name}, isPaid: $isPaid');
+                  if (isPaid) return;
+                  _showPaymentDialog(context, ref, debt);
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade100, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Center(
-                        child: FaIcon(
-                          _getIconForType(debt.type),
-                          color: AppTheme.primaryColor,
-                          size: 18,
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Icône - Style unifié avec Transactions
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF5F7FA),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: FaIcon(
+                            _getIconForType(debt.type),
+                            color: AppTheme.primaryColor,
+                            size: 18,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
+                      const SizedBox(width: 14),
 
-                    // Infos
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            debt.name,
-                            style: const TextStyle(
-                              color: AppTheme.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Wrap(
-                            spacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text(
-                                isPaid ? 'Payé le' : 'Échéance :',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                dateFormat.format(debt.dueDate),
-                                style: TextStyle(
-                                  color: isOverdue && !isPaid
-                                      ? AppTheme.error
-                                      : AppTheme.textSecondary,
-                                  fontSize: 12,
-                                  fontWeight: isOverdue && !isPaid
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(width: 8),
-
-                    // Montant & Type
-                    SizedBox(
-                      width: 100, // Largeur fixe pour éviter les décalages
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            currencyFormat.format(debt.amount),
-                            style: TextStyle(
-                              color: isPaid
-                                  ? AppTheme.success
-                                  : AppTheme.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              decoration: isPaid
-                                  ? TextDecoration.lineThrough
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          // Indicateur de Type (Facture vs Dette)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: debt.type == DebtType.bill
-                                      ? Colors.orange.withOpacity(0.6)
-                                      : Colors.redAccent.withOpacity(0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                debt.type == DebtType.bill
-                                    ? 'Facture'
-                                    : 'Dette',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          // Badge de statut (Seulement si pertinent)
-                          if (isPaid || isOverdue)
+                      // Infos
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              _getStatusLabel(debt.status),
+                              debt.name,
+                              style: const TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  isPaid ? 'Payé le' : 'Échéance :',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  dateFormat.format(debt.dueDate),
+                                  style: TextStyle(
+                                    color: isOverdue && !isPaid
+                                        ? AppTheme.error
+                                        : AppTheme.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: isOverdue && !isPaid
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(width: 8),
+
+                      // Montant & Type
+                      SizedBox(
+                        width: 100, // Largeur fixe pour éviter les décalages
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              currencyFormat.format(debt.amount),
                               style: TextStyle(
-                                fontSize: 9,
                                 color: isPaid
                                     ? AppTheme.success
-                                    : AppTheme.error,
-                                fontWeight: FontWeight.bold,
+                                    : AppTheme.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                decoration: isPaid
+                                    ? TextDecoration.lineThrough
+                                    : null,
                               ),
                             ),
-                        ],
+                            const SizedBox(height: 2),
+                            // Indicateur de Type (Facture vs Dette)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: debt.type == DebtType.bill
+                                        ? Colors.orange.withOpacity(0.6)
+                                        : Colors.redAccent.withOpacity(0.6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  debt.type == DebtType.bill
+                                      ? 'Facture'
+                                      : 'Dette',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            // Badge de statut (Seulement si pertinent)
+                            if (isPaid || isOverdue)
+                              Text(
+                                _getStatusLabel(debt.status),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  color: isPaid
+                                      ? AppTheme.success
+                                      : AppTheme.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -248,27 +255,214 @@ class _DebtsList extends ConsumerWidget {
   }
 
   void _showPaymentDialog(BuildContext context, WidgetRef ref, Debt debt) {
+    // Get accounts synchronously before showing dialog
+    final accountsAsync = ref.read(activeAccountsProvider);
+
+    accountsAsync.when(
+      data: (accounts) {
+        // Now show dialog with the data we already have
+        _showPaymentDialogWithAccounts(context, ref, debt, accounts);
+      },
+      loading: () {
+        // If loading, show a simple snackbar and retry
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chargement des comptes...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      },
+      error: (e, _) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPaymentDialogWithAccounts(
+    BuildContext context,
+    WidgetRef ref,
+    Debt debt,
+    List<AccountsTableData> accounts,
+  ) {
+    String? selectedAccountId;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmer paiement ?'),
-        content: Text(
-          'Voulez-vous marquer "${debt.name}" comme payé ?\nCeci créera une transaction de dépense.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              ref.read(debtRepositoryProvider).markAsPaid(debt);
-              Navigator.pop(context);
-            },
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Confirmer paiement',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Marquer "${debt.name}" comme payé ?',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Retirer du compte :',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (accounts.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Aucun compte configuré. Ajoutez un compte d\'abord.',
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.grey.shade50,
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedAccountId,
+                            isExpanded: true,
+                            hint: const Text('Sélectionner un compte'),
+                            items: accounts.map((acc) {
+                              Color accColor;
+                              try {
+                                accColor = Color(
+                                  int.parse(
+                                    acc.color.replaceFirst('#', '0xFF'),
+                                  ),
+                                );
+                              } catch (_) {
+                                accColor = AppTheme.primaryColor;
+                              }
+                              return DropdownMenuItem<String>(
+                                value: acc.id,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: accColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(acc.name),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              setDialogState(() {
+                                selectedAccountId = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.error.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 18,
+                            color: AppTheme.error,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Une dépense de ${debt.amount.toStringAsFixed(0)} FCFA sera créée',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(
+                    'Annuler',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: selectedAccountId == null || accounts.isEmpty
+                      ? null
+                      : () async {
+                          await ref
+                              .read(debtRepositoryProvider)
+                              .markAsPaid(
+                                debt,
+                                createTransaction: true,
+                                accountId: selectedAccountId,
+                                categoryId: 'cat-factures',
+                              );
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${debt.name} marqué comme payé !',
+                                ),
+                                backgroundColor: AppTheme.success,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Confirmer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
