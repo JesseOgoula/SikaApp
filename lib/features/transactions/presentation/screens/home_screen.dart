@@ -26,6 +26,7 @@ import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
 import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
+import 'package:sika_app/features/analytics/presentation/widgets/health_score_badge.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
@@ -134,6 +135,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // qui réduit déjà totalBalance.
     final soldeDisponible = totalBalance - pendingBills;
 
+    // Calcul du score de santé financière (simplifié)
+    // Basé sur: taux d'épargne, ratio dette/revenu, ratio dépenses/revenus
+    double monthlyIncome = 0;
+    double monthlySavings = 0;
+    for (final txWithCat in transactions) {
+      final tx = txWithCat.transaction;
+      if (tx.date.isAfter(firstOfMonth)) {
+        if (tx.type == 'income') {
+          monthlyIncome += tx.amount;
+        } else if (tx.categoryId == 'cat-epargne') {
+          monthlySavings += tx.amount;
+        }
+      }
+    }
+
+    // Score basé sur 3 composantes:
+    // 1. Taux d'épargne (0-40 points): Épargne / Revenus
+    // 2. Ratio dette (0-30 points): inversement proportionnel aux dettes
+    // 3. Ratio dépenses (0-30 points): si dépenses < revenus = bon
+
+    double savingsScore = 0;
+    double expenseScore = 0;
+    double debtScore = 30; // Score max de base si pas de dette
+
+    if (monthlyIncome > 0) {
+      // Taux d'épargne : 20% = score max (40 points)
+      final savingsRate = monthlySavings / monthlyIncome;
+      savingsScore = (savingsRate * 200).clamp(0, 40).toDouble();
+
+      // Ratio dépenses : si dépenses < 80% des revenus = bon score
+      final expenseRate = monthlyExpenses / monthlyIncome;
+      expenseScore = ((1 - expenseRate) * 60).clamp(0, 30).toDouble();
+
+      // Ratio dette : si dette < 30% des revenus = bon score
+      final debtRatio = pendingBills / monthlyIncome;
+      debtScore = ((1 - debtRatio) * 30).clamp(0, 30).toDouble();
+    } else {
+      // Pas de revenu ce mois : score basé sur le solde disponible
+      if (soldeDisponible > 0) {
+        expenseScore = 15; // Score moyen
+        savingsScore = 10;
+      }
+    }
+
+    final healthScore = (savingsScore + debtScore + expenseScore).round().clamp(
+      0,
+      100,
+    );
+
     // Layout sans scroll vertical
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -156,6 +206,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   amount: soldeDisponible,
                   subtitle: 'Compte principal',
                   showSubtitle: true,
+                  healthScore: healthScore,
                 ),
               ),
               // Carte 2 : Solde Total
@@ -166,6 +217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   amount: totalIncomeAllTime,
                   subtitle: 'Tous comptes confondus',
                   showSubtitle: false,
+                  healthScore: healthScore,
                 ),
               ),
             ],
@@ -266,14 +318,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required double amount,
     required String subtitle,
     required bool showSubtitle,
+    required int healthScore,
   }) {
     final user = Supabase.instance.client.auth.currentUser;
     final metadata = user?.userMetadata ?? {};
     final locale =
         (metadata['locale'] ?? metadata['preferred_locale'] ?? 'fr-GA')
             as String;
-    debugPrint('SIKA_DEBUG: User Metadata: $metadata');
-    debugPrint('SIKA_DEBUG: Selected Locale: $locale');
     final userInfo = _getCountryAndCurrency(locale);
 
     // Date et Heure "de connexion" (Heure actuelle simulée pour le design)
@@ -326,6 +377,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
+              // Health Score Badge
+              HealthScoreBadge(score: healthScore, size: 42),
             ],
           ),
 

@@ -4,32 +4,34 @@ import 'package:sika_app/core/theme/app_theme.dart';
 class HealthScoreCard extends StatelessWidget {
   final int healthScore;
 
-  const HealthScoreCard({
-    super.key,
-    required this.healthScore,
-  });
+  const HealthScoreCard({super.key, required this.healthScore});
 
   @override
   Widget build(BuildContext context) {
+    // Couleur progressive du rouge (0) au vert (100)
     Color scoreColor;
     String label;
     String description;
 
     if (healthScore >= 80) {
-      scoreColor = AppTheme.success;
+      scoreColor = const Color(0xFF22C55E); // Vert vif
       label = 'Excellent';
       description = 'Votre santé financière est au top ! Continuez ainsi.';
     } else if (healthScore >= 60) {
-      scoreColor = AppTheme.primaryColor;
+      scoreColor = const Color(0xFF84CC16); // Vert-lime
       label = 'Bonne';
       description =
           'Vous gérez bien, mais quelques ajustements sont possibles.';
     } else if (healthScore >= 40) {
-      scoreColor = Colors.orange;
+      scoreColor = const Color(0xFFFBBF24); // Jaune-orange
       label = 'Moyenne';
       description = 'Attention à vos dépenses. Essayez d\'épargner plus.';
+    } else if (healthScore >= 20) {
+      scoreColor = const Color(0xFFF97316); // Orange
+      label = 'Faible';
+      description = 'Votre situation nécessite une attention particulière.';
     } else {
-      scoreColor = AppTheme.error;
+      scoreColor = const Color(0xFFEF4444); // Rouge
       label = 'Critique';
       description = 'Action requise ! Revoyez votre budget et vos dettes.';
     }
@@ -68,7 +70,7 @@ class HealthScoreCard extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                   Text(
+                  Text(
                     '$healthScore',
                     style: TextStyle(
                       fontSize: 24,
