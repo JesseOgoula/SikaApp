@@ -79,6 +79,8 @@ class NotificationController {
       channelDescription: channelDescription,
       importance: Importance.high,
       priority: Priority.high,
+      color: Color(0xFF1A237E), // Bleu Nuit
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
     );
 
     const details = NotificationDetails(android: androidDetails);
@@ -97,7 +99,7 @@ class NotificationController {
     required String merchant,
     required bool isExpense,
   }) async {
-    final emoji = isExpense ? '💸' : '💰';
+    final emoji = isExpense ? '💸' : '🎯';
     final type = isExpense ? 'Dépense' : 'Revenu';
 
     await showSimpleNotification(
@@ -125,6 +127,8 @@ class NotificationController {
       channelDescription: channelDescription,
       importance: Importance.high,
       priority: Priority.high,
+      color: Color(0xFF1A237E), // Bleu Nuit
+      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       actions: [
         AndroidNotificationAction(actionValidate, '✅ Valider'),
         AndroidNotificationAction(actionReject, '🗑️ Rejeter'),

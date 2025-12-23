@@ -10,6 +10,7 @@ import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/features/sms_parser/domain/entities/parsed_transaction.dart';
 import 'package:sika_app/features/sms_parser/data/services/sms_parser_service.dart';
+import 'package:sika_app/features/sms_parser/data/services/sms_parser_worker.dart';
 
 /// Service d'écoute des SMS avec polling intelligent
 ///
@@ -129,8 +130,8 @@ class BackgroundSmsService {
     // Vérifie si c'est un SMS financier
     if (!_parser.isFinancialSms(sender, body)) return false;
 
-    // Parse le SMS
-    final parsed = _parser.parseSms(sender, body, receivedAt: message.date);
+    // Parse le SMS via un isolat pour ne pas bloquer l'UI
+    final parsed = await SmsParserWorker.parse(sender, body, date: message.date);
 
     if (parsed == null) return false;
 

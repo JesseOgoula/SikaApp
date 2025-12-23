@@ -103,27 +103,47 @@ abstract class TransactionRepository {
   /// Marque une liste de transactions comme synchronisées
   Future<void> markMultipleAsSynced(List<String> ids);
 
-  /// Récupère les dépenses groupées par catégorie pour un mois donné
-  ///
-  /// [month] : Le mois à analyser (seuls année et mois sont utilisés)
-  /// Retourne la liste des stats par catégorie (trié par montant décroissant)
   Future<List<CategoryStat>> getExpensesByCategory(DateTime month);
 
+  /// Récupère les dépenses groupées par catégorie pour une période donnée
+  Future<List<CategoryStat>> getExpensesByCategoryRange(
+    DateTime startDate,
+    DateTime endDate,
+  );
+
   /// Récupère le résumé quotidien des transactions pour un mois
-  ///
-  /// [month] : Le mois à analyser
-  /// Retourne une liste de DailySummary avec revenus et dépenses par jour
   Future<List<DailySummary>> getDailySummary(DateTime month);
+
+  /// Récupère le résumé quotidien pour une période donnée
+  Future<List<DailySummary>> getDailySummaryRange(
+    DateTime startDate,
+    DateTime endDate,
+  );
 
   /// Récupère le total des revenus pour un mois
   Future<double> getTotalIncome(DateTime month);
 
+  /// Récupère le total des revenus pour une période donnée
+  Future<double> getTotalIncomeRange(DateTime startDate, DateTime endDate);
+
   /// Récupère le total des dépenses pour un mois
   Future<double> getTotalExpense(DateTime month);
+
+  /// Récupère le total des dépenses pour une période donnée
+  Future<double> getTotalExpenseRange(DateTime startDate, DateTime endDate);
+
+  /// Récupère le total des économies (cat-epargne) pour une période donnée
+  Future<double> getTotalSavingsRange(DateTime startDate, DateTime endDate);
 
   /// Récupère le total de tous les revenus depuis la création du compte
   Future<double> getTotalIncomeAllTime();
 
   /// Récupère le total de toutes les dépenses depuis la création du compte
   Future<double> getTotalExpenseAllTime();
+
+  /// Écoute le total de tous les revenus en temps réel
+  Stream<double> watchTotalIncomeAllTime();
+
+  /// Écoute le total de toutes les dépenses en temps réel
+  Stream<double> watchTotalExpenseAllTime();
 }

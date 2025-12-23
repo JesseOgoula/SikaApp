@@ -43,6 +43,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 // Partie scrollable
                 Expanded(
                   child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
                         _buildSyncSection(syncStatus),
@@ -368,31 +369,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildFooter() {
-    return Column(
-      children: [
-        Text(
-          'SIKA',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryColor,
-            letterSpacing: 2,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Made with ❤️ in Gabon',
-          style: TextStyle(
-            fontSize: 11,
-            color: AppTheme.textSecondary.withOpacity(0.7),
-          ),
-        ),
-        const SizedBox(height: 32),
-      ],
-    );
-  }
-
   // ============= DIALOGS =============
 
   void _confirmDeleteAllData() {
@@ -404,7 +380,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Icon(Icons.delete_sweep_outlined, color: AppTheme.error),
             const SizedBox(width: 12),
-            const Text('Effacer les données'),
+            const Expanded(child: Text('Effacer les données')),
           ],
         ),
         content: const Text(
@@ -473,12 +449,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Icon(Icons.person_remove_outlined, color: AppTheme.error),
             const SizedBox(width: 12),
-            Expanded(
-              child: const Text(
-                'Supprimer le compte',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+            const Expanded(child: Text('Supprimer le compte')),
           ],
         ),
         content: SingleChildScrollView(

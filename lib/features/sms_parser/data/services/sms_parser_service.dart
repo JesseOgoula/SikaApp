@@ -14,8 +14,8 @@ class SmsParserService {
   /// Expéditeurs Airtel Money connus
   static final List<String> _airtelSenders = [
     'airtelmoney',
-    'airtel',
-    'airtel money',
+    'Airtel',
+    'AirtelMoney',
     'am',
     '6100',
     '6200',
@@ -37,7 +37,7 @@ class SmsParserService {
     'uba',
     'ubagab', // Format réel UBA Gabon
     'ubagroup',
-    'uba gabon',
+    'UBAGAB',
     '5500',
   ];
 
@@ -153,8 +153,65 @@ class SmsParserService {
   /// TRANSACTION UBA GÉNÉRIQUE (avec montant)
   /// Capture tout SMS avec un montant et "FCFA"
   static final RegExp _ubaGeneric = RegExp(
-    r'([\d\s,\.]+)\s*(?:FCFA|F|XAF)',
+    r'(?:XAF|FCFA|F)\s*([\d\s,\.]+)|([\d\s,\.]+)\s*(?:FCFA|F|XAF)',
     caseSensitive: false,
+    unicode: true,
+  );
+
+  /// NOUVEAU FORMAT MOOV RÉCEPTION
+  /// Exemple: "Ref:CHM35PYK6N. Vous avez recu un montant de 1500,00 FCFA du compte R1010304..."
+  static final RegExp _moovReceiveNew = RegExp(
+    r'Vous\s+avez\s+recu\s+un\s+montant\s+de\s*([\d\s,\.]+)\s*FCFA\s+du\s+compte\s+(.+?)\s+le',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// NOUVEAU FORMAT MOOV ACHAT EDAN
+  /// Exemple: "Votre achat de code EDAN pour le compteur No... Montant Total: 65000,00 FCFA;"
+  static final RegExp _moovEdan = RegExp(
+    r'Votre\s+achat\s+de\s+code\s+EDAN.*?Montant\s+Total:\s*([\d\s,\.]+)\s*FCFA',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// NOUVEAU FORMAT AIRTEL PAIEMENT SEEG
+  /// Exemple: "Vous avez PAYE 5000 FCFA a SEEG... Montant: total : 5000 F CFA"
+  static final RegExp _airtelSeeg = RegExp(
+    r'Vous\s+avez\s+PAYE\s+([\d\s,\.]+)\s*FCFA\s+a\s+SEEG',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// NOUVEAU FORMAT AIRTEL RÉCEPTION AVEC NOM DÉTAILLÉ
+  /// Exemple: "Vous avez recu 5150F du 077380120,FLORENCE NTEMANE EPSE NZE ENDENG."
+  static final RegExp _airtelReceiveNameDetail = RegExp(
+    r'Vous\s+avez\s+recu\s*([\d\s,\.]+)\s*F\s+du\s+[\d]+,(.+?)(?:\.|\s+Nouveau)',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// NOUVEAU FORMAT AIRTEL TRANSFERT AVEC NOM DÉTAILLÉ
+  /// Exemple: "Vous avez envoye 1030F au 077815981 SIMON P MENGWA.Frais 50F."
+  static final RegExp _airtelSendNameDetail = RegExp(
+    r'Vous\s+avez\s+envoye\s*([\d\s,\.]+)\s*F\s+au\s+[\d\s]+(.+?)(?:\.|\s+Frais)',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// NOUVEAU FORMAT AIRTEL RETRAIT
+  /// Exemple: "RETRAIT de 10000 FCFA reussi vers A81344."
+  static final RegExp _airtelWithdrawNew = RegExp(
+    r'RETRAIT\s+de\s*([\d\s,\.]+)\s*FCFA\s+reussi\s+vers\s+(.+?)(?:\.|\s+Solde)',
+    caseSensitive: false,
+    unicode: true,
+  );
+
+  /// FORMAT UBA TXN CREDIT/DEBIT
+  /// Exemple: "Txn: CREDIT Montant: XAF701,874.00 Compte: 8XX..64X Desc: ORGANISATION..."
+  static final RegExp _ubaTxn = RegExp(
+    r'Txn:\s*(CREDIT|DEBIT).*?Montant:\s*(?:XAF|FCFA|F)\s*([\d\s,\.]+).*?Desc:\s*(.+?)\s*Date:',
+    caseSensitive: false,
+    dotAll: true,
     unicode: true,
   );
 
@@ -184,27 +241,44 @@ class SmsParserService {
   double? _parseAmount(String amountStr) {
     if (amountStr.isEmpty) return null;
 
-    // Supprime tous les espaces et caractères non numériques sauf virgule et point
-    String cleaned = amountStr
-        .replaceAll(RegExp(r'[\s\u00A0\u202F]+'), '') // Tous types d'espaces
-        .replaceAll('FCFA', '')
-        .replaceAll('F', '')
-        .replaceAll('XAF', '')
-        .trim();
+    // Nettoyage agressif des caractères non numériques sauf virgule et point
+    // On garde les chiffres et les séparateurs potentiels
+    String cleaned = amountStr.trim();
+    
+    // Si on a XAF701,874.00, on veut extraire juste le chiffre
+    final numericMatch = RegExp(r'[\d\s,.]+').firstMatch(cleaned);
+    if (numericMatch == null) return null;
+    cleaned = numericMatch.group(0)!;
 
-    // Gère le format européen (10.000,50 → 10000.50)
+    // Supprime tous les espaces (y compris espaces insécables Moov/Airtel)
+    cleaned = cleaned.replaceAll(RegExp(r'[\s\u00A0\u202F]+'), '');
+
+    // Logique de conversion selon le format détecté
     if (cleaned.contains(',') && cleaned.contains('.')) {
-      // Format: 10.000,50
-      cleaned = cleaned.replaceAll('.', '').replaceAll(',', '.');
+      // Format mixte (ex: 1.234,56 ou 1,234.56)
+      // Si le point est après la virgule, virgule=milliers, point=décimal
+      if (cleaned.indexOf('.') > cleaned.indexOf(',')) {
+        cleaned = cleaned.replaceAll(',', '');
+      } else {
+        // Sinon l'inverse
+        cleaned = cleaned.replaceAll('.', '').replaceAll(',', '.');
+      }
     } else if (cleaned.contains(',')) {
-      // Vérifie si la virgule est un séparateur décimal ou de milliers
+      // Cas de 1500,00 ou 701,874
+      // Si la virgule est suivie de exactement 2 chiffres à la FIN, c'est probablement un décimal
       final parts = cleaned.split(',');
-      if (parts.length == 2 && parts[1].length <= 2) {
-        // Format décimal: 1000,50
+      if (parts.length == 2 && (parts[1].length == 2 || parts[1].length == 1)) {
         cleaned = cleaned.replaceAll(',', '.');
       } else {
-        // Format milliers: 10,000
+        // Sinon c'est un séparateur de milliers
         cleaned = cleaned.replaceAll(',', '');
+      }
+    } else if (cleaned.contains('.')) {
+      // Cas de 701.874 (milliers) ou 1500.00 (décimal)
+      final parts = cleaned.split('.');
+      // Si plus d'un point, ou si le dernier segment n'est pas de longueur 2
+      if (parts.length > 2 || (parts.length == 2 && parts[1].length > 2)) {
+        cleaned = cleaned.replaceAll('.', '');
       }
     }
 
@@ -273,7 +347,79 @@ class SmsParserService {
     final tid = _extractTid(body);
     RegExpMatch? match;
 
-    // 1. PAIEMENT EBILLING
+    // 1. PAIEMENT SEEG DÉTAILLÉ (NOUVEAU)
+    match = _airtelSeeg.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(1) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: 'SEEG (EDAN/EAU)',
+          transactionId: tid,
+          date: date,
+          type: TransactionType.expense,
+          operator: MobileOperator.airtelMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 2. RÉCEPTION AVEC NOM (NOUVEAU)
+    match = _airtelReceiveNameDetail.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(1) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: _cleanMerchantName(match.group(2) ?? 'Reçu'),
+          transactionId: tid,
+          date: date,
+          type: TransactionType.income,
+          operator: MobileOperator.airtelMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 3. TRANSFERT / ENVOI AVEC NOM (NOUVEAU)
+    match = _airtelSendNameDetail.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(1) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: _cleanMerchantName(match.group(2) ?? 'Envoi'),
+          transactionId: tid,
+          date: date,
+          type: TransactionType.transfer,
+          operator: MobileOperator.airtelMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 4. RETRAIT (NOUVEAU FORMAT)
+    match = _airtelWithdrawNew.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(1) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: 'Retrait Airtel Money',
+          transactionId: _cleanMerchantName(match.group(2) ?? ''),
+          date: date,
+          type: TransactionType.expense,
+          operator: MobileOperator.airtelMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 5. PAIEMENT EBILLING
     match = _airtelPaymentEbilling.firstMatch(body);
     if (match != null) {
       final amount = _parseAmount(match.group(1) ?? '');
@@ -413,7 +559,43 @@ class SmsParserService {
     ).firstMatch(body);
     final ref = refMatch?.group(1) ?? '';
 
-    // 1. TRANSFERT
+    // 1. RÉCEPTION NOUVEAU FORMAT (NOUVEAU)
+    match = _moovReceiveNew.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(1) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: _cleanMerchantName(match.group(2) ?? 'Reçu'),
+          transactionId: ref,
+          date: date,
+          type: TransactionType.income,
+          operator: MobileOperator.moovMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 2. ACHAT EDAN (NOUVEAU)
+    match = _moovEdan.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(1) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: 'EDAN (Moov)',
+          transactionId: ref,
+          date: date,
+          type: TransactionType.expense,
+          operator: MobileOperator.moovMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 3. TRANSFERT
     match = _moovTransfer.firstMatch(body);
     if (match != null) {
       final amount = _parseAmount(match.group(1) ?? '');
@@ -488,7 +670,28 @@ class SmsParserService {
 
     RegExpMatch? match;
 
-    // 1. DÉBIT
+    // 1. FORMAT TXN DÉTAILLÉ (NOUVEAU)
+    match = _ubaTxn.firstMatch(body);
+    if (match != null) {
+      final typeStr = match.group(1)?.toUpperCase();
+      final amount = _parseAmount(match.group(2) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName: _cleanMerchantName(match.group(3) ?? 'Transaction UBA'),
+          transactionId: ref,
+          date: date,
+          type: typeStr == 'CREDIT'
+              ? TransactionType.income
+              : TransactionType.expense,
+          operator: MobileOperator.uba,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 2. DÉBIT
     match = _ubaDebit.firstMatch(body);
     if (match != null) {
       final amount = _parseAmount(match.group(1) ?? '');

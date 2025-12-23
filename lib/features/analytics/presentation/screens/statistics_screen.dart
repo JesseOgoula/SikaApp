@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:sika_app/core/database/app_database.dart';
 
@@ -12,6 +14,7 @@ import 'package:sika_app/features/analytics/domain/entities/category_stat.dart';
 import 'package:sika_app/features/analytics/domain/entities/daily_summary.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
+import 'package:sika_app/features/analytics/presentation/widgets/health_score_card.dart';
 
 /// Dashboard Analytics - Redesign Premium avec Financial Health Score
 class StatisticsScreen extends ConsumerStatefulWidget {
@@ -21,8 +24,10 @@ class StatisticsScreen extends ConsumerStatefulWidget {
   ConsumerState<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
+enum AnalysisPeriod { sevenDays, thisMonth, threeMonths, year }
+
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
-  DateTime _selectedMonth = DateTime.now();
+  AnalysisPeriod _selectedPeriod = AnalysisPeriod.thisMonth;
   final int _touchedPieIndex = -1;
 
   // Données
@@ -36,7 +41,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   double _totalPendingDebt = 0;
   int _healthScore = 0;
   List<TransactionWithCategory> _topTransactions = [];
+  Map<DateTime, List<TransactionWithCategory>> _groupedTransactions = {};
   bool _isLoading = true;
+  bool _isBackgroundLoading = false;
 
   final _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',
@@ -50,25 +57,53 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool showLoader = true}) async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      if (showLoader) {
+        _isLoading = true;
+      } else {
+        _isBackgroundLoading = true;
+      }
+    });
 
     try {
       final db = ref.read(databaseProvider);
       final repo = TransactionRepositoryImpl(db);
       final goalRepo = ref.read(goalRepositoryProvider);
       final debtRepo = ref.read(debtRepositoryProvider);
-      final prevMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+      final now = DateTime.now();
+      DateTime startDate;
+      DateTime endDate = now;
+
+      switch (_selectedPeriod) {
+        case AnalysisPeriod.sevenDays:
+          startDate = now.subtract(const Duration(days: 7));
+          break;
+        case AnalysisPeriod.thisMonth:
+          startDate = DateTime(now.year, now.month, 1);
+          endDate = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+          break;
+        case AnalysisPeriod.threeMonths:
+          startDate = DateTime(now.year, now.month - 2, 1);
+          break;
+        case AnalysisPeriod.year:
+          startDate = DateTime(now.year, 1, 1);
+          break;
+      }
+
+      final prevStartDate = startDate.subtract(endDate.difference(startDate));
+      final prevEndDate = startDate.subtract(const Duration(seconds: 1));
 
       final results = await Future.wait([
-        repo.getExpensesByCategory(_selectedMonth),
-        repo.getDailySummary(_selectedMonth),
-        repo.getTotalIncome(_selectedMonth),
-        repo.getTotalExpense(_selectedMonth),
-        goalRepo.getTotalSavedAmount(),
-        repo.getTotalIncome(prevMonth),
-        repo.getTotalExpense(prevMonth),
+        repo.getExpensesByCategoryRange(startDate, endDate),
+        repo.getDailySummaryRange(startDate, endDate),
+        repo.getTotalIncomeRange(startDate, endDate),
+        repo.getTotalExpenseRange(startDate, endDate),
+        repo.getTotalSavingsRange(startDate, endDate),
+        repo.getTotalIncomeRange(prevStartDate, prevEndDate),
+        repo.getTotalExpenseRange(prevStartDate, prevEndDate),
+        repo.getTotalSavingsRange(prevStartDate, prevEndDate),
         db.select(db.transactionsTable).join([
           leftOuterJoin(
             db.categoriesTable,
@@ -79,17 +114,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       ]);
 
       final allTxs = results[7] as List<TypedResult>;
-      final monthStart = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-      final monthEnd = DateTime(
-        _selectedMonth.year,
-        _selectedMonth.month + 1,
-        0,
-        23,
-        59,
-        59,
-      );
 
-      final filteredTop = allTxs
+      final filteredTxs = allTxs
           .map(
             (row) => TransactionWithCategory(
               transaction: row.readTable(db.transactionsTable),
@@ -98,37 +124,42 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           )
           .where(
             (t) =>
-                t.transaction.type == 'expense' &&
                 t.transaction.date.isAfter(
-                  monthStart.subtract(const Duration(seconds: 1)),
+                  startDate.subtract(const Duration(seconds: 1)),
                 ) &&
                 t.transaction.date.isBefore(
-                  monthEnd.add(const Duration(seconds: 1)),
+                  endDate.add(const Duration(seconds: 1)),
                 ),
           )
           .toList();
-      filteredTop.sort(
-        (a, b) => b.transaction.amount.compareTo(a.transaction.amount),
-      );
+
+      filteredTxs.sort((a, b) => b.transaction.date.compareTo(a.transaction.date));
+
+      // Group par jour
+      final grouped = <DateTime, List<TransactionWithCategory>>{};
+      for (var tx in filteredTxs) {
+        final date = DateTime(
+          tx.transaction.date.year,
+          tx.transaction.date.month,
+          tx.transaction.date.day,
+        );
+        if (grouped[date] == null) grouped[date] = [];
+        grouped[date]!.add(tx);
+      }
 
       final income = results[2] as double;
       final expense = results[3] as double;
       final savings = results[4] as double;
-      final pendingDebt = results[8] as double;
+      final pendingDebt = results[9] as double;
 
-      // Calcul du Score de Santé Financière (0-100)
-      // 1. Taux d'épargne (40 pts max)
+      // Calcul du Score de Santé Financière
+      // L'épargne est maintenant le montant mis de côté DURANT la période
       final savingsRate = income > 0 ? (savings / income * 100) : 0.0;
-      final savingsScore = (savingsRate * 2.0).clamp(0, 40).toDouble();
-
-      // 2. Gestion de la dette (30 pts max)
+      final savingsScore = (savingsRate * 2.5).clamp(0, 40).toDouble(); // Réajusté
       final debtRatio = income > 0 ? (pendingDebt / income) : 0.0;
       final debtScore = (30 - (debtRatio * 50)).clamp(0, 30).toDouble();
-
-      // 3. Liquidité / Urgence (30 pts max)
       final liquidityRatio = expense > 0 ? (savings / expense) : 0.0;
       final liquidityScore = (liquidityRatio * 10).clamp(0, 30).toDouble();
-
       final totalScore = (savingsScore + debtScore + liquidityScore).round();
 
       if (mounted) {
@@ -142,30 +173,22 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           _prevExpense = results[6] as double;
           _totalPendingDebt = pendingDebt;
           _healthScore = totalScore;
-          _topTransactions = filteredTop.take(5).toList();
+          _groupedTransactions = grouped;
           _isLoading = false;
+          _isBackgroundLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isBackgroundLoading = false;
+        });
       }
     }
   }
 
-  void _previousMonth() {
-    setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
-    });
-    _loadData();
-  }
-
-  void _nextMonth() {
-    setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
-    });
-    _loadData();
-  }
+  // Suppression des anciennes méthodes de mois
 
   @override
   Widget build(BuildContext context) {
@@ -191,199 +214,124 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           : RefreshIndicator(
               onRefresh: _loadData,
               color: AppTheme.primaryColor,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildMonthSelector(),
-                    const SizedBox(height: 24),
-                    _buildHealthScoreSection(),
-                    const SizedBox(height: 24),
-                    _buildOverviewSection(),
-                    const SizedBox(height: 24),
-                    _buildTrendSection(),
-                    const SizedBox(height: 24),
-                    _buildCategorySection(),
-                    const SizedBox(height: 24),
-                    _buildTopExpensesSection(),
-                    const SizedBox(height: 40),
+              child: Stack(
+              children: [
+                CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    if (_isBackgroundLoading)
+                      SliverToBoxAdapter(
+                        child: LinearProgressIndicator(
+                          color: AppTheme.primaryColor.withOpacity(0.5),
+                          backgroundColor: Colors.transparent,
+                          minHeight: 2,
+                        ),
+                      ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: _buildPeriodSelector(),
+                      ),
+                    ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildHealthScoreSection(),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildOverviewSection(),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildTrendSection(),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildCategorySection(),
+                    ),
+                  ),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                      sliver: _buildTimelineSliver(),
+                    ),
                   ],
                 ),
-              ),
+              ],
             ),
+          ),
     );
   }
 
-  Widget _buildMonthSelector() {
-    final monthName = DateFormat('MMMM yyyy', 'fr_FR').format(_selectedMonth);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  Widget _buildPeriodSelector() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: AppTheme.primaryColor),
-            onPressed: _previousMonth,
-          ),
-          Text(
-            monthName[0].toUpperCase() + monthName.substring(1),
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+        children: AnalysisPeriod.values.map((period) {
+          final isSelected = _selectedPeriod == period;
+          String label;
+          switch (period) {
+            case AnalysisPeriod.sevenDays:
+              label = '7 jours';
+              break;
+            case AnalysisPeriod.thisMonth:
+              label = 'Ce mois';
+              break;
+            case AnalysisPeriod.threeMonths:
+              label = '3 mois';
+              break;
+            case AnalysisPeriod.year:
+              label = 'Cette année';
+              break;
+          }
+
+          return GestureDetector(
+            onTap: () {
+              if (_isBackgroundLoading) return;
+              HapticFeedback.lightImpact();
+              setState(() => _selectedPeriod = period);
+              _loadData(showLoader: false);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryColor : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: AppTheme.primaryColor.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        )
+                      ]
+                    : [],
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right, color: AppTheme.primaryColor),
-            onPressed: _nextMonth,
-          ),
-        ],
+          );
+        }).toList(),
       ),
     );
   }
 
   Widget _buildHealthScoreSection() {
-    Color scoreColor;
-    String label;
-    String description;
-
-    if (_healthScore >= 80) {
-      scoreColor = AppTheme.success;
-      label = 'Excellent';
-      description = 'Votre santé financière est au top ! Continuez ainsi.';
-    } else if (_healthScore >= 60) {
-      scoreColor = AppTheme.primaryColor;
-      label = 'Bonne';
-      description =
-          'Vous gérez bien, mais quelques ajustements sont possibles.';
-    } else if (_healthScore >= 40) {
-      scoreColor = Colors.orange;
-      label = 'Moyenne';
-      description = 'Attention à vos dépenses. Essayez d\'épargner plus.';
-    } else {
-      scoreColor = AppTheme.error;
-      label = 'Critique';
-      description = 'Action requise ! Revoyez votre budget et vos dettes.';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            scoreColor.withOpacity(0.15),
-            scoreColor.withOpacity(0.05),
-            Colors.white,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: scoreColor.withOpacity(0.1), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 80,
-                height: 80,
-                child: CircularProgressIndicator(
-                  value: _healthScore / 100,
-                  strokeWidth: 8,
-                  backgroundColor: scoreColor.withOpacity(0.1),
-                  color: scoreColor,
-                  strokeCap: StrokeCap.round,
-                ),
-              ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '$_healthScore',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: scoreColor,
-                    ),
-                  ),
-                  const Text(
-                    '/100',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: scoreColor,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Score de santé',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                    height: 1.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+    return HealthScoreCard(healthScore: _healthScore);
   }
 
   Widget _buildOverviewSection() {
@@ -428,7 +376,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 amount: _totalIncome,
                 trend: incomeTrend,
                 color: AppTheme.success,
-                icon: Icons.south_west_rounded,
+                icon: FontAwesomeIcons.arrowTrendUp,
               ),
             ),
             const SizedBox(width: 12),
@@ -438,7 +386,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 amount: _totalExpense,
                 trend: expenseTrend,
                 color: AppTheme.error,
-                icon: Icons.north_east_rounded,
+                icon: FontAwesomeIcons.arrowTrendDown,
                 invertTrendColor: true,
               ),
             ),
@@ -452,8 +400,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 label: 'Épargne',
                 amount: _totalSavings,
                 trend: 0,
-                color: Colors.blue,
-                icon: Icons.savings_outlined,
+                color: AppTheme.secondaryColor,
+                icon: FontAwesomeIcons.piggyBank,
               ),
             ),
             const SizedBox(width: 12),
@@ -462,8 +410,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 label: 'Dettes',
                 amount: _totalPendingDebt,
                 trend: 0,
-                color: Colors.orange,
-                icon: Icons.credit_card_off_outlined,
+                color: AppTheme.primaryColor,
+                icon: FontAwesomeIcons.creditCard,
               ),
             ),
           ],
@@ -549,10 +497,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: const Color(0xFFF5F7FA),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 14),
+                child: Center(
+                  child: FaIcon(
+                    icon,
+                    color: AppTheme.primaryColor,
+                    size: 14,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Text(
@@ -853,24 +807,142 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  Widget _buildTopExpensesSection() {
-    if (_topTransactions.isEmpty) return const SizedBox.shrink();
+  Widget _buildTimelineSliver() {
+    if (_groupedTransactions.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Grosses dépenses',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ..._topTransactions.map((tx) => _buildTopExpenseTile(tx)),
-      ],
+    final sortedDates = _groupedTransactions.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (index == 0) {
+            return const Padding(
+              padding: EdgeInsets.only(bottom: 16),
+              child: Text(
+                'Historique des opérations',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            );
+          }
+
+          final dateIndex = index - 1;
+          if (dateIndex >= sortedDates.length) return null;
+
+          final date = sortedDates[dateIndex];
+          final txs = _groupedTransactions[date]!;
+          final isToday = DateUtils.isSameDay(date, DateTime.now());
+          final dateLabel = isToday
+              ? "Aujourd'hui"
+              : DateFormat('EEEE d MMMM', 'fr_FR').format(date);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12, top: 8),
+                child: Text(
+                  dateLabel[0].toUpperCase() + dateLabel.substring(1),
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              ...txs.map((tx) => _buildFluidTransactionTile(tx)),
+            ],
+          );
+        },
+        childCount: sortedDates.length + 1,
+      ),
     );
+  }
+
+  Widget _buildFluidTransactionTile(TransactionWithCategory txWithCategory) {
+    final tx = txWithCategory.transaction;
+    final category = txWithCategory.category;
+    final isIncome = tx.type == 'income';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5F7FA),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: FaIcon(
+                _getCategoryIcon(category?.iconKey),
+                color: AppTheme.primaryColor,
+                size: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tx.merchantName ?? 'Transaction',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppTheme.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  category?.name ?? 'Divers',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary.withOpacity(0.7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${isIncome ? '+' : '-'}${_currencyFormat.format(tx.amount)} F',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              color: isIncome ? AppTheme.success : AppTheme.textPrimary,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopExpensesSection() {
+    return const SizedBox.shrink(); // Méthode obsolete remplacée par Timeline
   }
 
   Widget _buildTopExpenseTile(TransactionWithCategory tx) {
@@ -892,17 +964,17 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _parseColor(tx.category?.color).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(14),
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5F7FA),
+              shape: BoxShape.circle,
             ),
             child: Center(
-              child: Icon(
+              child: FaIcon(
                 _getCategoryIcon(tx.category?.iconKey),
-                color: _parseColor(tx.category?.color),
-                size: 22,
+                color: AppTheme.primaryColor,
+                size: 18,
               ),
             ),
           ),
@@ -960,23 +1032,30 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   }
 
   IconData _getCategoryIcon(String? iconKey) {
+    if (iconKey == null) return FontAwesomeIcons.receipt;
     switch (iconKey) {
       case 'utensils':
-        return Icons.restaurant;
+        return FontAwesomeIcons.utensils;
       case 'taxi':
-        return Icons.local_taxi;
+        return FontAwesomeIcons.taxi;
       case 'bolt':
-        return Icons.bolt;
+        return FontAwesomeIcons.bolt;
       case 'heartPulse':
-        return Icons.favorite;
+        return FontAwesomeIcons.heartPulse;
       case 'exchangeAlt':
-        return Icons.swap_horiz;
+        return FontAwesomeIcons.rightLeft;
       case 'gamepad':
-        return Icons.sports_esports;
+        return FontAwesomeIcons.gamepad;
       case 'piggyBank':
-        return Icons.savings;
+        return FontAwesomeIcons.piggyBank;
+      case 'question':
+        return FontAwesomeIcons.receipt;
+      case 'moneyBill':
+        return FontAwesomeIcons.moneyBill;
+      case 'wallet':
+        return FontAwesomeIcons.wallet;
       default:
-        return Icons.category;
+        return FontAwesomeIcons.receipt;
     }
   }
 
