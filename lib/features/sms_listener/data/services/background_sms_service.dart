@@ -131,7 +131,11 @@ class BackgroundSmsService {
     if (!_parser.isFinancialSms(sender, body)) return false;
 
     // Parse le SMS via un isolat pour ne pas bloquer l'UI
-    final parsed = await SmsParserWorker.parse(sender, body, date: message.date);
+    final parsed = await SmsParserWorker.parse(
+      sender,
+      body,
+      date: message.date,
+    );
 
     if (parsed == null) return false;
 
@@ -159,6 +163,7 @@ class BackgroundSmsService {
     if (db == null) return;
 
     final transactionId = _uuid.v4();
+    final accountId = await _getAccountIdForOperator(parsed.operator);
 
     await db
         .into(db.transactionsTable)
@@ -168,10 +173,17 @@ class BackgroundSmsService {
             amount: Value(parsed.amount),
             type: Value(_typeToString(parsed.type)),
             merchantName: Value(parsed.merchantName),
+            accountId: accountId != null
+                ? Value(accountId)
+                : const Value.absent(),
             date: Value(parsed.date),
             smsSender: Value(_operatorToString(parsed.operator)),
             smsRawContent: Value(parsed.rawSmsContent),
-            externalId: Value(parsed.transactionId),
+            externalId: Value(
+              parsed.transactionId.isNotEmpty
+                  ? parsed.transactionId
+                  : 'sms_${parsed.amount}_${parsed.date.millisecondsSinceEpoch}_${parsed.rawSmsContent.hashCode}',
+            ),
             isAiCategorized: const Value(false),
             syncStatus: const Value(0),
             validationStatus: const Value(1), // VALIDATED
@@ -191,6 +203,7 @@ class BackgroundSmsService {
     if (db == null) return;
 
     final transactionId = _uuid.v4();
+    final accountId = await _getAccountIdForOperator(parsed.operator);
 
     await db
         .into(db.transactionsTable)
@@ -200,10 +213,17 @@ class BackgroundSmsService {
             amount: Value(parsed.amount),
             type: Value(_typeToString(parsed.type)),
             merchantName: Value(parsed.merchantName),
+            accountId: accountId != null
+                ? Value(accountId)
+                : const Value.absent(),
             date: Value(parsed.date),
             smsSender: Value(_operatorToString(parsed.operator)),
             smsRawContent: Value(parsed.rawSmsContent),
-            externalId: Value(parsed.transactionId),
+            externalId: Value(
+              parsed.transactionId.isNotEmpty
+                  ? parsed.transactionId
+                  : 'sms_${parsed.amount}_${parsed.date.millisecondsSinceEpoch}_${parsed.rawSmsContent.hashCode}',
+            ),
             isAiCategorized: const Value(false),
             syncStatus: const Value(0),
             validationStatus: const Value(0), // PENDING
@@ -216,6 +236,35 @@ class BackgroundSmsService {
       merchant: parsed.merchantName,
       isExpense: parsed.type == TransactionType.expense,
     );
+  }
+
+  /// Trouve le compte correspondant à l'opérateur
+  Future<String?> _getAccountIdForOperator(MobileOperator operator) async {
+    final db = _database;
+    if (db == null) return null;
+
+    String accountName;
+    switch (operator) {
+      case MobileOperator.airtelMoney:
+        accountName = 'Airtel Money';
+        break;
+      case MobileOperator.moovMoney:
+        accountName = 'Moov Money';
+        break;
+      case MobileOperator.uba:
+        accountName = 'UBA';
+        break;
+      case MobileOperator.unknown:
+        return null;
+    }
+
+    final account =
+        await (db.select(db.accountsTable)
+              ..where((a) => a.name.equals(accountName))
+              ..where((a) => a.isActive.equals(true)))
+            .getSingleOrNull();
+
+    return account?.id;
   }
 
   String _typeToString(TransactionType type) {
