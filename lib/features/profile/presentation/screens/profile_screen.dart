@@ -33,22 +33,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildAppBar(),
-                  const SizedBox(height: 16),
-                  _buildProfileHeader(avatarUrl, fullName, email),
-                  const SizedBox(height: 24),
-                  _buildSyncSection(syncStatus),
-                  const SizedBox(height: 16),
-                  _buildDataSection(),
-                  const SizedBox(height: 16),
-                  _buildAccountSection(),
-                  const SizedBox(height: 32),
-                  _buildFooter(),
-                ],
-              ),
+            Column(
+              children: [
+                // Partie sticky (non-scrollable)
+                _buildAppBar(),
+                const SizedBox(height: 16),
+                _buildProfileHeader(avatarUrl, fullName, email),
+                const SizedBox(height: 24),
+                // Partie scrollable
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        _buildSyncSection(syncStatus),
+                        const SizedBox(height: 16),
+                        _buildDataSection(),
+                        const SizedBox(height: 16),
+                        _buildAccountSection(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             if (_isLoading)
               Container(
@@ -460,37 +467,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
             Icon(Icons.person_remove_outlined, color: AppTheme.error),
             const SizedBox(width: 12),
-            const Text('Supprimer le compte'),
+            Expanded(
+              child: const Text(
+                'Supprimer le compte',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
-        content: const Text(
-          '🚨 ACTION IRRÉVERSIBLE !\n\n'
-          'Cette action supprimera définitivement:\n\n'
-          '• Votre profil utilisateur\n'
-          '• Toutes vos données\n'
-          '• Votre authentification\n\n'
-          'Vous ne pourrez plus récupérer ces informations.',
+        content: SingleChildScrollView(
+          child: const Text(
+            '🚨 ACTION IRRÉVERSIBLE !\n\n'
+            'Cette action supprimera définitivement:\n\n'
+            '• Votre profil utilisateur\n'
+            '• Toutes vos données\n'
+            '• Votre authentification\n\n'
+            'Vous ne pourrez plus récupérer ces informations.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuler'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
+          Flexible(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _executeDeleteAccount();
+              },
+              child: const Text('Supprimer'),
             ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _executeDeleteAccount();
-            },
-            child: const Text('Supprimer définitivement'),
           ),
         ],
       ),
