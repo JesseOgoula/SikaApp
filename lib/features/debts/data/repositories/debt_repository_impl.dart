@@ -150,6 +150,9 @@ class DebtRepositoryImpl implements DebtRepository {
               accountId: Value(accountId),
               date: DateTime.now(),
               syncStatus: const Value(0),
+              validationStatus: const Value(
+                1,
+              ), // 1 = validated, apparaît dans les transactions
               createdAt: Value(DateTime.now()),
               updatedAt: Value(DateTime.now()),
             ),

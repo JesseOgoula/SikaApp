@@ -7,6 +7,7 @@ import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
+import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
 
 /// Écran de profil avancé avec gestion Cloud
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -385,12 +386,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         content: const Text(
           '⚠️ Cette action supprimera TOUTES vos données:\n\n'
+          '• Comptes financiers\n'
           '• Transactions\n'
           '• Objectifs\n'
           '• Dettes et Factures\n'
           '• Catégories\n\n'
-          'Les données seront effacées localement ET dans le cloud.\n\n'
-          'Votre compte restera actif.',
+          'Vous devrez reconfigurer vos comptes.\n\n'
+          'Votre connexion Google restera active.',
         ),
         actions: [
           TextButton(
@@ -423,6 +425,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             content: Text('Toutes les données ont été effacées'),
             backgroundColor: AppTheme.success,
           ),
+        );
+        // Rediriger vers l'écran de configuration des comptes
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AccountSetupScreen()),
+          (route) => false,
         );
       }
     } catch (e) {

@@ -174,6 +174,10 @@ class AuthRepository {
         // Supprimer les dettes et factures locales
         final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
         debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
+
+        // Supprimer les comptes locaux
+        final accDeleted = await (_db.delete(_db.accountsTable)).go();
+        debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
       } catch (e) {
         debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
       }

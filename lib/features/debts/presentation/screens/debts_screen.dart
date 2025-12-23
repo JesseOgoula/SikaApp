@@ -293,61 +293,139 @@ class _DebtsList extends ConsumerWidget {
 
     showDialog(
       context: context,
+      barrierColor: Colors.black45,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            return AlertDialog(
+            final currencyFormat = NumberFormat.currency(
+              locale: 'fr_FR',
+              symbol: 'FCFA',
+              decimalDigits: 0,
+            );
+
+            return Dialog(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
               ),
-              title: const Text(
-                'Confirmer paiement',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-              content: SingleChildScrollView(
+              elevation: 0,
+              backgroundColor: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Marquer "${debt.name}" comme payé ?',
-                      style: const TextStyle(fontSize: 14),
+                    // Header avec icône simple
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.payments_outlined,
+                        color: Colors.grey.shade700,
+                        size: 26,
+                      ),
                     ),
                     const SizedBox(height: 16),
+
+                    // Titre
                     const Text(
-                      'Retirer du compte :',
+                      'Confirmer le paiement',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Nom de l'engagement
+                    Text(
+                      debt.name,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Montant simple
+                    Text(
+                      currencyFormat.format(debt.amount),
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Sélection du compte
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Débiter depuis',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
+
                     if (accounts.isEmpty)
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          'Aucun compte configuré. Ajoutez un compte d\'abord.',
-                          style: TextStyle(fontSize: 13),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.grey.shade500,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'Aucun compte configuré',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     else
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(12),
                           color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: selectedAccountId,
                             isExpanded: true,
-                            hint: const Text('Sélectionner un compte'),
+                            icon: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: Colors.grey.shade500,
+                            ),
+                            hint: Text(
+                              'Choisir un compte',
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 14,
+                              ),
+                            ),
                             items: accounts.map((acc) {
                               Color accColor;
                               try {
@@ -357,7 +435,7 @@ class _DebtsList extends ConsumerWidget {
                                   ),
                                 );
                               } catch (_) {
-                                accColor = AppTheme.primaryColor;
+                                accColor = Colors.grey;
                               }
                               return DropdownMenuItem<String>(
                                 value: acc.id,
@@ -372,7 +450,10 @@ class _DebtsList extends ConsumerWidget {
                                       ),
                                     ),
                                     const SizedBox(width: 10),
-                                    Text(acc.name),
+                                    Text(
+                                      acc.name,
+                                      style: const TextStyle(fontSize: 14),
+                                    ),
                                   ],
                                 ),
                               );
@@ -385,80 +466,125 @@ class _DebtsList extends ConsumerWidget {
                           ),
                         ),
                       ),
+
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.error.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+
+                    // Info box simple
+                    Text(
+                      'Une dépense sera créée et le solde du compte sera mis à jour.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
                       ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 18,
-                            color: AppTheme.error,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
+                      textAlign: TextAlign.center,
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Boutons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: Colors.grey.shade300),
+                              ),
+                            ),
                             child: Text(
-                              'Une dépense de ${debt.amount.toStringAsFixed(0)} FCFA sera créée',
+                              'Annuler',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.error,
+                                color: AppTheme.textSecondary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed:
+                                selectedAccountId == null || accounts.isEmpty
+                                ? null
+                                : () async {
+                                    await ref
+                                        .read(debtRepositoryProvider)
+                                        .markAsPaid(
+                                          debt,
+                                          createTransaction: true,
+                                          accountId: selectedAccountId,
+                                          categoryId: 'cat-factures',
+                                        );
+                                    if (dialogContext.mounted) {
+                                      Navigator.pop(dialogContext);
+                                    }
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.white,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Expanded(
+                                                child: Text(
+                                                  '${debt.name} payé • Dépense enregistrée',
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          backgroundColor: AppTheme.success,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                          ),
+                                          margin: const EdgeInsets.all(16),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: Colors.grey.shade300,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.check_rounded, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Payer',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Annuler',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: selectedAccountId == null || accounts.isEmpty
-                      ? null
-                      : () async {
-                          await ref
-                              .read(debtRepositoryProvider)
-                              .markAsPaid(
-                                debt,
-                                createTransaction: true,
-                                accountId: selectedAccountId,
-                                categoryId: 'cat-factures',
-                              );
-                          if (dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
-                          }
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${debt.name} marqué comme payé !',
-                                ),
-                                backgroundColor: AppTheme.success,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text('Confirmer'),
-                ),
-              ],
             );
           },
         );
