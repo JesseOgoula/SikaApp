@@ -2,11 +2,10 @@
     
     <!-- Permissions SMS -->
     <uses-permission android:name="android.permission.READ_SMS"/>
-    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
     
     <!-- Permissions Notifications -->
     <uses-permission android:name="android.permission.VIBRATE"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
     <application
         android:label="SIKA"
@@ -45,3 +44,4 @@
         </intent>
     </queries>
 </manifest>
+

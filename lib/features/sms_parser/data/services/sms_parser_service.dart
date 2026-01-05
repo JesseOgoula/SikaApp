@@ -206,6 +206,13 @@ class SmsParserService {
     unicode: true,
   );
 
+  /// ACHAT CREDIT DE COMMUNICATION
+  /// Exemple: "Achat de CREDIT DE COMMUNICATION de 500 F effectue avec succes. Solde: 2356.1 F TID:RC251225.1315.C66300"
+  static final RegExp _airtelAchatCredit = RegExp(
+    r'Achat\s+de\s+(.+?)\s+de\s+(\d+[\d\s,\.]*)\s*F\s+effectue',
+    caseSensitive: false,
+  );
+
   /// FORMAT UBA TXN CREDIT/DEBIT
   /// Exemple: "Txn: CREDIT Montant: XAF701,874.00 Compte: 8XX..64X Desc: ORGANISATION..."
   static final RegExp _ubaTxn = RegExp(
@@ -419,7 +426,26 @@ class SmsParserService {
       }
     }
 
-    // 5. PAIEMENT EBILLING
+    // 5. ACHAT CREDIT DE COMMUNICATION
+    match = _airtelAchatCredit.firstMatch(body);
+    if (match != null) {
+      final amount = _parseAmount(match.group(2) ?? '');
+      if (amount != null && amount > 0) {
+        return ParsedTransaction(
+          amount: amount,
+          merchantName:
+              'Crédit de Communication (${_cleanMerchantName(match.group(1) ?? 'Airtel')})',
+          transactionId: tid,
+          date: date,
+          type: TransactionType.expense,
+          operator: MobileOperator.airtelMoney,
+          rawSmsContent: body,
+          smsSender: sender,
+        );
+      }
+    }
+
+    // 6. PAIEMENT EBILLING
     match = _airtelPaymentEbilling.firstMatch(body);
     if (match != null) {
       final amount = _parseAmount(match.group(1) ?? '');

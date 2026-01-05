@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'package:sika_app/core/providers/powersync_providers.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
@@ -8,6 +9,7 @@ import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
+import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 
 /// Écran de profil avancé avec gestion Cloud
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -19,6 +21,13 @@ class ProfileScreen extends ConsumerStatefulWidget {
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoading = false;
+  bool _isSyncingSms = false;
+  int _lastSyncedCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +57,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Column(
                       children: [
                         _buildSyncSection(syncStatus),
+                        const SizedBox(height: 16),
+                        _buildSmsSection(),
                         const SizedBox(height: 16),
                         _buildDataSection(),
                         const SizedBox(height: 16),
@@ -209,6 +220,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildSmsSection() {
+    return _buildSection(
+      title: 'SYNCHRONISATION SMS',
+      children: [
+        _buildActionTile(
+          icon: Icons.sms_outlined,
+          title: 'Importer les SMS financiers',
+          subtitle: _isSyncingSms
+              ? 'Synchronisation en cours...'
+              : _lastSyncedCount > 0
+              ? '$_lastSyncedCount nouvelles transactions importées'
+              : 'Analyser vos SMS pour détecter les transactions',
+          onTap: _isSyncingSms ? () {} : () => _syncSmsManually(),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(56, 4, 20, 8),
+          child: Text(
+            '💡 Seuls les nouveaux SMS seront importés. Les doublons sont automatiquement ignorés.',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppTheme.textSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _syncSmsManually() async {
+    // Demander les permissions SMS
+    final smsStatus = await Permission.sms.request();
+    if (!smsStatus.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Permission SMS requise pour cette fonctionnalité'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isSyncingSms = true);
+
+    try {
+      // Utiliser le smsImportNotifier existant pour importer les SMS
+      final result = await ref
+          .read(smsImportNotifierProvider.notifier)
+          .importFromInbox();
+
+      setState(() {
+        _isSyncingSms = false;
+        _lastSyncedCount = result.imported;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.imported > 0
+                  ? '✅ ${result.imported} nouvelle(s) transaction(s) importée(s)'
+                  : '✓ Aucune nouvelle transaction détectée (${result.duplicatesSkipped} doublons ignorés)',
+            ),
+            backgroundColor: result.imported > 0
+                ? AppTheme.success
+                : Colors.grey,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSyncingSms = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDataSection() {

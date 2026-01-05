@@ -105,6 +105,21 @@ void main() {
       expect(result.merchantName, equals('Dépôt Airtel Money'));
       expect(result.type, equals(TransactionType.income));
     });
+
+    test('should parse ACHAT CREDIT DE COMMUNICATION', () {
+      const sender = 'AirtelMoney';
+      const body =
+          'Achat de CREDIT DE COMMUNICATION de 500 F effectue avec succes. Solde: 2356.1 F TID:RC251225.1315.C66300';
+
+      final result = parser.parseSms(sender, body);
+
+      expect(result, isNotNull);
+      expect(result!.amount, equals(500.0));
+      expect(result.merchantName, contains('CREDIT DE COMMUNICATION'));
+      expect(result.transactionId, equals('RC251225'));
+      expect(result.type, equals(TransactionType.expense));
+      expect(result.operator, equals(MobileOperator.airtelMoney));
+    });
   });
 
   group('SmsParserService - VRAIS SMS MOOV GABON', () {

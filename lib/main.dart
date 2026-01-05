@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sika_app/core/services/notification_service.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -15,6 +16,7 @@ import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/constants/supabase_constants.dart';
 import 'package:sika_app/features/sms_listener/data/services/background_sms_service.dart';
+
 import 'package:sika_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
@@ -96,7 +98,7 @@ void main() async {
     debugPrint('❌ [MAIN] Error initializing NotificationController: $e');
   }
 
-  // Initialise le service SMS background
+  // Initialise le service SMS background (polling)
   try {
     debugPrint('📩 [MAIN] Initializing BackgroundSmsService...');
     final smsService = BackgroundSmsService();

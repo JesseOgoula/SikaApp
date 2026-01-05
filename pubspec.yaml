@@ -34,6 +34,10 @@ dependencies:
   permission_handler: ^11.3.1
   # Note: telephony non compatible AGP 8.x - polling via flutter_sms_inbox
 
+  # ===== BACKGROUND SERVICE & REAL-TIME SMS =====
+  flutter_background_service: ^5.0.5
+  easy_sms_receiver: ^0.0.2
+
   # ===== NOTIFICATIONS =====
   flutter_local_notifications: ^18.0.1
 

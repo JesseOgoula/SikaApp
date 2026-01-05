@@ -74,6 +74,45 @@ class BackgroundSmsService {
     return await _checkForNewSms();
   }
 
+  /// Synchronise tous les SMS manuellement (sans limite de temps)
+  ///
+  /// Cette méthode lit TOUS les SMS et les traite, en ignorant
+  /// les doublons grâce à l'external_id stocké en base.
+  Future<int> syncSmsNow() async {
+    if (_database == null) return 0;
+
+    // Demande la permission SMS si nécessaire
+    final status = await Permission.sms.status;
+    if (!status.isGranted) {
+      final result = await Permission.sms.request();
+      if (!result.isGranted) return 0;
+    }
+
+    try {
+      // Récupère TOUS les SMS (max 1000 pour éviter les timeouts)
+      final messages = await _smsQuery.querySms(
+        kinds: [SmsQueryKind.inbox],
+        count: 1000,
+      );
+
+      int processed = 0;
+
+      for (final sms in messages) {
+        // Pas de filtre par date - on traite tous les SMS
+        final result = await _processSms(sms);
+        if (result) processed++;
+      }
+
+      print(
+        '📬 [BackgroundSmsService] Sync terminée: $processed transactions importées',
+      );
+      return processed;
+    } catch (e) {
+      print('❌ [BackgroundSmsService] Erreur sync SMS: $e');
+      return 0;
+    }
+  }
+
   /// Vérifie s'il y a de nouveaux SMS
   Future<int> _checkForNewSms() async {
     if (_database == null) return 0;
@@ -136,6 +175,46 @@ class BackgroundSmsService {
       body,
       date: message.date,
     );
+
+    if (parsed == null) return false;
+
+    // Vérifie les doublons via external_id
+    if (parsed.transactionId.isNotEmpty) {
+      final exists = await db.transactionExists(parsed.transactionId);
+      if (exists) return false;
+    }
+
+    // Récupère le mode d'enregistrement
+    final isAutoSave = await _settings.isAutoSaveEnabled();
+
+    if (isAutoSave) {
+      await _saveAutomatic(parsed);
+    } else {
+      await _saveManual(parsed);
+    }
+
+    return true;
+  }
+
+  /// Traite un SMS reçu en temps réel (appelé par RealtimeSmsService)
+  ///
+  /// Cette méthode est publique pour permettre l'intégration avec
+  /// le service d'écoute en temps réel.
+  Future<bool> processRealTimeSms(
+    String sender,
+    String body,
+    DateTime? date,
+  ) async {
+    final db = _database;
+    if (db == null) return false;
+
+    if (sender.isEmpty || body.isEmpty) return false;
+
+    // Vérifie si c'est un SMS financier
+    if (!_parser.isFinancialSms(sender, body)) return false;
+
+    // Parse le SMS via un isolat pour ne pas bloquer l'UI
+    final parsed = await SmsParserWorker.parse(sender, body, date: date);
 
     if (parsed == null) return false;
 

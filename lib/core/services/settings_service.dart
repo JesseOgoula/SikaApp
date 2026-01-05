@@ -56,6 +56,24 @@ class SettingsService {
     return !current;
   }
 
+  // ==================== REAL-TIME SMS SETTING ====================
+
+  static const String _keyRealtimeSmsEnabled = 'realtime_sms_enabled';
+
+  /// Indique si l'écoute SMS en temps réel est activée
+  Future<bool> isRealtimeSmsEnabled() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return false;
+    return prefs.getBool(_keyRealtimeSmsEnabled) ?? false;
+  }
+
+  /// Active ou désactive l'écoute SMS en temps réel
+  Future<void> setRealtimeSmsEnabled(bool enabled) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setBool(_keyRealtimeSmsEnabled, enabled);
+  }
+
   // ==================== NOTIFICATIONS SETTING ====================
 
   /// Indique si les notifications sont activées
