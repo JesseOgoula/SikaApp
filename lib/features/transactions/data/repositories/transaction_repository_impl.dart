@@ -6,15 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
 import '../../../analytics/domain/entities/daily_summary.dart';
-import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../domain/repositories/transaction_repository.dart';
 
 /// Implémentation du repository de transactions avec Drift (SQLite)
 ///
 /// Cette classe gère:
 /// - La persistance des transactions dans SQLite
-/// - La conversion ParsedTransaction → TransactionsTableCompanion
-/// - La déduplication via external_id
 /// - Les requêtes réactives (Streams)
 /// - La synchronisation est gérée par AutoSyncService (connectivity-based)
 class TransactionRepositoryImpl implements TransactionRepository {
@@ -24,112 +21,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   TransactionRepositoryImpl(this._db, {Uuid? uuid})
     : _uuid = uuid ?? const Uuid();
 
-  // ==================== MAPPING HELPERS ====================
-
-  /// Convertit un TransactionType enum en String pour stockage
-  String _transactionTypeToString(TransactionType type) {
-    switch (type) {
-      case TransactionType.expense:
-        return 'expense';
-      case TransactionType.income:
-        return 'income';
-      case TransactionType.transfer:
-        return 'transfer';
-    }
-  }
-
-  /// Convertit un MobileOperator enum en String pour stockage
-  String _operatorToString(MobileOperator operator) {
-    switch (operator) {
-      case MobileOperator.airtelMoney:
-        return 'AIRTEL_MONEY';
-      case MobileOperator.moovMoney:
-        return 'MOOV_MONEY';
-      case MobileOperator.uba:
-        return 'UBA';
-      case MobileOperator.unknown:
-        return 'UNKNOWN';
-    }
-  }
-
-  /// Convertit un ParsedTransaction en TransactionsTableCompanion
-  ///
-  /// Génère un nouvel UUID et mappe tous les champs correctement.
-  TransactionsTableCompanion _parsedToCompanion(
-    ParsedTransaction parsed,
-    String? categoryId,
-    String? accountId,
-  ) {
-    return TransactionsTableCompanion(
-      id: Value(_uuid.v4()),
-      amount: Value(parsed.amount),
-      type: Value(_transactionTypeToString(parsed.type)),
-      merchantName: Value(parsed.merchantName),
-      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
-      accountId: accountId != null ? Value(accountId) : const Value.absent(),
-      date: Value(parsed.date),
-      smsSender: Value(_operatorToString(parsed.operator)),
-      smsRawContent: Value(parsed.rawSmsContent),
-      externalId: Value(parsed.transactionId),
-      isAiCategorized: const Value(false),
-      syncStatus: const Value(0),
-    );
-  }
-
-  /// Variante avec externalId explicite (pour déduplication par hash)
-  TransactionsTableCompanion _parsedToCompanionWithId(
-    ParsedTransaction parsed,
-    String? categoryId,
-    String? accountId,
-    String externalId,
-  ) {
-    return TransactionsTableCompanion(
-      id: Value(_uuid.v4()),
-      amount: Value(parsed.amount),
-      type: Value(_transactionTypeToString(parsed.type)),
-      merchantName: Value(parsed.merchantName),
-      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
-      accountId: accountId != null ? Value(accountId) : const Value.absent(),
-      date: Value(parsed.date),
-      smsSender: Value(_operatorToString(parsed.operator)),
-      smsRawContent: Value(parsed.rawSmsContent),
-      externalId: Value(externalId),
-      isAiCategorized: const Value(false),
-      syncStatus: const Value(0),
-    );
-  }
-
-  /// Trouve le compte correspondant à l'opérateur SMS
-  Future<String?> _getAccountIdForOperator(MobileOperator operator) async {
-    String accountName;
-    switch (operator) {
-      case MobileOperator.airtelMoney:
-        accountName = 'Airtel Money';
-        break;
-      case MobileOperator.moovMoney:
-        accountName = 'Moov Money';
-        break;
-      case MobileOperator.uba:
-        accountName = 'UBA';
-        break;
-      case MobileOperator.unknown:
-        debugPrint('📱 [Account] Operator unknown');
-        return null;
-    }
-    debugPrint('📱 [Account] Looking for: $accountName');
-    final account =
-        await (_db.select(_db.accountsTable)
-              ..where((a) => a.name.equals(accountName))
-              ..where((a) => a.isActive.equals(true)))
-            .getSingleOrNull();
-    if (account != null) {
-      debugPrint('✅ [Account] Found: ${account.id}');
-    } else {
-      debugPrint('❌ [Account] Not found for $accountName');
-    }
-    return account?.id;
-  }
-
+  // ==================== CATEGORY HELPERS ====================
   /// Tente de deviner la catégorie basée sur les mots-clés
   Future<String?> _guessCategory(String merchant, String body) async {
     // Cas spécial: EBILLING -> Factures
@@ -255,65 +147,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   // ==================== WRITE METHODS ====================
-
-  @override
-  Future<bool> addParsedTransaction(ParsedTransaction parsedTx) async {
-    // Génère un externalId unique si vide (hash du contenu SMS)
-    String externalId = parsedTx.transactionId;
-    if (externalId.isEmpty) {
-      // Crée un ID unique basé sur: montant + date + contenu SMS hash
-      final contentKey =
-          '${parsedTx.amount}_${parsedTx.date.millisecondsSinceEpoch}_${parsedTx.rawSmsContent.hashCode}';
-      externalId = 'sms_$contentKey';
-      debugPrint('📥 [AddTransaction] Generated hash ID: $externalId');
-    } else {
-      debugPrint('📥 [AddTransaction] Using SMS transactionId: "$externalId"');
-    }
-
-    // DÉDUPLICATION : Vérifie si existe déjà
-    final exists = await existsByExternalId(externalId);
-    if (exists) {
-      debugPrint('⏭️ [Dedup] SKIPPED - already exists');
-      return false;
-    }
-
-    // Devine la catégorie
-    final categoryId = await _guessCategory(
-      parsedTx.merchantName,
-      parsedTx.rawSmsContent,
-    );
-
-    // Trouve le compte correspondant à l'opérateur
-    final accountId = await _getAccountIdForOperator(parsedTx.operator);
-    debugPrint(
-      '🔗 [Transaction] Linking to account: $accountId for operator ${parsedTx.operator}',
-    );
-
-    // Convertit et insère avec l'externalId potentiellement généré
-    final txId = _uuid.v4();
-    final companion = TransactionsTableCompanion(
-      id: Value(txId),
-      amount: Value(parsedTx.amount),
-      type: Value(_transactionTypeToString(parsedTx.type)),
-      merchantName: Value(parsedTx.merchantName),
-      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
-      accountId: accountId != null ? Value(accountId) : const Value.absent(),
-      date: Value(parsedTx.date),
-      smsSender: Value(_operatorToString(parsedTx.operator)),
-      smsRawContent: Value(parsedTx.rawSmsContent),
-      externalId: Value(externalId),
-      isAiCategorized: const Value(false),
-      syncStatus: const Value(0),
-    );
-
-    // 1. Stocke localement dans Drift
-    await _db.into(_db.transactionsTable).insert(companion);
-    debugPrint(
-      '✅ [Transactions] Added transaction ${txId} - sync handled by AutoSyncService',
-    );
-
-    return true;
-  }
 
   @override
   Future<void> addManualTransaction(

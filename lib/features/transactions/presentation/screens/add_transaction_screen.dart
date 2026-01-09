@@ -31,10 +31,25 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   bool _isLoading = false;
   bool _showKeypad = false; // Clavier numérique caché par défaut
   bool _showTextPad = false; // Clavier texte caché par défaut
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToBottom() {
+    // Attend que l'animation du clavier soit terminée puis scrolle
+    Future.delayed(const Duration(milliseconds: 350), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _onKeyPressed(String key) {
@@ -81,14 +96,20 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   void _toggleTextPad() {
     setState(() {
       _showTextPad = !_showTextPad;
-      if (_showTextPad) _showKeypad = false; // Ferme le NumberPad
+      if (_showTextPad) {
+        _showKeypad = false;
+        _scrollToBottom();
+      }
     });
   }
 
   void _toggleKeypad() {
     setState(() {
       _showKeypad = !_showKeypad;
-      if (_showKeypad) _showTextPad = false; // Ferme le TextPad
+      if (_showKeypad) {
+        _showTextPad = false;
+        _scrollToBottom();
+      }
     });
   }
 
@@ -121,6 +142,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           // Scrollable content
           Expanded(
             child: SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [

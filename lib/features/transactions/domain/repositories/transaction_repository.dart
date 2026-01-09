@@ -1,4 +1,3 @@
-import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
 import '../../../analytics/domain/entities/daily_summary.dart';
@@ -47,25 +46,12 @@ abstract class TransactionRepository {
   /// Retourne `null` si non trouvée.
   Future<TransactionsTableData?> getTransactionById(String id);
 
-  /// Ajoute une transaction parsée depuis un SMS
-  ///
-  /// [parsedTx] : Transaction extraite du SMS
-  ///
-  /// Retourne:
-  /// - `true` si la transaction a été insérée
-  /// - `false` si elle existait déjà (doublon via external_id)
-  ///
-  /// La catégorie (`category_id`) sera `null` initialement,
-  /// elle sera assignée par le Smart Labeling IA plus tard.
-  Future<bool> addParsedTransaction(ParsedTransaction parsedTx);
-
   /// Ajoute une transaction manuelle (saisie utilisateur)
   ///
   /// [transaction] : Companion Drift avec tous les champs
   Future<void> addManualTransaction(TransactionsTableCompanion transaction);
 
   /// Lie rétroactivement les transactions sans accountId aux comptes
-  /// basé sur le champ smsSender
   Future<int> linkExistingTransactionsToAccounts();
 
   /// Met à jour une transaction existante

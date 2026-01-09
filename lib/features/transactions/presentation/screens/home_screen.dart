@@ -16,7 +16,6 @@ import 'package:sika_app/features/goals/presentation/screens/goals_list_screen.d
 import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
 import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
 import 'package:sika_app/features/profile/presentation/screens/profile_screen.dart';
-import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
@@ -55,23 +54,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionWithCategoryListProvider);
-    final importState = ref.watch(smsImportNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
-      body: SafeArea(child: _buildBodyForIndex(transactionsAsync, importState)),
+      body: SafeArea(child: _buildBodyForIndex(transactionsAsync)),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
   Widget _buildBodyForIndex(
     AsyncValue<List<TransactionWithCategory>> transactionsAsync,
-    SmsImportState importState,
   ) {
     switch (_currentNavIndex) {
       case 0: // Accueil
         return transactionsAsync.when(
-          data: (transactions) => _buildContent(transactions, importState),
+          data: (transactions) => _buildContent(transactions),
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppTheme.primaryColor),
           ),
@@ -95,10 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Widget _buildContent(
-    List<TransactionWithCategory> transactions,
-    SmsImportState importState,
-  ) {
+  Widget _buildContent(List<TransactionWithCategory> transactions) {
     // Calculs locaux
     double totalBalance = 0;
     double monthlyExpenses = 0;
