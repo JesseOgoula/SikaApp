@@ -1,28 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:sika_app/core/services/notification_service.dart';
+import 'package:sika_app/core/services/auto_sync_service.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:powersync/powersync.dart' hide Column;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/core/database/supabase_connector.dart';
-import 'package:sika_app/core/database/powersync_schema.dart';
 import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/constants/supabase_constants.dart';
-import 'package:sika_app/features/sms_listener/data/services/background_sms_service.dart';
 
 import 'package:sika_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
 
-/// Instance globale de PowerSyncDatabase pour l'accès depuis AuthRepository
-PowerSyncDatabase? powerSyncDatabase;
+/// Instance globale d'AutoSyncService
+AutoSyncService? autoSyncService;
 
 void main() async {
   debugPrint('🚀 [MAIN] Starting app initialization...');
@@ -51,32 +46,9 @@ void main() async {
     debugPrint('❌ [MAIN] Error initializing Supabase: $e');
   }
 
-  // Initialise PowerSync
-  try {
-    debugPrint('🔄 [MAIN] Initializing PowerSync...');
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dir.path, 'sika_powersync.db');
-
-    powerSyncDatabase = PowerSyncDatabase(schema: schema, path: dbPath);
-
-    // Initialise la DB PowerSync
-    await powerSyncDatabase!.initialize();
-
-    // Configure le connector Supabase
-    final connector = SupabaseConnector();
-
-    // Si l'utilisateur est déjà connecté, démarre la synchro
-    if (Supabase.instance.client.auth.currentSession != null) {
-      await powerSyncDatabase!.connect(connector: connector);
-      debugPrint('✅ [MAIN] PowerSync connected (user was logged in)');
-    } else {
-      debugPrint('⏸️ [MAIN] PowerSync initialized (waiting for login)');
-    }
-
-    debugPrint('✅ [MAIN] PowerSync initialized');
-  } catch (e) {
-    debugPrint('❌ [MAIN] Error initializing PowerSync: $e');
-  }
+  // Note: PowerSync désactivé - utilise AutoSyncService à la place
+  // pour synchroniser directement avec Supabase
+  debugPrint('🔄 [MAIN] PowerSync disabled - using AutoSyncService instead');
 
   // Initialise la base de données Drift (locale)
   late final AppDatabase database;
@@ -89,6 +61,16 @@ void main() async {
     return; // Impossible de continuer sans base de données
   }
 
+  // Initialise AutoSyncService pour la synchronisation automatique
+  try {
+    debugPrint('🔄 [MAIN] Initializing AutoSyncService...');
+    autoSyncService = AutoSyncService(database);
+    autoSyncService!.startListening();
+    debugPrint('✅ [MAIN] AutoSyncService started');
+  } catch (e) {
+    debugPrint('❌ [MAIN] Error initializing AutoSyncService: $e');
+  }
+
   // Initialise le contrôleur de notifications
   try {
     debugPrint('🔔 [MAIN] Initializing NotificationController...');
@@ -96,17 +78,6 @@ void main() async {
     debugPrint('✅ [MAIN] NotificationController initialized');
   } catch (e) {
     debugPrint('❌ [MAIN] Error initializing NotificationController: $e');
-  }
-
-  // Initialise le service SMS background (polling)
-  try {
-    debugPrint('📩 [MAIN] Initializing BackgroundSmsService...');
-    final smsService = BackgroundSmsService();
-    smsService.setDatabase(database);
-    await smsService.startListening();
-    debugPrint('✅ [MAIN] BackgroundSmsService initialized');
-  } catch (e) {
-    debugPrint('❌ [MAIN] Error initializing BackgroundSmsService: $e');
   }
 
   // Init Services

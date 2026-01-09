@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
+import 'package:sika_app/features/transactions/presentation/screens/edit_transaction_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
 
 /// Écran affichant toutes les transactions
@@ -39,7 +40,19 @@ class TransactionsListScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             itemCount: transactions.length,
             itemBuilder: (context, index) {
-              return TransactionTile(txWithCategory: transactions[index]);
+              final txWithCat = transactions[index];
+              return TransactionTile(
+                txWithCategory: txWithCat,
+                onEdit: () =>
+                    _editTransaction(context, ref, txWithCat.transaction),
+                onDelete: () async {
+                  final repo = ref.read(transactionRepositoryProvider);
+                  await repo.deleteTransaction(txWithCat.transaction.id);
+                  // Petit délai pour laisser l'animation Dismissible terminer
+                  await Future.delayed(const Duration(milliseconds: 300));
+                  ref.invalidate(transactionWithCategoryListProvider);
+                },
+              );
             },
           );
         },
@@ -104,6 +117,22 @@ class TransactionsListScreen extends ConsumerWidget {
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (_) => const AddTransactionScreen()),
+    );
+    if (result == true) {
+      ref.invalidate(transactionWithCategoryListProvider);
+    }
+  }
+
+  Future<void> _editTransaction(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic transaction,
+  ) async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditTransactionScreen(transaction: transaction),
+      ),
     );
     if (result == true) {
       ref.invalidate(transactionWithCategoryListProvider);

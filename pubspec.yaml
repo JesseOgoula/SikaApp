@@ -61,6 +61,7 @@ dependencies:
   
   # ===== POWERSYNC (Offline-First Sync) =====
   powersync: ^1.8.0
+  connectivity_plus: ^7.0.0
 
 dev_dependencies:
   flutter_test:

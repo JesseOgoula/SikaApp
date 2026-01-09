@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
@@ -15,6 +16,7 @@ import '../../domain/repositories/transaction_repository.dart';
 /// - La conversion ParsedTransaction → TransactionsTableCompanion
 /// - La déduplication via external_id
 /// - Les requêtes réactives (Streams)
+/// - La synchronisation est gérée par AutoSyncService (connectivity-based)
 class TransactionRepositoryImpl implements TransactionRepository {
   final AppDatabase _db;
   final Uuid _uuid;
@@ -288,13 +290,28 @@ class TransactionRepositoryImpl implements TransactionRepository {
     );
 
     // Convertit et insère avec l'externalId potentiellement généré
-    final companion = _parsedToCompanionWithId(
-      parsedTx,
-      categoryId,
-      accountId,
-      externalId,
+    final txId = _uuid.v4();
+    final companion = TransactionsTableCompanion(
+      id: Value(txId),
+      amount: Value(parsedTx.amount),
+      type: Value(_transactionTypeToString(parsedTx.type)),
+      merchantName: Value(parsedTx.merchantName),
+      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
+      accountId: accountId != null ? Value(accountId) : const Value.absent(),
+      date: Value(parsedTx.date),
+      smsSender: Value(_operatorToString(parsedTx.operator)),
+      smsRawContent: Value(parsedTx.rawSmsContent),
+      externalId: Value(externalId),
+      isAiCategorized: const Value(false),
+      syncStatus: const Value(0),
     );
+
+    // 1. Stocke localement dans Drift
     await _db.into(_db.transactionsTable).insert(companion);
+    debugPrint(
+      '✅ [Transactions] Added transaction ${txId} - sync handled by AutoSyncService',
+    );
+
     return true;
   }
 
@@ -303,11 +320,16 @@ class TransactionRepositoryImpl implements TransactionRepository {
     TransactionsTableCompanion transaction,
   ) async {
     // Assure qu'un ID est présent
+    final txId = transaction.id.present ? transaction.id.value : _uuid.v4();
     final companion = transaction.id.present
         ? transaction
-        : transaction.copyWith(id: Value(_uuid.v4()));
+        : transaction.copyWith(id: Value(txId));
 
+    // 1. Stocke localement dans Drift
     await _db.into(_db.transactionsTable).insert(companion);
+    debugPrint(
+      '✅ [Transactions] Added manual transaction ${txId} - sync handled by AutoSyncService',
+    );
   }
 
   /// Lie rétroactivement les transactions existantes aux comptes
@@ -380,9 +402,37 @@ class TransactionRepositoryImpl implements TransactionRepository {
       syncStatus: const Value(0), // Marque comme à re-synchroniser
     );
 
+    // 1. Met à jour localement
     await (_db.update(
       _db.transactionsTable,
     )..where((t) => t.id.equals(id))).write(updatesWithTimestamp);
+
+    // 2. Met à jour dans Supabase
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        // Récupère la transaction mise à jour pour avoir toutes les valeurs
+        final tx = await getTransactionById(id);
+        if (tx != null) {
+          await supabase.from('transactions').upsert({
+            'id': tx.id,
+            'user_id': userId,
+            'amount': tx.amount,
+            'type': tx.type,
+            'merchant_name': tx.merchantName,
+            'date': tx.date.toIso8601String(),
+            'sync_status': 1,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          // Marque comme synchronisé localement
+          await markAsSynced(id);
+          debugPrint('✅ [Transactions] Updated and synced $id to Supabase');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Transactions] Update sync failed (will retry): $e');
+    }
   }
 
   @override
@@ -405,9 +455,23 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<void> deleteTransaction(String id) async {
+    // 1. Supprime dans Supabase d'abord
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        await supabase.from('transactions').delete().eq('id', id);
+        debugPrint('✅ [Transactions] Deleted $id from Supabase');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Transactions] Delete from Supabase failed: $e');
+    }
+
+    // 2. Supprime localement
     await (_db.delete(
       _db.transactionsTable,
     )..where((t) => t.id.equals(id))).go();
+    debugPrint('✅ [Transactions] Deleted $id locally');
   }
 
   // ==================== SYNC METHODS ====================
