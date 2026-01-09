@@ -83,6 +83,7 @@ void main() async {
   // Init Services
   await NotificationService().init();
   await NotificationService().requestPermissions();
+  await NotificationService().scheduleWeeklySummary();
 
   runApp(
     // Wrap avec ProviderScope pour Riverpod
