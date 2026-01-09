@@ -195,7 +195,7 @@ class AutoSyncService {
           'name': debt.name,
           'amount': debt.amount,
           'type': debt.type,
-          'due_date': debt.dueDate?.toIso8601String(),
+          'due_date': debt.dueDate.toIso8601String(),
           'status': debt.status,
           'person_name': debt.personName,
           'notes': debt.notes,
