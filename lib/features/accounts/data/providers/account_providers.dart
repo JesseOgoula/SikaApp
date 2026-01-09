@@ -14,6 +14,7 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
 
 /// Provider pour la liste des comptes actifs (données brutes)
 final activeAccountsProvider = StreamProvider<List<AccountsTableData>>((ref) {
+  ref.keepAlive(); // Garde en cache pour navigation instantanée
   final repo = ref.watch(accountRepositoryProvider);
   return repo.watchActiveAccounts();
 });

@@ -26,7 +26,7 @@ class StatisticsScreen extends ConsumerStatefulWidget {
   ConsumerState<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-enum AnalysisPeriod { sevenDays, thisMonth, threeMonths, year }
+enum AnalysisPeriod { twentyFourHours, sevenDays, thisMonth, threeMonths, year }
 
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   AnalysisPeriod _selectedPeriod = AnalysisPeriod.thisMonth;
@@ -78,6 +78,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       DateTime endDate = now;
 
       switch (_selectedPeriod) {
+        case AnalysisPeriod.twentyFourHours:
+          startDate = now.subtract(const Duration(hours: 24));
+          break;
         case AnalysisPeriod.sevenDays:
           startDate = now.subtract(const Duration(days: 7));
           break;
@@ -273,54 +276,58 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: AppTheme.primaryColor),
             )
-          : RefreshIndicator(
-              onRefresh: _loadData,
-              color: AppTheme.primaryColor,
-              child: Stack(
-                children: [
-                  CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      if (_isBackgroundLoading)
-                        SliverToBoxAdapter(
-                          child: LinearProgressIndicator(
-                            color: AppTheme.primaryColor.withOpacity(0.5),
-                            backgroundColor: Colors.transparent,
-                            minHeight: 2,
+          : Column(
+              children: [
+                // Sélecteur de période sticky
+                Container(
+                  color: AppTheme.scaffoldBackground,
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: _buildPeriodSelector(),
+                ),
+
+                // Contenu scrollable
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadData,
+                    color: AppTheme.primaryColor,
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        if (_isBackgroundLoading)
+                          SliverToBoxAdapter(
+                            child: LinearProgressIndicator(
+                              color: AppTheme.primaryColor.withOpacity(0.5),
+                              backgroundColor: Colors.transparent,
+                              minHeight: 2,
+                            ),
+                          ),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildHealthScoreSection(),
                           ),
                         ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: _buildPeriodSelector(),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildOverviewSection(),
+                          ),
                         ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: _buildHealthScoreSection(),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildCategorySection(),
+                          ),
                         ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: _buildOverviewSection(),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
+                          sliver: _buildTimelineSliver(),
                         ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                        sliver: SliverToBoxAdapter(
-                          child: _buildCategorySection(),
-                        ),
-                      ),
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
-                        sliver: _buildTimelineSliver(),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
     );
   }
@@ -333,6 +340,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           final isSelected = _selectedPeriod == period;
           String label;
           switch (period) {
+            case AnalysisPeriod.twentyFourHours:
+              label = '24h';
+              break;
             case AnalysisPeriod.sevenDays:
               label = '7 jours';
               break;

@@ -80,10 +80,16 @@ void main() async {
     debugPrint('❌ [MAIN] Error initializing NotificationController: $e');
   }
 
-  // Init Services
-  await NotificationService().init();
-  await NotificationService().requestPermissions();
-  await NotificationService().scheduleWeeklySummary();
+  // Init Notification Services
+  try {
+    debugPrint('📱 [MAIN] Initializing NotificationService...');
+    await NotificationService().init();
+    await NotificationService().requestPermissions();
+    await NotificationService().scheduleWeeklySummary();
+    debugPrint('✅ [MAIN] NotificationService initialized');
+  } catch (e) {
+    debugPrint('❌ [MAIN] Error initializing NotificationService: $e');
+  }
 
   runApp(
     // Wrap avec ProviderScope pour Riverpod

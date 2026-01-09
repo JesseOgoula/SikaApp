@@ -14,6 +14,7 @@ final goalRepositoryProvider = Provider<GoalRepository>((ref) {
 
 /// Provider pour la liste des objectifs actifs (stream)
 final activeGoalsProvider = StreamProvider<List<GoalsTableData>>((ref) {
+  ref.keepAlive(); // Garde en cache pour navigation instantanée
   final repo = ref.watch(goalRepositoryProvider);
   return repo.watchActiveGoals();
 });
