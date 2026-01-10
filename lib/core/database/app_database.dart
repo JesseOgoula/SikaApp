@@ -64,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   /// Migrations de la base de données
   ///

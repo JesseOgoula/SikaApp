@@ -7,6 +7,7 @@ import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
+import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
 
 /// Écran de profil avancé avec gestion Cloud
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -50,6 +51,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
+                        _buildSettingsSection(),
+                        const SizedBox(height: 16),
                         _buildDataSection(),
                         const SizedBox(height: 16),
                         _buildAccountSection(),
@@ -189,6 +192,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Container(
       color: Colors.white.withOpacity(0.2),
       child: const Icon(Icons.person, size: 36, color: Colors.white),
+    );
+  }
+
+  Widget _buildSettingsSection() {
+    return _buildSection(
+      title: 'PARAMÈTRES',
+      children: [
+        _buildActionTile(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Budgets',
+          subtitle: 'Gérer les limites de dépenses par catégorie',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+          ),
+        ),
+      ],
     );
   }
 

@@ -927,15 +927,6 @@ class $AccountsTableTable extends AccountsTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
-  @override
-  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
-    'user_id',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -1088,7 +1079,6 @@ class $AccountsTableTable extends AccountsTable
   @override
   List<GeneratedColumn> get $columns => [
     id,
-    userId,
     name,
     type,
     balance,
@@ -1118,12 +1108,6 @@ class $AccountsTableTable extends AccountsTable
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
-    }
-    if (data.containsKey('user_id')) {
-      context.handle(
-        _userIdMeta,
-        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
-      );
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -1217,10 +1201,6 @@ class $AccountsTableTable extends AccountsTable
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
-      userId: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}user_id'],
-      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -1283,9 +1263,6 @@ class AccountsTableData extends DataClass
   /// UUID unique - Clé primaire TEXT pour PowerSync
   final String id;
 
-  /// UUID de l'utilisateur propriétaire (pour sync Supabase)
-  final String? userId;
-
   /// Nom du compte défini par l'utilisateur
   final String name;
 
@@ -1323,7 +1300,6 @@ class AccountsTableData extends DataClass
   final DateTime updatedAt;
   const AccountsTableData({
     required this.id,
-    this.userId,
     required this.name,
     required this.type,
     required this.balance,
@@ -1341,9 +1317,6 @@ class AccountsTableData extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    if (!nullToAbsent || userId != null) {
-      map['user_id'] = Variable<String>(userId);
-    }
     map['name'] = Variable<String>(name);
     map['type'] = Variable<String>(type);
     map['balance'] = Variable<double>(balance);
@@ -1364,9 +1337,6 @@ class AccountsTableData extends DataClass
   AccountsTableCompanion toCompanion(bool nullToAbsent) {
     return AccountsTableCompanion(
       id: Value(id),
-      userId: userId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(userId),
       name: Value(name),
       type: Value(type),
       balance: Value(balance),
@@ -1391,7 +1361,6 @@ class AccountsTableData extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return AccountsTableData(
       id: serializer.fromJson<String>(json['id']),
-      userId: serializer.fromJson<String?>(json['userId']),
       name: serializer.fromJson<String>(json['name']),
       type: serializer.fromJson<String>(json['type']),
       balance: serializer.fromJson<double>(json['balance']),
@@ -1411,7 +1380,6 @@ class AccountsTableData extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'userId': serializer.toJson<String?>(userId),
       'name': serializer.toJson<String>(name),
       'type': serializer.toJson<String>(type),
       'balance': serializer.toJson<double>(balance),
@@ -1429,7 +1397,6 @@ class AccountsTableData extends DataClass
 
   AccountsTableData copyWith({
     String? id,
-    Value<String?> userId = const Value.absent(),
     String? name,
     String? type,
     double? balance,
@@ -1444,7 +1411,6 @@ class AccountsTableData extends DataClass
     DateTime? updatedAt,
   }) => AccountsTableData(
     id: id ?? this.id,
-    userId: userId.present ? userId.value : this.userId,
     name: name ?? this.name,
     type: type ?? this.type,
     balance: balance ?? this.balance,
@@ -1461,7 +1427,6 @@ class AccountsTableData extends DataClass
   AccountsTableData copyWithCompanion(AccountsTableCompanion data) {
     return AccountsTableData(
       id: data.id.present ? data.id.value : this.id,
-      userId: data.userId.present ? data.userId.value : this.userId,
       name: data.name.present ? data.name.value : this.name,
       type: data.type.present ? data.type.value : this.type,
       balance: data.balance.present ? data.balance.value : this.balance,
@@ -1485,7 +1450,6 @@ class AccountsTableData extends DataClass
   String toString() {
     return (StringBuffer('AccountsTableData(')
           ..write('id: $id, ')
-          ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
           ..write('balance: $balance, ')
@@ -1505,7 +1469,6 @@ class AccountsTableData extends DataClass
   @override
   int get hashCode => Object.hash(
     id,
-    userId,
     name,
     type,
     balance,
@@ -1524,7 +1487,6 @@ class AccountsTableData extends DataClass
       identical(this, other) ||
       (other is AccountsTableData &&
           other.id == this.id &&
-          other.userId == this.userId &&
           other.name == this.name &&
           other.type == this.type &&
           other.balance == this.balance &&
@@ -1541,7 +1503,6 @@ class AccountsTableData extends DataClass
 
 class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
   final Value<String> id;
-  final Value<String?> userId;
   final Value<String> name;
   final Value<String> type;
   final Value<double> balance;
@@ -1557,7 +1518,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
   final Value<int> rowid;
   const AccountsTableCompanion({
     this.id = const Value.absent(),
-    this.userId = const Value.absent(),
     this.name = const Value.absent(),
     this.type = const Value.absent(),
     this.balance = const Value.absent(),
@@ -1574,7 +1534,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
   });
   AccountsTableCompanion.insert({
     required String id,
-    this.userId = const Value.absent(),
     required String name,
     required String type,
     this.balance = const Value.absent(),
@@ -1593,7 +1552,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
        type = Value(type);
   static Insertable<AccountsTableData> custom({
     Expression<String>? id,
-    Expression<String>? userId,
     Expression<String>? name,
     Expression<String>? type,
     Expression<double>? balance,
@@ -1610,7 +1568,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (userId != null) 'user_id': userId,
       if (name != null) 'name': name,
       if (type != null) 'type': type,
       if (balance != null) 'balance': balance,
@@ -1629,7 +1586,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
 
   AccountsTableCompanion copyWith({
     Value<String>? id,
-    Value<String?>? userId,
     Value<String>? name,
     Value<String>? type,
     Value<double>? balance,
@@ -1646,7 +1602,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
   }) {
     return AccountsTableCompanion(
       id: id ?? this.id,
-      userId: userId ?? this.userId,
       name: name ?? this.name,
       type: type ?? this.type,
       balance: balance ?? this.balance,
@@ -1668,9 +1623,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
-    }
-    if (userId.present) {
-      map['user_id'] = Variable<String>(userId.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -1718,7 +1670,6 @@ class AccountsTableCompanion extends UpdateCompanion<AccountsTableData> {
   String toString() {
     return (StringBuffer('AccountsTableCompanion(')
           ..write('id: $id, ')
-          ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
           ..write('balance: $balance, ')
@@ -4310,7 +4261,6 @@ typedef $$TransactionsTableTableProcessedTableManager =
 typedef $$AccountsTableTableCreateCompanionBuilder =
     AccountsTableCompanion Function({
       required String id,
-      Value<String?> userId,
       required String name,
       required String type,
       Value<double> balance,
@@ -4328,7 +4278,6 @@ typedef $$AccountsTableTableCreateCompanionBuilder =
 typedef $$AccountsTableTableUpdateCompanionBuilder =
     AccountsTableCompanion Function({
       Value<String> id,
-      Value<String?> userId,
       Value<String> name,
       Value<String> type,
       Value<double> balance,
@@ -4355,11 +4304,6 @@ class $$AccountsTableTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get userId => $composableBuilder(
-    column: $table.userId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4438,11 +4382,6 @@ class $$AccountsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get userId => $composableBuilder(
-    column: $table.userId,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get name => $composableBuilder(
     column: $table.name,
     builder: (column) => ColumnOrderings(column),
@@ -4515,9 +4454,6 @@ class $$AccountsTableTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get userId =>
-      $composableBuilder(column: $table.userId, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
@@ -4596,7 +4532,6 @@ class $$AccountsTableTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
-                Value<String?> userId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<double> balance = const Value.absent(),
@@ -4612,7 +4547,6 @@ class $$AccountsTableTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => AccountsTableCompanion(
                 id: id,
-                userId: userId,
                 name: name,
                 type: type,
                 balance: balance,
@@ -4630,7 +4564,6 @@ class $$AccountsTableTableTableManager
           createCompanionCallback:
               ({
                 required String id,
-                Value<String?> userId = const Value.absent(),
                 required String name,
                 required String type,
                 Value<double> balance = const Value.absent(),
@@ -4646,7 +4579,6 @@ class $$AccountsTableTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => AccountsTableCompanion.insert(
                 id: id,
-                userId: userId,
                 name: name,
                 type: type,
                 balance: balance,

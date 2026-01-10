@@ -57,6 +57,22 @@ const schema = Schema([
     Column.text('updated_at'),
   ]),
 
+  // Table des budgets
+  Table('budgets', [
+    Column.text('user_id'),
+    Column.text('category_id'),
+    Column.text('category_name'),
+    Column.real('amount'),
+    Column.text('period_type'),
+    Column.text('start_date'),
+    Column.text('end_date'),
+    Column.integer('is_active'),
+    Column.real('alert_threshold'),
+    Column.integer('sync_status'),
+    Column.text('created_at'),
+    Column.text('updated_at'),
+  ]),
+
   // Table des objectifs
   Table('goals', [
     Column.text('user_id'),

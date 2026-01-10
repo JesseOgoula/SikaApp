@@ -71,6 +71,7 @@ class AutoSyncService {
     _isSyncing = true;
 
     try {
+      await _syncCategories(user.id);
       await _syncTransactions(user.id);
       await _syncAccounts(user.id);
       await _syncDebts(user.id);
@@ -88,6 +89,48 @@ class AutoSyncService {
   Future<void> forceSync() async {
     debugPrint('🔄 [AutoSync] Force sync requested');
     await _checkAndSync();
+  }
+
+  /// Synchronise les catégories (incluant budget_limit) vers Supabase
+  Future<void> _syncCategories(String userId) async {
+    final pending = await (_db.select(
+      _db.categoriesTable,
+    )..where((c) => c.syncStatus.equals(0))).get();
+
+    if (pending.isEmpty) {
+      debugPrint('📤 [Categories] No pending categories');
+      return;
+    }
+
+    debugPrint('📤 [Categories] Syncing ${pending.length} categories...');
+
+    for (final category in pending) {
+      try {
+        await _supabase.from('categories').upsert({
+          'id': category.id,
+          'user_id': userId,
+          'name': category.name,
+          'icon_key': category.iconKey,
+          'color': category.color,
+          'keywords_json': category.keywordsJson,
+          'parent_id': category.parentId,
+          'is_system': category.isSystem ? 1 : 0,
+          'budget_limit': category.budgetLimit,
+          'sort_order': category.sortOrder,
+          'sync_status': 1,
+          'created_at': category.createdAt.toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        await (_db.update(_db.categoriesTable)
+              ..where((c) => c.id.equals(category.id)))
+            .write(const CategoriesTableCompanion(syncStatus: Value(1)));
+
+        debugPrint('✅ [Categories] Synced ${category.name}');
+      } catch (e) {
+        debugPrint('❌ [Categories] Failed to sync ${category.name}: $e');
+      }
+    }
   }
 
   /// Synchronise les transactions non-sync vers Supabase

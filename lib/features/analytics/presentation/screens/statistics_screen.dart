@@ -17,6 +17,8 @@ import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/analytics/presentation/widgets/health_score_card.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+import 'package:sika_app/features/budgets/data/repositories/budget_repository.dart';
+import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
 
 /// Dashboard Analytics - Redesign Premium avec Financial Health Score
 class StatisticsScreen extends ConsumerStatefulWidget {
@@ -320,6 +322,18 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                           ),
                         ),
                         SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildBalanceEvolutionChart(),
+                          ),
+                        ),
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildWeeklyExpensesChart(),
+                          ),
+                        ),
+                        SliverPadding(
                           padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
                           sliver: _buildTimelineSliver(),
                         ),
@@ -486,7 +500,142 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildBudgetStatusIndicator(),
       ],
+    );
+  }
+
+  /// Indicateur de statut des budgets
+  Widget _buildBudgetStatusIndicator() {
+    final budgetsAsync = ref.watch(categoryBudgetsProvider);
+
+    return budgetsAsync.when(
+      data: (budgets) {
+        if (budgets.isEmpty) {
+          return GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.add_circle_outline,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Définir des budgets par catégorie',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.textSecondary,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final overBudget = budgets.where((b) => b.isOverBudget).length;
+        final totalBudget = budgets.fold<double>(
+          0,
+          (s, b) => s + b.budgetLimit,
+        );
+        final totalSpent = budgets.fold<double>(
+          0,
+          (s, b) => s + b.currentSpent,
+        );
+        final percentUsed = totalBudget > 0 ? (totalSpent / totalBudget) : 0.0;
+
+        final statusColor = overBudget > 0
+            ? AppTheme.error
+            : percentUsed > 0.8
+            ? Colors.orange
+            : AppTheme.success;
+
+        return GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.pie_chart_outline, color: statusColor, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Budgets du mois',
+                            style: TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            overBudget > 0
+                                ? '$overBudget budget(s) dépassé(s)'
+                                : '${(percentUsed * 100).toStringAsFixed(0)}% utilisé',
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.textSecondary,
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: percentUsed.clamp(0.0, 1.0),
+                    backgroundColor: Colors.grey.shade100,
+                    color: statusColor,
+                    minHeight: 4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 
@@ -709,6 +858,285 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// LineChart - Évolution du solde sur la période
+  Widget _buildBalanceEvolutionChart() {
+    if (_groupedTransactions.isEmpty) return const SizedBox.shrink();
+
+    // Calculer l'évolution du solde jour par jour
+    final sortedDates = _groupedTransactions.keys.toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    if (sortedDates.length < 2) return const SizedBox.shrink();
+
+    // Calculer le solde cumulé
+    double runningBalance = 0;
+    final List<FlSpot> spots = [];
+    final dateLabels = <int, String>{};
+
+    for (int i = 0; i < sortedDates.length; i++) {
+      final date = sortedDates[i];
+      final txs = _groupedTransactions[date]!;
+
+      for (final tx in txs) {
+        if (tx.transaction.type == 'income') {
+          runningBalance += tx.transaction.amount;
+        } else {
+          runningBalance -= tx.transaction.amount;
+        }
+      }
+
+      spots.add(FlSpot(i.toDouble(), runningBalance));
+      dateLabels[i] = DateFormat('dd/MM').format(date);
+    }
+
+    if (spots.isEmpty) return const SizedBox.shrink();
+
+    final minY = spots.map((s) => s.y).reduce((a, b) => a < b ? a : b);
+    final maxY = spots.map((s) => s.y).reduce((a, b) => a > b ? a : b);
+    final range = maxY - minY;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Évolution du solde',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 180,
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: range > 0 ? range / 4 : 1,
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: Colors.grey.shade100, strokeWidth: 1),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 50,
+                      getTitlesWidget: (value, meta) => Text(
+                        _currencyFormat.format(value),
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: (spots.length / 4).ceil().toDouble().clamp(
+                        1,
+                        spots.length.toDouble(),
+                      ),
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        if (dateLabels.containsKey(idx)) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              dateLabels[idx]!,
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 9,
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: AppTheme.primaryColor,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
+                      final idx = spot.x.toInt();
+                      return LineTooltipItem(
+                        '${dateLabels[idx] ?? ''}\n${_currencyFormat.format(spot.y)} F',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// BarChart - Dépenses par semaine/jour
+  Widget _buildWeeklyExpensesChart() {
+    if (_groupedTransactions.isEmpty) return const SizedBox.shrink();
+
+    // Grouper les dépenses par jour
+    final sortedDates = _groupedTransactions.keys.toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    if (sortedDates.length < 2) return const SizedBox.shrink();
+
+    final List<BarChartGroupData> barGroups = [];
+    final dateLabels = <int, String>{};
+    double maxExpense = 0;
+
+    for (int i = 0; i < sortedDates.length && i < 7; i++) {
+      final date = sortedDates[sortedDates.length - 1 - i];
+      final txs = _groupedTransactions[date]!;
+
+      double dayExpense = 0;
+      for (final tx in txs) {
+        if (tx.transaction.type == 'expense') {
+          dayExpense += tx.transaction.amount;
+        }
+      }
+
+      if (dayExpense > maxExpense) maxExpense = dayExpense;
+
+      barGroups.insert(
+        0,
+        BarChartGroupData(
+          x: 6 - i,
+          barRods: [
+            BarChartRodData(
+              toY: dayExpense,
+              color: AppTheme.error.withOpacity(0.8),
+              width: 24,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(6),
+              ),
+            ),
+          ],
+        ),
+      );
+      dateLabels[6 - i] = DateFormat('E', 'fr_FR').format(date).substring(0, 3);
+    }
+
+    if (barGroups.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Dépenses récentes',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 160,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxExpense * 1.2,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      return BarTooltipItem(
+                        '${_currencyFormat.format(rod.toY)} F',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final idx = value.toInt();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            dateLabels[idx] ?? '',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                barGroups: barGroups,
+              ),
+            ),
           ),
         ],
       ),

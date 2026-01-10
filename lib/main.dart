@@ -56,6 +56,13 @@ void main() async {
     debugPrint('⏳ [MAIN] Initializing AppDatabase...');
     database = AppDatabase();
     debugPrint('✅ [MAIN] AppDatabase instance created');
+
+    // Force sync de toutes les catégories existantes (une seule fois au démarrage)
+    await database.customUpdate(
+      'UPDATE categories SET sync_status = 0 WHERE sync_status = 1',
+      updates: {database.categoriesTable},
+    );
+    debugPrint('🔄 [MAIN] Categories marked for sync');
   } catch (e) {
     debugPrint('❌ [MAIN] CRITICAL ERROR IN DATABASE INIT: $e');
     return; // Impossible de continuer sans base de données

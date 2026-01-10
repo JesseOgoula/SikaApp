@@ -419,4 +419,37 @@ class NotificationService {
         >()
         ?.requestNotificationsPermission();
   }
+
+  /// Notification immédiate quand un budget est dépassé
+  static const int _idBudgetExceeded = 8000;
+
+  Future<void> showBudgetExceededNotification({
+    required String categoryName,
+    required double budgetLimit,
+    required double currentSpent,
+  }) async {
+    final exceeded = currentSpent - budgetLimit;
+
+    await _notificationsPlugin.show(
+      _idBudgetExceeded + categoryName.hashCode.abs() % 1000,
+      '⚠️ Budget dépassé: $categoryName',
+      'Vous avez dépassé votre budget de ${exceeded.toStringAsFixed(0)} F',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelBalance,
+          'Alertes Budget',
+          channelDescription: 'Alertes de dépassement de budget',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: const Color(0xFFE53935),
+          icon: '@mipmap/ic_launcher',
+        ),
+      ),
+      payload: 'budget_exceeded:$categoryName',
+    );
+
+    debugPrint(
+      '🔔 [Budget] Notification: $categoryName dépassé de $exceeded F',
+    );
+  }
 }
