@@ -17,7 +17,8 @@ dependencies:
 
   # ===== DRIFT (SQLite ORM) =====
   drift: ^2.22.1
-  sqlite3_flutter_libs: ^0.5.28
+  sqlcipher_flutter_libs: ^0.6.8
+  sqlite3: ^2.5.0
   path_provider: ^2.1.5
   path: ^1.9.1
 
@@ -28,6 +29,12 @@ dependencies:
   # ===== UTILITIES =====
   uuid: ^4.5.1
   intl: ^0.20.2
+  timezone: ^0.9.4
+
+  # ===== SECURITY =====
+  flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
+  safe_device: ^1.1.4
 
   # ===== SMS & PERMISSIONS (Android) =====
   flutter_sms_inbox: ^1.0.4
@@ -56,7 +63,7 @@ dependencies:
   google_sign_in: ^6.2.1
   
   # ===== POWERSYNC (Offline-First Sync) =====
-  powersync: ^1.8.0
+  powersync: ^1.17.0
 
 dev_dependencies:
   flutter_test:

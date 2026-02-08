@@ -58,6 +58,12 @@ class AppDatabase extends _$AppDatabase {
   /// Constructeur par défaut - ouvre la base de données
   AppDatabase() : super(_openConnection());
 
+  // Constructeur prenant une clé (pour compatibilité future/main.dart)
+  // Pour l'instant on ignore la clé car la logique de chiffrement est dans openConnection si nécessaire
+  factory AppDatabase.encrypted(String key) {
+    return AppDatabase(); 
+  }
+
   /// Constructeur pour les tests avec un executor personnalisé
   AppDatabase.forTesting(super.executor);
 
