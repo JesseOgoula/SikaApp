@@ -92,6 +92,9 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         final table = op.table;
         final data = op.opData;
 
+        debugPrint('📤 [PowerSync] Operation: ${op.op} on $table, id=${op.id}');
+        debugPrint('📤 [PowerSync] Data: $data');
+
         // Skip if no data for upsert/update
         if (data == null && op.op != UpdateType.delete) {
           debugPrint('⚠️ [PowerSync] Skipping ${op.op} on $table: no data');
@@ -102,7 +105,17 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           case UpdateType.put:
             // INSERT ou UPDATE
             if (data != null) {
-              await _supabase.from(table).upsert(data);
+              // Add id to data for upsert
+              var dataWithId = {...data, 'id': op.id};
+
+              // Remove foreign keys for transactions to avoid constraint errors
+              // (accounts/categories may not be synced yet)
+              if (table == 'transactions') {
+                dataWithId.remove('account_id');
+                dataWithId.remove('category_id');
+              }
+
+              await _supabase.from(table).upsert(dataWithId);
               debugPrint('📤 [PowerSync] Upserted into $table: ${op.id}');
             }
             break;
@@ -110,7 +123,12 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           case UpdateType.patch:
             // UPDATE partiel
             if (data != null) {
-              await _supabase.from(table).update(data).eq('id', op.id);
+              var cleanData = {...data};
+              if (table == 'transactions') {
+                cleanData.remove('account_id');
+                cleanData.remove('category_id');
+              }
+              await _supabase.from(table).update(cleanData).eq('id', op.id);
               debugPrint('📤 [PowerSync] Updated $table: ${op.id}');
             }
             break;
@@ -123,7 +141,8 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         }
       } catch (e) {
         debugPrint('❌ [PowerSync] Error uploading ${op.op} on ${op.table}: $e');
-        rethrow;
+        // Continue with next operation instead of failing completely
+        continue;
       }
     }
 

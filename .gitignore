@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Debug and log files
+*.txt
+!README.txt
+build_log*.txt
+build_error.txt
+build_output.txt
+verbose_build_log.txt
+analyze_output.txt
+error_log.txt
+final_log.txt
+gradle_log.txt
+fulllog.txt
+dbg.txt

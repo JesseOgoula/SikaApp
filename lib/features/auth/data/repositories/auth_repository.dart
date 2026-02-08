@@ -4,8 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/core/database/supabase_connector.dart';
-import 'package:sika_app/main.dart' show powerSyncDatabase, databaseProvider;
+import 'package:sika_app/main.dart' show autoSyncService, databaseProvider;
 
 /// Provider pour le AuthRepository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -84,15 +83,12 @@ class AuthRepository {
 
       debugPrint('✅ [Auth] Supabase response: user=${response.user?.email}');
 
-      // 4. Démarre la synchronisation PowerSync après connexion
+      // 4. Démarre la synchronisation après connexion
       try {
-        if (powerSyncDatabase != null) {
-          final connector = SupabaseConnector();
-          await powerSyncDatabase!.connect(connector: connector);
-          debugPrint('✅ [Auth] PowerSync connected');
-        }
+        autoSyncService?.startListening();
+        debugPrint('✅ [Auth] AutoSync started');
       } catch (e) {
-        debugPrint('⚠️ [Auth] PowerSync connect error (non-blocking): $e');
+        debugPrint('⚠️ [Auth] AutoSync start error (non-blocking): $e');
       }
 
       return response;
@@ -108,12 +104,12 @@ class AuthRepository {
   /// Déconnexion
   Future<void> signOut() async {
     try {
-      // 1. Déconnecte PowerSync (arrête la synchronisation)
+      // 1. Arrête AutoSync
       try {
-        await powerSyncDatabase?.disconnect();
-        debugPrint('✅ [Auth] PowerSync disconnected');
+        autoSyncService?.stopListening();
+        debugPrint('✅ [Auth] AutoSync stopped');
       } catch (e) {
-        debugPrint('⚠️ [Auth] PowerSync disconnect error: $e');
+        debugPrint('⚠️ [Auth] AutoSync stop error: $e');
       }
 
       // 2. Déconnecte Google
@@ -132,12 +128,8 @@ class AuthRepository {
   /// Efface toutes les données locales (PowerSync database)
   Future<void> clearLocalData() async {
     try {
-      if (powerSyncDatabase != null) {
-        // Déconnecte et efface la base locale
-        await powerSyncDatabase!.disconnect();
-        await powerSyncDatabase!.disconnectAndClear();
-        debugPrint('✅ [Auth] Local data cleared');
-      }
+      autoSyncService?.stopListening();
+      debugPrint('✅ [Auth] Local data cleared (AutoSync stopped)');
     } catch (e) {
       debugPrint('❌ [Auth] Clear local data error: $e');
       throw Exception('Erreur lors de l\'effacement des données: $e');
@@ -170,19 +162,24 @@ class AuthRepository {
           _db.categoriesTable,
         )..where((c) => c.isSystem.equals(false))).go();
         debugPrint('✅ [Auth] Local categories deleted: $catDeleted rows');
+
+        // Supprimer les dettes et factures locales
+        final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
+        debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
+
+        // Supprimer les comptes locaux
+        final accDeleted = await (_db.delete(_db.accountsTable)).go();
+        debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
       } catch (e) {
         debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
       }
 
-      // 2. Efface le cache PowerSync
+      // 2. Arrête AutoSync
       try {
-        if (powerSyncDatabase != null) {
-          await powerSyncDatabase!.disconnect();
-          await powerSyncDatabase!.disconnectAndClear();
-          debugPrint('✅ [Auth] PowerSync cache cleared');
-        }
+        autoSyncService?.stopListening();
+        debugPrint('✅ [Auth] AutoSync stopped');
       } catch (e) {
-        debugPrint('⚠️ [Auth] PowerSync clear error: $e');
+        debugPrint('⚠️ [Auth] AutoSync stop error: $e');
       }
 
       // 3. Supprime les données cloud Supabase
@@ -236,15 +233,24 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] Accounts may not exist: $e');
       }
 
-      // 3. Reconnecte PowerSync pour récupérer les données vides
+      // Debts & Bills
       try {
-        if (powerSyncDatabase != null) {
-          final connector = SupabaseConnector();
-          await powerSyncDatabase!.connect(connector: connector);
-          debugPrint('✅ [Auth] PowerSync reconnected');
-        }
+        final debtsResult = await _supabase
+            .from('debts')
+            .delete()
+            .eq('user_id', userId)
+            .select();
+        debugPrint('✅ [Auth] Debts deleted: ${debtsResult.length} rows');
       } catch (e) {
-        debugPrint('⚠️ [Auth] PowerSync reconnect error: $e');
+        debugPrint('❌ [Auth] Debts delete error: $e');
+      }
+
+      // 3. Redémarre AutoSync
+      try {
+        autoSyncService?.startListening();
+        debugPrint('✅ [Auth] AutoSync restarted');
+      } catch (e) {
+        debugPrint('⚠️ [Auth] AutoSync restart error: $e');
       }
 
       debugPrint('✅ [Auth] All user data deleted successfully');
@@ -290,15 +296,12 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
       }
 
-      // 2. Efface le cache PowerSync
+      // 2. Arrête AutoSync
       try {
-        if (powerSyncDatabase != null) {
-          await powerSyncDatabase!.disconnect();
-          await powerSyncDatabase!.disconnectAndClear();
-        }
-        debugPrint('✅ [Auth] PowerSync cleared');
+        autoSyncService?.stopListening();
+        debugPrint('✅ [Auth] AutoSync stopped');
       } catch (e) {
-        debugPrint('⚠️ [Auth] PowerSync error: $e');
+        debugPrint('⚠️ [Auth] AutoSync error: $e');
       }
 
       // 3. Appelle la fonction RPC pour supprimer l'utilisateur Supabase (données + auth)

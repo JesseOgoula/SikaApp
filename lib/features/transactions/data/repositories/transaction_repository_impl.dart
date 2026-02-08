@@ -1,141 +1,25 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
 import '../../../analytics/domain/entities/daily_summary.dart';
-import '../../../sms_parser/domain/entities/parsed_transaction.dart';
 import '../../domain/repositories/transaction_repository.dart';
 
 /// Implémentation du repository de transactions avec Drift (SQLite)
 ///
 /// Cette classe gère:
 /// - La persistance des transactions dans SQLite
-/// - La conversion ParsedTransaction → TransactionsTableCompanion
-/// - La déduplication via external_id
 /// - Les requêtes réactives (Streams)
+/// - La synchronisation est gérée par AutoSyncService (connectivity-based)
 class TransactionRepositoryImpl implements TransactionRepository {
   final AppDatabase _db;
   final Uuid _uuid;
 
   TransactionRepositoryImpl(this._db, {Uuid? uuid})
     : _uuid = uuid ?? const Uuid();
-
-  // ==================== MAPPING HELPERS ====================
-
-  /// Convertit un TransactionType enum en String pour stockage
-  String _transactionTypeToString(TransactionType type) {
-    switch (type) {
-      case TransactionType.expense:
-        return 'expense';
-      case TransactionType.income:
-        return 'income';
-      case TransactionType.transfer:
-        return 'transfer';
-    }
-  }
-
-  /// Convertit un MobileOperator enum en String pour stockage
-  String _operatorToString(MobileOperator operator) {
-    switch (operator) {
-      case MobileOperator.airtelMoney:
-        return 'AIRTEL_MONEY';
-      case MobileOperator.moovMoney:
-        return 'MOOV_MONEY';
-      case MobileOperator.uba:
-        return 'UBA';
-      case MobileOperator.unknown:
-        return 'UNKNOWN';
-    }
-  }
-
-  /// Convertit un ParsedTransaction en TransactionsTableCompanion
-  ///
-  /// Génère un nouvel UUID et mappe tous les champs correctement.
-  TransactionsTableCompanion _parsedToCompanion(
-    ParsedTransaction parsed,
-    String? categoryId,
-  ) {
-    return TransactionsTableCompanion(
-      id: Value(_uuid.v4()),
-      amount: Value(parsed.amount),
-      type: Value(_transactionTypeToString(parsed.type)),
-      merchantName: Value(parsed.merchantName),
-      categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
-      accountId: const Value.absent(),
-      date: Value(parsed.date),
-      smsSender: Value(_operatorToString(parsed.operator)),
-      smsRawContent: Value(parsed.rawSmsContent),
-      externalId: Value(parsed.transactionId),
-      isAiCategorized: const Value(false),
-      syncStatus: const Value(0),
-    );
-  }
-
-  /// Tente de deviner la catégorie basée sur les mots-clés
-  Future<String?> _guessCategory(String merchant, String body) async {
-    // Cas spécial: EBILLING -> Factures
-    if (merchant.toUpperCase().contains('EBILLING') ||
-        body.toUpperCase().contains('EBILLING')) {
-      final factureCat = await (_db.select(
-        _db.categoriesTable,
-      )..where((c) => c.id.equals('cat-factures'))).getSingleOrNull();
-      return factureCat?.id;
-    }
-
-    final categories = await _db.getAllCategories();
-    final text = '$merchant $body'.toLowerCase();
-
-    for (final cat in categories) {
-      if (cat.keywordsJson != '{}') {
-        // Note: Pour faire simple ici on parse manuellement car keywordsJson est une string
-        // Dans l'idéal on aurait une méthode helper dans CategoriesTableData
-        final keywordsLower = cat.keywordsJson.toLowerCase();
-        // Hack simple: on cherche juste si le mot clé est présent dans le json brut
-        // Amélioration: parser le JSON proprement
-        // Mais pour l'instant on va utiliser les keywords hardcodés dans le seeding
-        // qui correspondent à ce qu'on a mis dans AppDatabase
-      }
-    }
-
-    // Approche simplifiée: Check direct des mots clés connus
-    // Alimentation
-    if (text.contains('boulangerie') ||
-        text.contains('market') ||
-        text.contains('mbolo') ||
-        text.contains('cecado') ||
-        text.contains('geant')) {
-      return 'cat-alimentation';
-    }
-    // Transport
-    if (text.contains('taxi') ||
-        text.contains('total') ||
-        text.contains('petro') ||
-        text.contains('clando')) {
-      return 'cat-transport';
-    }
-    // Factures
-    if (text.contains('seeg') ||
-        text.contains('canal') ||
-        text.contains('edan') ||
-        text.contains('startimes')) {
-      return 'cat-factures';
-    }
-    // Santé
-    if (text.contains('pharmacie') ||
-        text.contains('hopital') ||
-        text.contains('clinique')) {
-      return 'cat-sante';
-    }
-    // Loisirs
-    if (text.contains('netflix') ||
-        text.contains('bar') ||
-        text.contains('resto')) {
-      return 'cat-loisirs';
-    }
-
-    return null;
-  }
 
   // ==================== WATCH METHODS (STREAMS) ====================
 
@@ -199,38 +83,79 @@ class TransactionRepositoryImpl implements TransactionRepository {
   // ==================== WRITE METHODS ====================
 
   @override
-  Future<bool> addParsedTransaction(ParsedTransaction parsedTx) async {
-    // DÉDUPLICATION : Vérifie si une transaction avec le même external_id existe
-    if (parsedTx.transactionId.isNotEmpty) {
-      final exists = await existsByExternalId(parsedTx.transactionId);
-      if (exists) {
-        // Transaction déjà présente, on ignore
-        return false;
-      }
-    }
-
-    // Devine la catégorie
-    final categoryId = await _guessCategory(
-      parsedTx.merchantName,
-      parsedTx.rawSmsContent,
-    );
-
-    // Convertit et insère la nouvelle transaction
-    final companion = _parsedToCompanion(parsedTx, categoryId);
-    await _db.into(_db.transactionsTable).insert(companion);
-    return true;
-  }
-
-  @override
   Future<void> addManualTransaction(
     TransactionsTableCompanion transaction,
   ) async {
     // Assure qu'un ID est présent
+    final txId = transaction.id.present ? transaction.id.value : _uuid.v4();
     final companion = transaction.id.present
         ? transaction
-        : transaction.copyWith(id: Value(_uuid.v4()));
+        : transaction.copyWith(id: Value(txId));
 
+    // 1. Stocke localement dans Drift
     await _db.into(_db.transactionsTable).insert(companion);
+    debugPrint(
+      '✅ [Transactions] Added manual transaction ${txId} - sync handled by AutoSyncService',
+    );
+  }
+
+  /// Lie rétroactivement les transactions existantes aux comptes
+  /// basé sur le champ smsSender
+  Future<int> linkExistingTransactionsToAccounts() async {
+    int linkedCount = 0;
+
+    // Récupère les transactions sans accountId
+    final transactions = await (_db.select(
+      _db.transactionsTable,
+    )..where((t) => t.accountId.isNull())).get();
+
+    debugPrint(
+      '🔗 [LinkAccounts] Found ${transactions.length} transactions without accountId',
+    );
+
+    for (final tx in transactions) {
+      if (tx.smsSender == null) continue;
+
+      // Détermine l'opérateur depuis le smsSender stocké
+      String? accountName;
+      final sender = tx.smsSender!.toUpperCase();
+
+      if (sender.contains('AIRTEL') || sender == 'AIRTEL_MONEY') {
+        accountName = 'Airtel Money';
+      } else if (sender.contains('MOOV') || sender == 'MOOV_MONEY') {
+        accountName = 'Moov Money';
+      } else if (sender.contains('UBA')) {
+        accountName = 'UBA';
+      }
+
+      if (accountName == null) continue;
+
+      // Cherche le compte correspondant
+      final account =
+          await (_db.select(_db.accountsTable)
+                ..where((a) => a.name.equals(accountName!))
+                ..where((a) => a.isActive.equals(true)))
+              .getSingleOrNull();
+
+      if (account != null) {
+        // Met à jour la transaction avec l'accountId
+        await (_db.update(
+          _db.transactionsTable,
+        )..where((t) => t.id.equals(tx.id))).write(
+          TransactionsTableCompanion(
+            accountId: Value(account.id),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        linkedCount++;
+        debugPrint(
+          '✅ [LinkAccounts] Linked tx ${tx.id.substring(0, 8)} to ${account.name}',
+        );
+      }
+    }
+
+    debugPrint('🔗 [LinkAccounts] Total linked: $linkedCount');
+    return linkedCount;
   }
 
   @override
@@ -244,9 +169,37 @@ class TransactionRepositoryImpl implements TransactionRepository {
       syncStatus: const Value(0), // Marque comme à re-synchroniser
     );
 
+    // 1. Met à jour localement
     await (_db.update(
       _db.transactionsTable,
     )..where((t) => t.id.equals(id))).write(updatesWithTimestamp);
+
+    // 2. Met à jour dans Supabase
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        // Récupère la transaction mise à jour pour avoir toutes les valeurs
+        final tx = await getTransactionById(id);
+        if (tx != null) {
+          await supabase.from('transactions').upsert({
+            'id': tx.id,
+            'user_id': userId,
+            'amount': tx.amount,
+            'type': tx.type,
+            'merchant_name': tx.merchantName,
+            'date': tx.date.toIso8601String(),
+            'sync_status': 1,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+          // Marque comme synchronisé localement
+          await markAsSynced(id);
+          debugPrint('✅ [Transactions] Updated and synced $id to Supabase');
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Transactions] Update sync failed (will retry): $e');
+    }
   }
 
   @override
@@ -269,9 +222,23 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<void> deleteTransaction(String id) async {
+    // 1. Supprime dans Supabase d'abord
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId != null) {
+        await supabase.from('transactions').delete().eq('id', id);
+        debugPrint('✅ [Transactions] Deleted $id from Supabase');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Transactions] Delete from Supabase failed: $e');
+    }
+
+    // 2. Supprime localement
     await (_db.delete(
       _db.transactionsTable,
     )..where((t) => t.id.equals(id))).go();
+    debugPrint('✅ [Transactions] Deleted $id locally');
   }
 
   // ==================== SYNC METHODS ====================
@@ -319,9 +286,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     query.where(_db.transactionsTable.type.equals('expense'));
     query.where(_db.transactionsTable.categoryId.equals('cat-epargne').not());
-    query.where(
-      _db.transactionsTable.date.isBetweenValues(startDate, endDate),
-    );
+    query.where(_db.transactionsTable.date.isBetweenValues(startDate, endDate));
 
     final results = await query.get();
 
@@ -434,7 +399,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<double> getTotalIncomeRange(DateTime startDate, DateTime endDate) async {
+  Future<double> getTotalIncomeRange(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
     final query = _db.select(_db.transactionsTable)
       ..where((t) => t.type.equals('income'))
       ..where((t) => t.date.isBetweenValues(startDate, endDate));

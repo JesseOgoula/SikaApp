@@ -7,11 +7,20 @@ import 'package:sika_app/core/theme/app_theme.dart';
 
 /// Tuile de transaction avec design sobre et élégant
 /// Style unifié avec les cartes d'objectifs
+/// Supporte le swipe pour supprimer et tap pour éditer
 class TransactionTile extends StatelessWidget {
   final TransactionWithCategory txWithCategory;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const TransactionTile({super.key, required this.txWithCategory, this.onTap});
+  const TransactionTile({
+    super.key,
+    required this.txWithCategory,
+    this.onTap,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,134 +47,189 @@ class TransactionTile extends StatelessWidget {
     const iconBgColor = Color(0xFFF5F7FA);
     const iconColor = AppTheme.primaryColor;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade100, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+    Widget tile = Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icône catégorie - Style sobre
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: iconBgColor,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Icône catégorie - Style sobre
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                color: iconBgColor,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: FaIcon(
-                  _getCategoryIcon(category?.iconKey),
-                  color: iconColor,
-                  size: 18,
-                ),
+            child: Center(
+              child: FaIcon(
+                _getCategoryIcon(category?.iconKey),
+                color: iconColor,
+                size: 18,
               ),
             ),
-            const SizedBox(width: 14),
+          ),
+          const SizedBox(width: 14),
 
-            // Infos
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tx.merchantName ?? 'Transaction',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        dateFormat.format(tx.date),
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      if (category != null) ...[
-                        const Text(' • ', style: TextStyle(color: Colors.grey)),
-                        Flexible(
-                          child: Text(
-                            category.name,
-                            style: TextStyle(
-                              color: AppTheme.textSecondary,
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 8),
-
-            // Montant - Style simple et élégant
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+          // Infos
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$amountPrefix${currencyFormat.format(tx.amount)}',
-                  style: TextStyle(
-                    color: amountColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                  tx.merchantName ?? 'Transaction',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                // Petit indicateur de type
+                const SizedBox(height: 4),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: isIncome
-                            ? AppTheme.secondaryColor.withOpacity(0.6)
-                            : Colors.grey.shade400,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
                     Text(
-                      isIncome ? 'Revenu' : 'Dépense',
+                      dateFormat.format(tx.date),
                       style: TextStyle(
-                        fontSize: 10,
                         color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
                       ),
                     ),
+                    if (category != null) ...[
+                      const Text(' • ', style: TextStyle(color: Colors.grey)),
+                      Flexible(
+                        child: Text(
+                          category.name,
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Montant - Style simple et élégant
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$amountPrefix${currencyFormat.format(tx.amount)}',
+                style: TextStyle(
+                  color: amountColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              // Petit indicateur de type
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: isIncome
+                          ? AppTheme.secondaryColor.withOpacity(0.6)
+                          : Colors.grey.shade400,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isIncome ? 'Revenu' : 'Dépense',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppTheme.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
+
+    // Si onDelete est fourni, wrap avec Dismissible
+    if (onDelete != null) {
+      tile = Dismissible(
+        key: Key(tx.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.error,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          child: const Icon(Icons.delete_outline, color: Colors.white),
+        ),
+        confirmDismiss: (direction) async {
+          // Affiche une confirmation
+          return await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  title: const Row(
+                    children: [
+                      Icon(Icons.delete_outline, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text('Supprimer'),
+                    ],
+                  ),
+                  content: Text(
+                    'Supprimer "${tx.merchantName ?? 'cette transaction'}" ?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.error,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Supprimer'),
+                    ),
+                  ],
+                ),
+              ) ??
+              false;
+        },
+        onDismissed: (_) => onDelete?.call(),
+        child: tile,
+      );
+    }
+
+    return GestureDetector(onTap: onEdit ?? onTap, child: tile);
   }
 
   IconData _getCategoryIcon(String? iconKey) {

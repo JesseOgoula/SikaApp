@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
+import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart';
 
 /// Provider pour le GoalRepository
@@ -13,6 +14,7 @@ final goalRepositoryProvider = Provider<GoalRepository>((ref) {
 
 /// Provider pour la liste des objectifs actifs (stream)
 final activeGoalsProvider = StreamProvider<List<GoalsTableData>>((ref) {
+  ref.keepAlive(); // Garde en cache pour navigation instantanée
   final repo = ref.watch(goalRepositoryProvider);
   return repo.watchActiveGoals();
 });
@@ -48,17 +50,27 @@ class GoalRepository {
     String? iconKey,
     DateTime? deadline,
   }) async {
+    final goalId = _uuid.v4();
+
     await _db
         .into(_db.goalsTable)
         .insert(
           GoalsTableCompanion.insert(
-            id: _uuid.v4(),
+            id: goalId,
             name: name,
             targetAmount: targetAmount,
             iconKey: Value(iconKey),
             deadline: Value(deadline),
           ),
         );
+
+    // Schedule weekly reminder
+    await NotificationService().scheduleWeeklyGoalReminder(
+      goalId: goalId,
+      goalName: name,
+      currentAmount: 0,
+      targetAmount: targetAmount,
+    );
   }
 
   /// Ajouter de l'épargne à un objectif
@@ -70,6 +82,7 @@ class GoalRepository {
     if (goal != null) {
       final newSavedAmount = goal.savedAmount + amount;
       final isNowCompleted = newSavedAmount >= goal.targetAmount;
+      final wasNotCompleted = !goal.isCompleted;
 
       await (_db.update(
         _db.goalsTable,
@@ -79,6 +92,24 @@ class GoalRepository {
           isCompleted: Value(isNowCompleted),
         ),
       );
+
+      // Show celebration if just completed
+      if (isNowCompleted && wasNotCompleted) {
+        await NotificationService().showGoalCompletedNotification(
+          goalName: goal.name,
+          amount: newSavedAmount,
+        );
+        // Cancel weekly reminder
+        await NotificationService().cancelGoalReminder(goalId);
+      } else {
+        // Update weekly reminder with new amount
+        await NotificationService().scheduleWeeklyGoalReminder(
+          goalId: goalId,
+          goalName: goal.name,
+          currentAmount: newSavedAmount,
+          targetAmount: goal.targetAmount,
+        );
+      }
     }
   }
 
@@ -91,6 +122,8 @@ class GoalRepository {
 
   /// Supprimer un objectif
   Future<void> deleteGoal(String goalId) async {
+    // Cancel weekly reminder
+    await NotificationService().cancelGoalReminder(goalId);
     await (_db.delete(_db.goalsTable)..where((g) => g.id.equals(goalId))).go();
   }
 

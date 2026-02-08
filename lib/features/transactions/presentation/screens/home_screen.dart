@@ -16,7 +16,6 @@ import 'package:sika_app/features/goals/presentation/screens/goals_list_screen.d
 import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
 import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
 import 'package:sika_app/features/profile/presentation/screens/profile_screen.dart';
-import 'package:sika_app/features/sms_parser/data/providers/sms_providers.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
@@ -26,6 +25,8 @@ import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
 import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
+import 'package:sika_app/features/analytics/presentation/widgets/health_score_badge.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
@@ -53,23 +54,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionWithCategoryListProvider);
-    final importState = ref.watch(smsImportNotifierProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
-      body: SafeArea(child: _buildBodyForIndex(transactionsAsync, importState)),
+      body: SafeArea(child: _buildBodyForIndex(transactionsAsync)),
       bottomNavigationBar: _buildBottomNav(),
     );
   }
 
   Widget _buildBodyForIndex(
     AsyncValue<List<TransactionWithCategory>> transactionsAsync,
-    SmsImportState importState,
   ) {
     switch (_currentNavIndex) {
       case 0: // Accueil
         return transactionsAsync.when(
-          data: (transactions) => _buildContent(transactions, importState),
+          data: (transactions) => _buildContent(transactions),
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppTheme.primaryColor),
           ),
@@ -93,10 +92,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Widget _buildContent(
-    List<TransactionWithCategory> transactions,
-    SmsImportState importState,
-  ) {
+  Widget _buildContent(List<TransactionWithCategory> transactions) {
     // Calculs locaux
     double totalBalance = 0;
     double monthlyExpenses = 0;
@@ -129,10 +125,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final pendingBillsAsync = ref.watch(pendingBillsAmountProvider);
     final pendingBills = pendingBillsAsync.valueOrNull ?? 0.0;
 
+    // Récupère le solde total des comptes et le nombre de comptes actifs
+    final totalAccountsBalance = ref.watch(totalAccountsBalanceProvider);
+    final accountsAsync = ref.watch(activeAccountsProvider);
+    final activeAccountsCount = accountsAsync.valueOrNull?.length ?? 0;
+
     // Solde disponible = Argent restant en compte (donc déjà déduit de l'épargne faite par transactions)
-    // On ne soustrait plus totalSaved ici car chaque "ajout à un objectif" crée une transaction de dépense
-    // qui réduit déjà totalBalance.
     final soldeDisponible = totalBalance - pendingBills;
+
+    // Calcul du score de santé financière AMÉLIORÉ
+    // 5 composantes pour 100 points total:
+    // 1. Taux d'épargne (0-30 points)
+    // 2. Ratio dépenses (0-20 points)
+    // 3. Ratio dette (0-20 points)
+    // 4. Coussin de sécurité (0-20 points) - NOUVEAU
+    // 5. Diversification comptes (0-10 points) - NOUVEAU
+
+    double monthlyIncome = 0;
+    double monthlySavings = 0;
+    for (final txWithCat in transactions) {
+      final tx = txWithCat.transaction;
+      if (tx.date.isAfter(firstOfMonth)) {
+        if (tx.type == 'income') {
+          monthlyIncome += tx.amount;
+        } else if (tx.categoryId == 'cat-epargne') {
+          monthlySavings += tx.amount;
+        }
+      }
+    }
+
+    double savingsScore = 0;
+    double expenseScore = 0;
+    double debtScore = 20; // Score max de base si pas de dette
+    double cushionScore = 0; // NOUVEAU: Coussin de sécurité
+    double diversificationScore = 0; // NOUVEAU: Diversification
+
+    if (monthlyIncome > 0) {
+      // Taux d'épargne : 20% = score max (30 points)
+      final savingsRate = monthlySavings / monthlyIncome;
+      savingsScore = (savingsRate * 150).clamp(0, 30).toDouble();
+
+      // Ratio dépenses : si dépenses < 80% des revenus = bon score (20 pts)
+      final expenseRate = monthlyExpenses / monthlyIncome;
+      expenseScore = ((1 - expenseRate) * 40).clamp(0, 20).toDouble();
+
+      // Ratio dette : si dette < 30% des revenus = bon score (20 pts)
+      final debtRatio = pendingBills / monthlyIncome;
+      debtScore = ((1 - debtRatio) * 20).clamp(0, 20).toDouble();
+    } else if (soldeDisponible > 0) {
+      expenseScore = 10;
+      savingsScore = 5;
+    }
+
+    // NOUVEAU: Coussin de sécurité (20 pts)
+    // Objectif: avoir 3 mois de dépenses en réserve
+    if (monthlyExpenses > 0) {
+      final monthsCovered = totalAccountsBalance / monthlyExpenses;
+      cushionScore = (monthsCovered / 3 * 20).clamp(0, 20).toDouble();
+    } else if (totalAccountsBalance > 0) {
+      cushionScore = 10; // Score moyen si pas de dépenses
+    }
+
+    // NOUVEAU: Diversification comptes (10 pts)
+    // 1 compte = 0, 2 = 5, 3+ = 10
+    if (activeAccountsCount >= 3) {
+      diversificationScore = 10;
+    } else if (activeAccountsCount == 2) {
+      diversificationScore = 5;
+    }
+
+    final healthScore =
+        (savingsScore +
+                expenseScore +
+                debtScore +
+                cushionScore +
+                diversificationScore)
+            .round()
+            .clamp(0, 100);
 
     // Layout sans scroll vertical
     return Column(
@@ -141,59 +210,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Header
         _buildHeader(),
 
-        // PageView des cartes de solde (hauteur ajustée pour le nouveau design)
-        SizedBox(
-          height: 200,
-          child: PageView(
-            controller: _balancePageController,
-            onPageChanged: (index) => setState(() => _balancePageIndex = index),
-            children: [
-              // Carte 1 : Solde Disponible
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildBalanceCard(
-                  title: 'Solde disponible',
-                  amount: soldeDisponible,
-                  subtitle: 'Compte principal',
-                  showSubtitle: true,
-                ),
-              ),
-              // Carte 2 : Solde Total
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: _buildBalanceCard(
-                  title: 'Solde total',
-                  amount: totalIncomeAllTime,
-                  subtitle: 'Tous comptes confondus',
-                  showSubtitle: false,
-                ),
-              ),
-            ],
-          ),
-        ),
+        // PageView des cartes de compte dynamiques
+        _buildDynamicAccountCards(healthScore, soldeDisponible),
 
-        // Dots indicator pour les cartes de solde
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildBalanceDot(0),
-                const SizedBox(width: 6),
-                _buildBalanceDot(1),
-              ],
-            ),
-          ),
-        ),
+        // Dots indicator dynamiques
+        _buildDynamicBalanceDots(),
 
         // Quick Actions
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           child: QuickActions(
             onAddPressed: _onAddPressed,
-            onSyncPressed: _onSyncPressed,
-            isSyncing: importState.isImporting,
             onGoalsPressed: _onAddGoalPressed,
             onDebtsPressed: _onAddDebtPressed,
           ),
@@ -253,6 +280,240 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Construit les cartes de compte dynamiques avec soldes calculés
+  Widget _buildDynamicAccountCards(int healthScore, double defaultBalance) {
+    final accountsAsync = ref.watch(accountsWithBalanceProvider);
+    final totalBalance = ref.watch(totalAccountsBalanceProvider);
+
+    return accountsAsync.when(
+      data: (accounts) {
+        // Si aucun compte, afficher une carte par défaut
+        if (accounts.isEmpty) {
+          return SizedBox(
+            height: 200,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildBalanceCard(
+                title: 'Solde disponible',
+                amount: defaultBalance,
+                subtitle: 'Configurez vos comptes',
+                showSubtitle: true,
+                healthScore: healthScore,
+              ),
+            ),
+          );
+        }
+
+        // Construire les cartes: Total + chaque compte
+        final cards = <Widget>[
+          // Carte Total
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: _buildBalanceCard(
+              title: 'Solde total',
+              amount: totalBalance,
+              subtitle: 'Tous comptes',
+              showSubtitle: true,
+              healthScore: healthScore,
+            ),
+          ),
+          // Cartes pour chaque compte avec solde calculé
+          ...accounts.map(
+            (acc) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildAccountCardDynamic(acc),
+            ),
+          ),
+        ];
+
+        return SizedBox(
+          height: 200,
+          child: PageView(
+            controller: _balancePageController,
+            onPageChanged: (index) => setState(() => _balancePageIndex = index),
+            children: cards,
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 200,
+        child: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
+        ),
+      ),
+      error: (_, __) => SizedBox(
+        height: 200,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: _buildBalanceCard(
+            title: 'Solde disponible',
+            amount: defaultBalance,
+            subtitle: 'Erreur de chargement',
+            showSubtitle: true,
+            healthScore: healthScore,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Carte individuelle pour un compte avec solde calculé (design premium)
+  Widget _buildAccountCardDynamic(AccountWithBalance acc) {
+    final accountColor = Color(int.parse(acc.color.replaceFirst('#', '0xFF')));
+    final now = DateTime.now();
+    final formattedDate = DateFormat('dd/MM/yy').format(now);
+    final formattedTime = DateFormat('HH:mm').format(now);
+
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        accountColor,
+        HSLColor.fromColor(accountColor).withLightness(0.3).toColor(),
+      ],
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: accountColor.withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.account_balance_wallet,
+                      color: Colors.white,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _getAccountTypeLabel(acc.type),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$formattedDate • $formattedTime',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            acc.name,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.8),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _formatAmount(acc.balance),
+            style: const TextStyle(
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+              letterSpacing: -1,
+              height: 1.1,
+            ),
+          ),
+          Text(
+            'FCFA',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getAccountTypeLabel(String type) {
+    switch (type) {
+      case 'mobileMoney':
+        return 'Mobile Money';
+      case 'bank':
+        return 'Compte bancaire';
+      case 'cash':
+        return 'Espèces';
+      default:
+        return type;
+    }
+  }
+
+  String _formatAmount(double amount) {
+    return amount
+        .toStringAsFixed(0)
+        .replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]} ',
+        );
+  }
+
+  /// Dots indicator dynamiques selon le nombre de comptes
+  Widget _buildDynamicBalanceDots() {
+    final accountsAsync = ref.watch(accountsWithBalanceProvider);
+
+    return accountsAsync.when(
+      data: (accounts) {
+        final dotCount = accounts.isEmpty ? 1 : accounts.length + 1;
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(
+                dotCount,
+                (index) => Padding(
+                  padding: EdgeInsets.only(left: index > 0 ? 6 : 0),
+                  child: _buildBalanceDot(index),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+    );
+  }
+
   /// Formate un montant en FCFA
   /// Formate un montant en fonction de la devise du pays
   String _formatCurrency(double amount, String currencyCode) {
@@ -266,14 +527,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required double amount,
     required String subtitle,
     required bool showSubtitle,
+    required int healthScore,
   }) {
     final user = Supabase.instance.client.auth.currentUser;
     final metadata = user?.userMetadata ?? {};
     final locale =
         (metadata['locale'] ?? metadata['preferred_locale'] ?? 'fr-GA')
             as String;
-    debugPrint('SIKA_DEBUG: User Metadata: $metadata');
-    debugPrint('SIKA_DEBUG: Selected Locale: $locale');
     final userInfo = _getCountryAndCurrency(locale);
 
     // Date et Heure "de connexion" (Heure actuelle simulée pour le design)
@@ -326,6 +586,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
+              // Health Score Badge
+              HealthScoreBadge(score: healthScore, size: 42),
             ],
           ),
 
@@ -545,22 +807,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+    return Center(
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(20),
@@ -574,24 +823,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: AppTheme.primaryColor.withOpacity(0.4),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           const Text(
             'Aucune transaction',
             style: TextStyle(
               color: AppTheme.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Importez vos SMS pour voir vos finances s\'animer ici.',
-            style: TextStyle(
-              color: AppTheme.textSecondary,
-              fontSize: 14,
-              height: 1.5,
-            ),
-            textAlign: TextAlign.center,
+            'Importez vos SMS pour commencer.',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
           ),
         ],
       ),
@@ -656,56 +900,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     if (result == true) {
       ref.invalidate(transactionWithCategoryListProvider);
-    }
-  }
-
-  Future<void> _onSyncPressed() async {
-    // 1. Import SMS
-    final result = await ref
-        .read(smsImportNotifierProvider.notifier)
-        .importFromInbox();
-
-    // 2. Sync vers le cloud
-    final syncService = ref.read(syncServiceProvider);
-    SyncResult? cloudResult;
-
-    if (syncService.isLoggedIn) {
-      cloudResult = await syncService.syncAll();
-    }
-
-    if (mounted) {
-      final message = cloudResult != null
-          ? '${result.imported} SMS + ${cloudResult.totalCount} sync cloud'
-          : '${result.imported} nouvelles transactions';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: cloudResult?.success == true
-              ? AppTheme.success
-              : AppTheme.primaryColor,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          content: Row(
-            children: [
-              Icon(
-                cloudResult?.success == true
-                    ? Icons.cloud_done
-                    : Icons.check_circle,
-                color: Colors.white,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  message,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
     }
   }
 

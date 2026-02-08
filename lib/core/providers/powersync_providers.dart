@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-import 'package:sika_app/core/database/supabase_connector.dart';
-import 'package:sika_app/main.dart' show powerSyncDatabase;
+import 'package:sika_app/main.dart' show autoSyncService;
 
-/// État de synchronisation PowerSync
+/// État de synchronisation
 enum SyncState { connected, disconnected, connecting, error }
 
 /// Provider pour l'état actuel de synchronisation
@@ -15,43 +15,51 @@ final syncStatusProvider = StateNotifierProvider<SyncStatusNotifier, SyncState>(
 );
 
 /// Notifier pour gérer l'état de synchronisation
+///
+/// Utilise AutoSyncService au lieu de PowerSync
 class SyncStatusNotifier extends StateNotifier<SyncState> {
   SyncStatusNotifier() : super(SyncState.disconnected) {
     _initStatus();
   }
 
-  void _initStatus() {
-    if (powerSyncDatabase != null && powerSyncDatabase!.connected) {
+  Future<void> _initStatus() async {
+    // Vérifie la connectivité actuelle
+    final results = await Connectivity().checkConnectivity();
+    final hasInternet = results.any(
+      (r) =>
+          r == ConnectivityResult.wifi ||
+          r == ConnectivityResult.mobile ||
+          r == ConnectivityResult.ethernet,
+    );
+
+    if (hasInternet) {
       state = SyncState.connected;
     } else {
       state = SyncState.disconnected;
     }
   }
 
-  /// Connecte PowerSync
+  /// Active la synchronisation (démarre AutoSyncService)
   Future<void> connect() async {
     try {
       state = SyncState.connecting;
-      if (powerSyncDatabase != null) {
-        final connector = SupabaseConnector();
-        await powerSyncDatabase!.connect(connector: connector);
-        state = SyncState.connected;
-        debugPrint('✅ [Sync] PowerSync connected');
-      }
+      autoSyncService?.startListening();
+      state = SyncState.connected;
+      debugPrint('✅ [Sync] AutoSync connected');
     } catch (e) {
       state = SyncState.error;
-      debugPrint('❌ [Sync] PowerSync connect error: $e');
+      debugPrint('❌ [Sync] AutoSync connect error: $e');
     }
   }
 
-  /// Déconnecte PowerSync
+  /// Désactive la synchronisation
   Future<void> disconnect() async {
     try {
-      await powerSyncDatabase?.disconnect();
+      autoSyncService?.stopListening();
       state = SyncState.disconnected;
-      debugPrint('✅ [Sync] PowerSync disconnected');
+      debugPrint('✅ [Sync] AutoSync disconnected');
     } catch (e) {
-      debugPrint('❌ [Sync] PowerSync disconnect error: $e');
+      debugPrint('❌ [Sync] AutoSync disconnect error: $e');
     }
   }
 
@@ -67,34 +75,20 @@ class SyncStatusNotifier extends StateNotifier<SyncState> {
   /// Force une synchronisation
   Future<void> forceSync() async {
     try {
-      if (powerSyncDatabase != null && powerSyncDatabase!.connected) {
-        // Force refresh des données
-        debugPrint('🔄 [Sync] Forcing sync...');
-        // PowerSync se synchronise automatiquement, on peut déclencher un refresh
-        state = SyncState.connecting;
-        await Future.delayed(const Duration(milliseconds: 500));
-        state = SyncState.connected;
-        debugPrint('✅ [Sync] Sync complete');
-      } else {
-        debugPrint('⚠️ [Sync] Cannot sync - not connected');
-      }
+      debugPrint('🔄 [Sync] Forcing sync...');
+      state = SyncState.connecting;
+      await autoSyncService?.forceSync();
+      state = SyncState.connected;
+      debugPrint('✅ [Sync] Sync complete');
     } catch (e) {
       debugPrint('❌ [Sync] Force sync error: $e');
     }
   }
 
-  /// Supprime la base de données locale
+  /// Supprime la base de données locale (non supporté sans PowerSync)
   Future<void> deleteLocalDatabase() async {
-    try {
-      if (powerSyncDatabase != null) {
-        await powerSyncDatabase!.disconnect();
-        await powerSyncDatabase!.disconnectAndClear();
-        state = SyncState.disconnected;
-        debugPrint('✅ [Sync] Local database deleted');
-      }
-    } catch (e) {
-      debugPrint('❌ [Sync] Delete database error: $e');
-    }
+    debugPrint('⚠️ [Sync] deleteLocalDatabase not supported with AutoSync');
+    // Peut être implémenté plus tard si nécessaire
   }
 }
 

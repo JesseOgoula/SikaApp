@@ -37,6 +37,7 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
 final transactionListProvider = StreamProvider<List<TransactionsTableData>>((
   ref,
 ) {
+  ref.keepAlive(); // Garde en cache pour navigation instantanée
   final repository = ref.watch(transactionRepositoryProvider);
   return repository.watchAllTransactions();
 });
@@ -46,6 +47,7 @@ final transactionListProvider = StreamProvider<List<TransactionsTableData>>((
 /// Utilisé par HomeScreen pour afficher les icônes de catégorie.
 final transactionWithCategoryListProvider =
     StreamProvider<List<TransactionWithCategory>>((ref) {
+      ref.keepAlive(); // Garde en cache pour navigation instantanée
       final repository = ref.watch(transactionRepositoryProvider);
       return repository.watchTransactionsWithCategories();
     });
@@ -54,6 +56,7 @@ final transactionWithCategoryListProvider =
 ///
 /// Utilisé par AddTransactionScreen pour afficher le sélecteur de catégorie.
 final categoriesProvider = FutureProvider<List<CategoriesTableData>>((ref) {
+  ref.keepAlive(); // Garde en cache - les catégories changent rarement
   final db = ref.watch(databaseProvider);
   return db.getAllCategories();
 });
@@ -133,5 +136,7 @@ final totalSavedInGoalsProvider = StreamProvider<double>((ref) {
   return db
       .select(db.goalsTable)
       .watch()
-      .map((goals) => goals.fold<double>(0, (sum, goal) => sum + goal.savedAmount));
+      .map(
+        (goals) => goals.fold<double>(0, (sum, goal) => sum + goal.savedAmount),
+      );
 });

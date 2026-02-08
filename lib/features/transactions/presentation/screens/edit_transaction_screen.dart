@@ -11,54 +11,45 @@ import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dar
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
-/// Écran d'ajout manuel - Design Neo-Bank avec Keypad personnalisé
-class AddTransactionScreen extends ConsumerStatefulWidget {
-  const AddTransactionScreen({super.key});
+/// Écran de modification d'une transaction existante
+class EditTransactionScreen extends ConsumerStatefulWidget {
+  final TransactionsTableData transaction;
+
+  const EditTransactionScreen({super.key, required this.transaction});
 
   @override
-  ConsumerState<AddTransactionScreen> createState() =>
-      _AddTransactionScreenState();
+  ConsumerState<EditTransactionScreen> createState() =>
+      _EditTransactionScreenState();
 }
 
-class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
-  String _noteText = '';
-
-  String _amountText = '';
-  String _transactionType = 'expense';
-  String? _selectedCategoryId;
-  String? _selectedAccountId;
-  DateTime _selectedDate = DateTime.now();
+class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
+  late String _noteText;
+  late String _amountText;
+  late String _transactionType;
+  late String? _selectedCategoryId;
+  late String? _selectedAccountId;
+  late DateTime _selectedDate;
   bool _isLoading = false;
-  bool _showKeypad = false; // Clavier numérique caché par défaut
-  bool _showTextPad = false; // Clavier texte caché par défaut
-  final ScrollController _scrollController = ScrollController();
+  bool _showKeypad = false;
+  bool _showTextPad = false;
 
   @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _scrollToBottom() {
-    // Attend que l'animation du clavier soit terminée puis scrolle
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+  void initState() {
+    super.initState();
+    // Initialise avec les valeurs de la transaction existante
+    final tx = widget.transaction;
+    _amountText = tx.amount.toInt().toString();
+    _noteText = tx.merchantName ?? '';
+    _transactionType = tx.type;
+    _selectedCategoryId = tx.categoryId;
+    _selectedAccountId = tx.accountId;
+    _selectedDate = tx.date;
   }
 
   void _onKeyPressed(String key) {
     setState(() {
-      // Ferme le TextPad si ouvert
       if (_showTextPad) _showTextPad = false;
-      // Limite à 10 caractères
       if (_amountText.length < 10) {
-        // Empêche plusieurs points
         if (key == '.' && _amountText.contains('.')) return;
         _amountText += key;
       }
@@ -75,7 +66,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
   void _onNoteKeyPressed(String key) {
     setState(() {
-      // Ferme le NumberPad si ouvert
       if (_showKeypad) _showKeypad = false;
       _noteText += key;
     });
@@ -96,20 +86,14 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   void _toggleTextPad() {
     setState(() {
       _showTextPad = !_showTextPad;
-      if (_showTextPad) {
-        _showKeypad = false;
-        _scrollToBottom();
-      }
+      if (_showTextPad) _showKeypad = false;
     });
   }
 
   void _toggleKeypad() {
     setState(() {
       _showKeypad = !_showKeypad;
-      if (_showKeypad) {
-        _showTextPad = false;
-        _scrollToBottom();
-      }
+      if (_showKeypad) _showTextPad = false;
     });
   }
 
@@ -127,7 +111,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Nouvelle Transaction',
+          'Modifier Transaction',
           style: TextStyle(
             color: AppTheme.textPrimary,
             fontSize: 18,
@@ -135,87 +119,58 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ),
         ),
         centerTitle: true,
-        actions: const [SizedBox(width: 48)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: AppTheme.error),
+            onPressed: _confirmDelete,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Scrollable content
           Expanded(
             child: SingleChildScrollView(
-              controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-
-                  // === MONTANT (ReadOnly avec affichage formaté) ===
                   _buildAmountDisplay(),
-
                   const SizedBox(height: 24),
-
-                  // === TYPE SELECTOR ===
                   _buildTypeSelector(),
-
                   const SizedBox(height: 20),
-
-                  // === CATÉGORIES ===
                   _buildCategorySection(categoriesAsync),
-
                   const SizedBox(height: 20),
-
-                  // === COMPTE ===
                   _buildAccountSection(),
-
                   const SizedBox(height: 20),
-
-                  // === DATE ===
                   _buildDateField(),
-
                   const SizedBox(height: 12),
-
-                  // === NOTE ===
                   _buildNoteField(),
-
                   const SizedBox(height: 16),
                 ],
               ),
             ),
           ),
-
-          // === NUMBERPAD AVEC ANIMATION ===
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             child: _showKeypad
-                ? AnimatedOpacity(
-                    opacity: _showKeypad ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: NumberPad(
-                      onKeyPressed: _onKeyPressed,
-                      onBackspace: _onBackspace,
-                    ),
+                ? NumberPad(
+                    onKeyPressed: _onKeyPressed,
+                    onBackspace: _onBackspace,
                   )
                 : const SizedBox.shrink(),
           ),
-
-          // === TEXTPAD AVEC ANIMATION ===
           AnimatedSize(
             duration: const Duration(milliseconds: 300),
             curve: Curves.easeInOut,
             child: _showTextPad
-                ? AnimatedOpacity(
-                    opacity: _showTextPad ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: TextPad(
-                      onKeyPressed: _onNoteKeyPressed,
-                      onBackspace: _onNoteBackspace,
-                      onDone: _onNoteDone,
-                    ),
+                ? TextPad(
+                    onKeyPressed: _onNoteKeyPressed,
+                    onBackspace: _onNoteBackspace,
+                    onDone: _onNoteDone,
                   )
                 : const SizedBox.shrink(),
           ),
-
-          // === BOUTON ENREGISTRER ===
           _buildSubmitButton(),
         ],
       ),
@@ -247,7 +202,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Combien ?',
+                  'Montant',
                   style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 14,
@@ -408,7 +363,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     );
   }
 
-  /// Section de sélection du compte
   Widget _buildAccountSection() {
     final accountsAsync = ref.watch(activeAccountsProvider);
 
@@ -625,7 +579,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           width: double.infinity,
           height: 52,
           child: ElevatedButton(
-            onPressed: _isLoading ? null : _saveTransaction,
+            onPressed: _isLoading ? null : _updateTransaction,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -644,7 +598,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     ),
                   )
                 : const Text(
-                    'Enregistrer',
+                    'Enregistrer les modifications',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
           ),
@@ -678,7 +632,63 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     }
   }
 
-  Future<void> _saveTransaction() async {
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: Colors.red),
+            SizedBox(width: 12),
+            Text('Supprimer'),
+          ],
+        ),
+        content: const Text('Voulez-vous supprimer cette transaction ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteTransaction();
+            },
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteTransaction() async {
+    setState(() => _isLoading = true);
+    try {
+      final repo = ref.read(transactionRepositoryProvider);
+      await repo.deleteTransaction(widget.transaction.id);
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _updateTransaction() async {
     if (_amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -713,10 +723,10 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
     try {
       final note = _noteText.trim();
 
-      final companion = TransactionsTableCompanion(
+      final updates = TransactionsTableCompanion(
         amount: Value(amount),
         type: Value(_transactionType),
-        merchantName: Value(note.isNotEmpty ? note : 'Transaction manuelle'),
+        merchantName: Value(note.isNotEmpty ? note : 'Transaction'),
         categoryId: _selectedCategoryId != null
             ? Value(_selectedCategoryId!)
             : const Value.absent(),
@@ -724,16 +734,10 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ? Value(_selectedAccountId!)
             : const Value.absent(),
         date: Value(_selectedDate),
-        smsSender: const Value('MANUAL'),
-        smsRawContent: const Value(''),
-        externalId: const Value.absent(),
-        isAiCategorized: const Value(false),
-        syncStatus: const Value(0),
-        validationStatus: const Value(1),
       );
 
       final repo = ref.read(transactionRepositoryProvider);
-      await repo.addManualTransaction(companion);
+      await repo.updateTransaction(widget.transaction.id, updates);
 
       if (mounted) {
         Navigator.pop(context, true);

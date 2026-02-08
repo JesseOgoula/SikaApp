@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:sika_app/core/providers/powersync_providers.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
+import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
+import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
 
 /// Écran de profil avancé avec gestion Cloud
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -20,13 +21,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
     final fullName =
         user?.userMetadata?['full_name'] as String? ?? 'Utilisateur';
     final email = user?.email ?? '';
     final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
-    final syncStatus = ref.watch(syncStatusProvider);
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
@@ -35,16 +40,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           children: [
             Column(
               children: [
+                // Partie sticky (non-scrollable)
                 _buildAppBar(),
                 const SizedBox(height: 16),
                 _buildProfileHeader(avatarUrl, fullName, email),
                 const SizedBox(height: 24),
+                // Partie scrollable
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
-                        _buildSyncSection(syncStatus),
+                        _buildSettingsSection(),
                         const SizedBox(height: 16),
                         _buildDataSection(),
                         const SizedBox(height: 16),
@@ -188,21 +195,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildSyncSection(SyncState syncStatus) {
+  Widget _buildSettingsSection() {
     return _buildSection(
-      title: 'SYNCHRONISATION',
+      title: 'PARAMÈTRES',
       children: [
-        // Toggle Sync
-        _buildSwitchTile(
-          icon: Icons.cloud_outlined,
-          title: 'Synchronisation cloud',
-          subtitle: syncStatus == SyncState.connected
-              ? 'Activée • Données synchronisées en ligne'
-              : 'Désactivée • Données conservées en local',
-          value: syncStatus == SyncState.connected,
-          onChanged: (value) async {
-            await ref.read(syncStatusProvider.notifier).toggle();
-          },
+        _buildActionTile(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Budgets',
+          subtitle: 'Gérer les limites de dépenses par catégorie',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+          ),
         ),
       ],
     );
@@ -293,36 +297,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildSwitchTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: Icon(icon, color: AppTheme.textSecondary, size: 22),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: AppTheme.textPrimary,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-      ),
-      trailing: Switch.adaptive(
-        value: value,
-        onChanged: onChanged,
-        activeColor: AppTheme.primaryColor,
-      ),
-    );
-  }
-
   Widget _buildActionTile({
     required IconData icon,
     required String title,
@@ -383,12 +357,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ),
         content: const Text(
           '⚠️ Cette action supprimera TOUTES vos données:\n\n'
+          '• Comptes financiers\n'
           '• Transactions\n'
           '• Objectifs\n'
           '• Dettes et Factures\n'
           '• Catégories\n\n'
-          'Les données seront effacées localement ET dans le cloud.\n\n'
-          'Votre compte restera actif.',
+          'Vous devrez reconfigurer vos comptes.\n\n'
+          'Votre connexion Google restera active.',
         ),
         actions: [
           TextButton(
@@ -422,6 +397,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             backgroundColor: AppTheme.success,
           ),
         );
+        // Rediriger vers l'écran de configuration des comptes
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AccountSetupScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -441,6 +421,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -449,29 +430,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const Expanded(child: Text('Supprimer le compte')),
           ],
         ),
-        content: const Text(
-          '🚨 ACTION IRRÉVERSIBLE !\n\n'
-          'Cette action supprimera définitivement:\n\n'
-          '• Votre profil utilisateur\n'
-          '• Toutes vos données\n'
-          '• Votre authentification\n\n'
-          'Vous ne pourrez plus récupérer ces informations.',
+        content: SingleChildScrollView(
+          child: const Text(
+            '🚨 ACTION IRRÉVERSIBLE !\n\n'
+            'Cette action supprimera définitivement:\n\n'
+            '• Votre profil utilisateur\n'
+            '• Toutes vos données\n'
+            '• Votre authentification\n\n'
+            'Vous ne pourrez plus récupérer ces informations.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuler'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
+          Flexible(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.error,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _executeDeleteAccount();
+              },
+              child: const Text('Supprimer'),
             ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await _executeDeleteAccount();
-            },
-            child: const Text('Supprimer définitivement'),
           ),
         ],
       ),

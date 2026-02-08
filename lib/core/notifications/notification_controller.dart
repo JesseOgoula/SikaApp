@@ -100,12 +100,11 @@ class NotificationController {
     required String merchant,
     required bool isExpense,
   }) async {
-    final emoji = isExpense ? '💸' : '🎯';
     final type = isExpense ? 'Dépense' : 'Revenu';
 
     await showSimpleNotification(
-      title: '$emoji $type enregistrée',
-      body: '${amount.toStringAsFixed(0)} FCFA - $merchant',
+      title: '$type enregistré',
+      body: '${amount.toStringAsFixed(0)} FCFA • $merchant',
     );
   }
 
@@ -119,7 +118,6 @@ class NotificationController {
     required String merchant,
     required bool isExpense,
   }) async {
-    final emoji = isExpense ? '💸' : '💰';
     final type = isExpense ? 'Dépense' : 'Revenu';
 
     const androidDetails = AndroidNotificationDetails(
@@ -129,10 +127,9 @@ class NotificationController {
       importance: Importance.high,
       priority: Priority.high,
       color: Color(0xFF1A237E), // Bleu Nuit
-      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
       actions: [
-        AndroidNotificationAction(actionValidate, '✅ Valider'),
-        AndroidNotificationAction(actionReject, '🗑️ Rejeter'),
+        AndroidNotificationAction(actionValidate, 'Valider'),
+        AndroidNotificationAction(actionReject, 'Rejeter'),
       ],
     );
 
@@ -140,8 +137,8 @@ class NotificationController {
 
     await _plugin.show(
       DateTime.now().millisecondsSinceEpoch.remainder(100000),
-      '$emoji Nouvelle transaction',
-      '${amount.toStringAsFixed(0)} FCFA à $merchant - $type',
+      'Nouvelle transaction',
+      '${amount.toStringAsFixed(0)} FCFA • $merchant • $type',
       details,
       payload: transactionId,
     );
@@ -176,7 +173,7 @@ class NotificationController {
         .write(const TransactionsTableCompanion(validationStatus: Value(1)));
 
     await showSimpleNotification(
-      title: '✅ Transaction validée',
+      title: 'Transaction validée',
       body: 'La transaction a été enregistrée.',
     );
   }
@@ -191,7 +188,7 @@ class NotificationController {
     )..where((t) => t.id.equals(transactionId))).go();
 
     await showSimpleNotification(
-      title: '🗑️ Transaction rejetée',
+      title: 'Transaction rejetée',
       body: 'La transaction a été supprimée.',
     );
   }

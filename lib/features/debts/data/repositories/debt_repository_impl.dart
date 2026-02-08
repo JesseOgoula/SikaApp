@@ -63,28 +63,15 @@ class DebtRepositoryImpl implements DebtRepository {
           ),
         );
 
-    // Schedule notification
+    // Schedule notifications (J-3, J-1, J)
     if (debt.status == DebtStatus.pending) {
-      await NotificationService().scheduleDebtReminder(
-        id: notifId,
-        title: _getNotificationTitle(debt),
-        body: _getNotificationBody(debt),
+      await NotificationService().scheduleDebtReminders(
+        debtId: debt.id,
+        title: debt.name,
+        amount: debt.amount,
         dueDate: debt.dueDate,
       );
     }
-  }
-
-  String _getNotificationTitle(Debt debt) {
-    switch (debt.type) {
-      case DebtType.bill:
-        return 'Facture à payer demain';
-      case DebtType.debtOut:
-        return 'Dette à rembourser demain';
-    }
-  }
-
-  String _getNotificationBody(Debt debt) {
-    return '${debt.name} - ${debt.amount.toStringAsFixed(0)} FCFA';
   }
 
   @override
@@ -105,10 +92,26 @@ class DebtRepositoryImpl implements DebtRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+
+    // Re-schedule notifications if still pending
+    if (debt.status == DebtStatus.pending) {
+      await NotificationService().cancelDebtReminders(debt.id);
+      await NotificationService().scheduleDebtReminders(
+        debtId: debt.id,
+        title: debt.name,
+        amount: debt.amount,
+        dueDate: debt.dueDate,
+      );
+    } else {
+      // Cancel notifications if paid or overdue
+      await NotificationService().cancelDebtReminders(debt.id);
+    }
   }
 
   @override
   Future<void> deleteDebt(String id) async {
+    // Cancel notifications before deleting
+    await NotificationService().cancelDebtReminders(id);
     await (_db.delete(_db.debtsTable)..where((t) => t.id.equals(id))).go();
   }
 
@@ -150,6 +153,9 @@ class DebtRepositoryImpl implements DebtRepository {
               accountId: Value(accountId),
               date: DateTime.now(),
               syncStatus: const Value(0),
+              validationStatus: const Value(
+                1,
+              ), // 1 = validated, apparaît dans les transactions
               createdAt: Value(DateTime.now()),
               updatedAt: Value(DateTime.now()),
             ),

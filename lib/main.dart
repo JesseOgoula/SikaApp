@@ -3,18 +3,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sqlite3/open.dart';
 import 'package:sika_app/core/services/notification_service.dart';
+import 'package:sika_app/core/services/auto_sync_service.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/utils/logger.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:powersync/powersync.dart' hide Column;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/core/database/supabase_connector.dart';
-import 'package:sika_app/core/database/powersync_schema.dart';
 import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/constants/supabase_constants.dart';
@@ -25,9 +22,10 @@ import 'package:sika_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:sika_app/core/widgets/privacy_shield.dart';
 import 'package:sika_app/core/utils/encryption_utils.dart';
 import 'package:sika_app/core/services/security_service.dart';
+import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
 
-/// Instance globale de PowerSyncDatabase pour l'accès depuis AuthRepository
-PowerSyncDatabase? powerSyncDatabase;
+/// Instance globale d'AutoSyncService
+AutoSyncService? autoSyncService;
 
 void main() async {
   // Override SQLite library on Android to use SQLCipher
@@ -63,46 +61,36 @@ void main() async {
     SikaLogger.error('Error initializing Supabase: $e', tag: 'MAIN');
   }
 
-  // 4. Récupère la clé de chiffrement sécurisée
-  late final String encryptionKey;
-  try {
-    encryptionKey = await EncryptionUtils.getDatabaseKey();
-    SikaLogger.info('Encryption key loaded', tag: 'MAIN');
-  } catch (e) {
-    SikaLogger.error('Error loading encryption key: $e', tag: 'MAIN');
-    encryptionKey = ''; // Devrait peut-être empêcher le démarrage ici ?
-  }
+  // Note: PowerSync désactivé - utilise AutoSyncService à la place
+  // pour synchroniser directement avec Supabase
+  debugPrint('🔄 [MAIN] PowerSync disabled - using AutoSyncService instead');
 
-  // 5. Initialise PowerSync
-  try {
-    SikaLogger.info('Initializing PowerSync...', tag: 'MAIN');
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dir.path, 'sika_powersync.db');
-
-    powerSyncDatabase = PowerSyncDatabase(schema: schema, path: dbPath);
-    await powerSyncDatabase!.initialize();
-
-    final connector = SupabaseConnector();
-
-    if (Supabase.instance.client.auth.currentSession != null) {
-      await powerSyncDatabase!.connect(connector: connector);
-      SikaLogger.info('PowerSync connected (user was logged in)', tag: 'MAIN');
-    } else {
-      SikaLogger.info('PowerSync initialized (waiting for login)', tag: 'MAIN');
-    }
-  } catch (e) {
-    SikaLogger.error('Error initializing PowerSync: $e', tag: 'MAIN');
-  }
-
-  // 6. Initialise la base de données Drift (locale) avec chiffrement
+  // 6. Initialise la base de données Drift (locale)
   late final AppDatabase database;
   try {
-    SikaLogger.info('Initializing AppDatabase (Encrypted)...', tag: 'MAIN');
-    database = AppDatabase.encrypted(encryptionKey);
-    SikaLogger.info('AppDatabase instance created', tag: 'MAIN');
+    debugPrint('⏳ [MAIN] Initializing AppDatabase...');
+    database = AppDatabase();
+    debugPrint('✅ [MAIN] AppDatabase instance created');
+
+    // Force sync de toutes les catégories existantes (une seule fois au démarrage)
+    await database.customUpdate(
+      'UPDATE categories SET sync_status = 0 WHERE sync_status = 1',
+      updates: {database.categoriesTable},
+    );
+    debugPrint('🔄 [MAIN] Categories marked for sync');
   } catch (e) {
     SikaLogger.error('CRITICAL ERROR IN DATABASE INIT: $e', tag: 'MAIN');
     return; // Impossible de continuer sans base de données
+  }
+
+  // Initialise AutoSyncService pour la synchronisation automatique
+  try {
+    debugPrint('🔄 [MAIN] Initializing AutoSyncService...');
+    autoSyncService = AutoSyncService(database);
+    autoSyncService!.startListening();
+    debugPrint('✅ [MAIN] AutoSyncService started');
+  } catch (e) {
+    debugPrint('❌ [MAIN] Error initializing AutoSyncService: $e');
   }
 
   // Initialise le contrôleur de notifications
@@ -111,10 +99,24 @@ void main() async {
     await NotificationController.initialize();
     SikaLogger.info('NotificationController initialized', tag: 'MAIN');
   } catch (e) {
-    SikaLogger.error('Error initializing NotificationController: $e', tag: 'MAIN');
+    SikaLogger.error(
+      'Error initializing NotificationController: $e',
+      tag: 'MAIN',
+    );
   }
 
-  // Initialise le service SMS background
+  // Init Notification Services
+  try {
+    debugPrint('📱 [MAIN] Initializing NotificationService...');
+    await NotificationService().init();
+    await NotificationService().requestPermissions();
+    await NotificationService().scheduleWeeklySummary();
+    debugPrint('✅ [MAIN] NotificationService initialized');
+  } catch (e) {
+    debugPrint('❌ [MAIN] Error initializing NotificationService: $e');
+  }
+
+  // Init SMS Service
   try {
     SikaLogger.info('Initializing BackgroundSmsService...', tag: 'MAIN');
     final smsService = BackgroundSmsService();
@@ -122,18 +124,15 @@ void main() async {
     await smsService.startListening();
     SikaLogger.info('BackgroundSmsService initialized', tag: 'MAIN');
   } catch (e) {
-    SikaLogger.error('Error initializing BackgroundSmsService: $e', tag: 'MAIN');
+    SikaLogger.error(
+      'Error initializing BackgroundSmsService: $e',
+      tag: 'MAIN',
+    );
   }
-
-  // Init Services
-  await NotificationService().init();
-  await NotificationService().requestPermissions();
 
   runApp(
     ProviderScope(
-      overrides: [
-        databaseProvider.overrideWithValue(database),
-      ],
+      overrides: [databaseProvider.overrideWithValue(database)],
       child: const SikaApp(),
     ),
   );
@@ -175,7 +174,8 @@ class _AuthGate extends ConsumerStatefulWidget {
   ConsumerState<_AuthGate> createState() => _AuthGateState();
 }
 
-class _AuthGateState extends ConsumerState<_AuthGate> with SingleTickerProviderStateMixin {
+class _AuthGateState extends ConsumerState<_AuthGate>
+    with SingleTickerProviderStateMixin {
   bool _showSplash = true;
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -192,13 +192,15 @@ class _AuthGateState extends ConsumerState<_AuthGate> with SingleTickerProviderS
       duration: const Duration(milliseconds: 1200),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
     _controller.forward();
 
@@ -248,11 +250,19 @@ class _AuthGateState extends ConsumerState<_AuthGate> with SingleTickerProviderS
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: const [
-                Icon(Icons.security_update_warning, size: 80, color: Colors.white),
+                Icon(
+                  Icons.security_update_warning,
+                  size: 80,
+                  color: Colors.white,
+                ),
                 SizedBox(height: 24),
                 Text(
                   'Sécurité Compromise',
-                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 SizedBox(height: 16),
                 Text(
@@ -309,7 +319,7 @@ class _AuthGateState extends ConsumerState<_AuthGate> with SingleTickerProviderS
 
     switch (authState.status) {
       case AuthStatus.authenticated:
-        return const HomeScreen();
+        return const AccountSetupChecker();
 
       case AuthStatus.unauthenticated:
       case AuthStatus.error:

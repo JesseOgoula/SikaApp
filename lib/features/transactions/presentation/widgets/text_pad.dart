@@ -19,8 +19,10 @@ class TextPad extends StatefulWidget {
 }
 
 class _TextPadState extends State<TextPad> {
-  bool _isUpperCase = true;
+  bool _isUpperCase = true; // Premier caractère en majuscule
+  bool _isCapsLock = false; // Mode verrouillage majuscules
   bool _showNumbers = false;
+  DateTime _lastShiftTap = DateTime.now();
 
   final List<List<String>> _lettersLower = [
     ['a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -99,9 +101,17 @@ class _TextPadState extends State<TextPad> {
     Color bgColor = Colors.white;
     Color textColor = Colors.black87;
 
-    if (key == '⇧' && _isUpperCase && !_showNumbers) {
-      bgColor = AppTheme.primaryColor;
-      textColor = Colors.white;
+    // Shift key colors - différent pour caps lock vs shift simple
+    if (key == '⇧' && !_showNumbers) {
+      if (_isCapsLock) {
+        bgColor = AppTheme.secondaryColor; // Teal pour caps lock
+        textColor = Colors.white;
+      } else if (_isUpperCase) {
+        bgColor = AppTheme.primaryColor;
+        textColor = Colors.white;
+      } else {
+        bgColor = const Color(0xFFADB5BD);
+      }
     } else if (key == '✓') {
       bgColor = AppTheme.primaryColor;
       textColor = Colors.white;
@@ -138,11 +148,16 @@ class _TextPadState extends State<TextPad> {
       return Icon(Icons.backspace_outlined, color: color, size: 20);
     }
     if (key == '⇧') {
-      return Icon(
-        _isUpperCase ? Icons.keyboard_capslock : Icons.keyboard_arrow_up,
-        color: color,
-        size: 20,
-      );
+      // Icône différente selon l'état
+      IconData icon;
+      if (_isCapsLock) {
+        icon = Icons.keyboard_capslock;
+      } else if (_isUpperCase) {
+        icon = Icons.arrow_upward;
+      } else {
+        icon = Icons.keyboard_arrow_up;
+      }
+      return Icon(icon, color: color, size: 20);
     }
     if (key == '✓') {
       return const Text(
@@ -179,7 +194,26 @@ class _TextPadState extends State<TextPad> {
     if (key == '⌫') {
       widget.onBackspace();
     } else if (key == '⇧') {
-      setState(() => _isUpperCase = !_isUpperCase);
+      // Double-tap pour caps lock
+      final now = DateTime.now();
+      if (now.difference(_lastShiftTap).inMilliseconds < 400 && _isUpperCase) {
+        // Double tap - toggle caps lock
+        setState(() {
+          _isCapsLock = !_isCapsLock;
+          _isUpperCase = true;
+        });
+      } else {
+        // Simple tap - toggle uppercase
+        setState(() {
+          if (_isCapsLock) {
+            _isCapsLock = false;
+            _isUpperCase = false;
+          } else {
+            _isUpperCase = !_isUpperCase;
+          }
+        });
+      }
+      _lastShiftTap = now;
     } else if (key == '123') {
       setState(() => _showNumbers = true);
     } else if (key == 'ABC') {
@@ -188,7 +222,8 @@ class _TextPadState extends State<TextPad> {
       widget.onDone();
     } else {
       widget.onKeyPressed(key);
-      if (_isUpperCase && !_showNumbers) {
+      // Si pas en caps lock, repasse en minuscules après une lettre
+      if (_isUpperCase && !_isCapsLock && !_showNumbers) {
         setState(() => _isUpperCase = false);
       }
     }
