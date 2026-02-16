@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
+import 'package:sika_app/features/goals/presentation/widgets/goal_celebration_overlay.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 
 /// BottomSheet pour alimenter un objectif d'épargne
@@ -267,35 +268,45 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
       final success = await repo.feedGoal(widget.goal.id, amount);
 
       if (success && mounted) {
+        // Vérifie si l'objectif est maintenant atteint
+        final newSavedAmount = widget.goal.savedAmount + amount;
+        final isNowCompleted = newSavedAmount >= widget.goal.targetAmount;
+        final goalName = widget.goal.name;
+
         // Invalider les providers pour refresh
         ref.invalidate(activeGoalsProvider);
         ref.invalidate(transactionWithCategoryListProvider);
 
-        // Fermer avec succès
+        // Fermer le bottom sheet
         Navigator.pop(context, true);
 
-        // Afficher message de succès
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.celebration, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Bravo ! ${_currencyFormat.format(amount)} épargnés pour ${widget.goal.name}',
-                    style: const TextStyle(color: Colors.white),
+        if (isNowCompleted) {
+          // 🎉 Objectif atteint → confettis !
+          GoalCelebrationOverlay.show(context, goalName: goalName);
+        } else {
+          // Message de succès normal
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Bravo ! ${_currencyFormat.format(amount)} épargnés pour $goalName',
+                      style: const TextStyle(color: Colors.white),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+              backgroundColor: AppTheme.success,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            backgroundColor: AppTheme.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/services/notification_service.dart';
-import 'package:sika_app/main.dart';
+import 'package:sika_app/main.dart' show autoSyncService, databaseProvider;
 
 /// Provider pour le GoalRepository
 final goalRepositoryProvider = Provider<GoalRepository>((ref) {
@@ -71,6 +73,9 @@ class GoalRepository {
       currentAmount: 0,
       targetAmount: targetAmount,
     );
+
+    // Sync vers Supabase
+    autoSyncService?.forceSync();
   }
 
   /// Ajouter de l'épargne à un objectif
@@ -110,6 +115,9 @@ class GoalRepository {
           targetAmount: goal.targetAmount,
         );
       }
+
+      // Sync vers Supabase
+      autoSyncService?.forceSync();
     }
   }
 
@@ -124,7 +132,26 @@ class GoalRepository {
   Future<void> deleteGoal(String goalId) async {
     // Cancel weekly reminder
     await NotificationService().cancelGoalReminder(goalId);
+
+    // Supprimer localement
     await (_db.delete(_db.goalsTable)..where((g) => g.id.equals(goalId))).go();
+
+    // Supprimer sur Supabase
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await Supabase.instance.client
+            .from('goals')
+            .delete()
+            .eq('id', goalId)
+            .eq('user_id', user.id);
+      }
+    } catch (e) {
+      debugPrint('❌ [Goals] Error deleting from Supabase: $e');
+    }
+
+    // Sync
+    autoSyncService?.forceSync();
   }
 
   /// Alimenter un objectif (ajoute épargne + crée transaction)
@@ -173,6 +200,9 @@ class GoalRepository {
             ),
           );
     });
+
+    // Sync vers Supabase
+    autoSyncService?.forceSync();
 
     return true;
   }

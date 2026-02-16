@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:sika_app/main.dart' show autoSyncService;
+import 'package:sika_app/core/services/notification_service.dart';
+import 'package:sika_app/core/services/notification_preferences.dart';
+
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
 import '../../../analytics/domain/entities/daily_summary.dart';
@@ -95,8 +99,56 @@ class TransactionRepositoryImpl implements TransactionRepository {
     // 1. Stocke localement dans Drift
     await _db.into(_db.transactionsTable).insert(companion);
     debugPrint(
-      '✅ [Transactions] Added manual transaction ${txId} - sync handled by AutoSyncService',
+      '✅ [Transactions] Added manual transaction ${txId} - triggering sync',
     );
+
+    // 2. Déclenche la sync vers Supabase
+    autoSyncService?.forceSync();
+
+    // 3. Vérifie le solde après une dépense
+    final txType = companion.type.present ? companion.type.value : '';
+    if (txType == 'expense') {
+      _checkLowBalance();
+    }
+  }
+
+  /// Vérifie si le solde total est sous le seuil d'alerte et notifie l'utilisateur
+  Future<void> _checkLowBalance() async {
+    try {
+      final prefs = NotificationPreferences();
+      final threshold = await prefs.lowBalanceThreshold;
+
+      // Calculer le solde total (comptes + transactions)
+      final accounts = await _db.select(_db.accountsTable).get();
+      double totalBalance = 0;
+      for (final account in accounts) {
+        totalBalance += account.balance;
+      }
+
+      // Ajouter les revenus et soustraire les dépenses
+      final incomeQuery = _db.select(_db.transactionsTable)
+        ..where((t) => t.type.equals('income'));
+      final incomes = await incomeQuery.get();
+      totalBalance += incomes.fold<double>(0, (sum, tx) => sum + tx.amount);
+
+      final expenseQuery = _db.select(_db.transactionsTable)
+        ..where((t) => t.type.equals('expense'));
+      final expenses = await expenseQuery.get();
+      totalBalance -= expenses.fold<double>(0, (sum, tx) => sum + tx.amount);
+
+      debugPrint(
+        '💰 [LowBalance] Current balance: $totalBalance, threshold: $threshold',
+      );
+
+      if (totalBalance <= threshold) {
+        await NotificationService().showLowBalanceAlert(
+          currentBalance: totalBalance,
+          threshold: threshold,
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ [LowBalance] Error checking balance: $e');
+    }
   }
 
   /// Lie rétroactivement les transactions existantes aux comptes

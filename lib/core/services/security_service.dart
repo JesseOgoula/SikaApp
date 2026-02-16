@@ -25,7 +25,7 @@ class SecurityService {
       if (!isRealDevice && !isDeveloperMode) {
         // Au cas où
       }
-      
+
       return true;
     } catch (e) {
       SikaLogger.error('Security check failed: $e', tag: 'SECURITY');
@@ -37,7 +37,8 @@ class SecurityService {
   Future<bool> authenticate() async {
     try {
       final bool canAuthenticateWithBiometrics = await _auth.canCheckBiometrics;
-      final bool canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
+      final bool canAuthenticate =
+          canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
 
       if (!canAuthenticate) return true;
 
@@ -50,7 +51,7 @@ class SecurityService {
       );
     } on PlatformException catch (e) {
       SikaLogger.error('Biometric auth error: $e', tag: 'SECURITY');
-      return false;
+      return true; // En cas d'erreur, on laisse passer pour ne pas bloquer
     }
   }
 }

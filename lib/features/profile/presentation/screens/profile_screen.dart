@@ -8,6 +8,7 @@ import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
 import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
+import 'package:sika_app/features/profile/presentation/screens/notification_settings_screen.dart';
 
 /// Écran de profil avancé avec gestion Cloud
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -206,6 +207,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const BudgetsScreen()),
+          ),
+        ),
+        _buildDivider(),
+        _buildActionTile(
+          icon: Icons.notifications_outlined,
+          title: 'Notifications',
+          subtitle: 'Paramétrer les rappels et alertes',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const NotificationSettingsScreen(),
+            ),
           ),
         ),
       ],

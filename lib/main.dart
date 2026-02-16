@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sika_app/core/services/notification_service.dart';
+import 'package:sika_app/core/services/notification_preferences.dart';
 import 'package:sika_app/core/services/auto_sync_service.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +10,6 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/constants/supabase_constants.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
@@ -80,20 +80,10 @@ void main() async {
     debugPrint('❌ [MAIN] Error initializing AutoSyncService: $e');
   }
 
-  // Initialise le contrôleur de notifications
-  try {
-    SikaLogger.info('Initializing NotificationController...', tag: 'MAIN');
-    await NotificationController.initialize();
-    SikaLogger.info('NotificationController initialized', tag: 'MAIN');
-  } catch (e) {
-    SikaLogger.error(
-      'Error initializing NotificationController: $e',
-      tag: 'MAIN',
-    );
-  }
-
   // Init Notification Services
   try {
+    debugPrint('📱 [MAIN] Initializing NotificationPreferences...');
+    await NotificationPreferences().init();
     debugPrint('📱 [MAIN] Initializing NotificationService...');
     await NotificationService().init();
     await NotificationService().requestPermissions();

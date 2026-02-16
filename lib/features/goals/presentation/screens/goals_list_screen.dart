@@ -8,7 +8,7 @@ import 'package:sika_app/features/goals/presentation/screens/add_goal_screen.dar
 import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
 import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
 
-/// Écran listant tous les objectifs d'épargne
+/// Ecran listant tous les objectifs d'epargne
 class GoalsListScreen extends ConsumerWidget {
   const GoalsListScreen({super.key});
 
@@ -45,6 +45,7 @@ class GoalsListScreen extends ConsumerWidget {
               return GoalCard(
                 goal: goal,
                 onFeedPressed: () => _onFeedGoal(context, goal),
+                onDeletePressed: () => _onDeleteGoal(context, ref, goal),
               );
             },
           );
@@ -84,14 +85,14 @@ class GoalsListScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Créez votre premier objectif d\'épargne',
+            'Creez votre premier objectif d\'epargne',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () => _addGoal(context),
             icon: const Icon(Icons.add),
-            label: const Text('Créer un objectif'),
+            label: const Text('Creer un objectif'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -115,5 +116,79 @@ class GoalsListScreen extends ConsumerWidget {
 
   void _onFeedGoal(BuildContext context, GoalsTableData goal) {
     FeedGoalBottomSheet.show(context, goal);
+  }
+
+  void _onDeleteGoal(BuildContext context, WidgetRef ref, GoalsTableData goal) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Supprimer l\'objectif',
+          style: TextStyle(
+            color: AppTheme.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          'Es-tu sur de vouloir supprimer "${goal.name}" ? Cette action est irreversible.',
+          style: const TextStyle(
+            color: AppTheme.textSecondary,
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Annuler',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final repo = ref.read(goalRepositoryProvider);
+              await repo.deleteGoal(goal.id);
+              ref.invalidate(activeGoalsProvider);
+
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      '"${goal.name}" a ete supprime',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    backgroundColor: AppTheme.textPrimary,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.error,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            ),
+            child: const Text(
+              'Supprimer',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -12,12 +12,14 @@ class GoalCard extends StatelessWidget {
   final GoalsTableData goal;
   final VoidCallback? onTap;
   final VoidCallback? onFeedPressed;
+  final VoidCallback? onDeletePressed;
 
   const GoalCard({
     super.key,
     required this.goal,
     this.onTap,
     this.onFeedPressed,
+    this.onDeletePressed,
   });
 
   @override
@@ -35,8 +37,8 @@ class GoalCard extends StatelessWidget {
     final remaining = goal.targetAmount - goal.savedAmount;
 
     return GestureDetector(
-      // Tap sur la carte = alimenter l'objectif
       onTap: goal.isCompleted ? onTap : (onFeedPressed ?? onTap),
+      onLongPress: onDeletePressed,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -103,7 +105,7 @@ class GoalCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         goal.isCompleted
-                            ? 'Objectif atteint 🎉'
+                            ? 'Objectif atteint'
                             : 'Reste ${currencyFormat.format(remaining)}',
                         style: TextStyle(
                           color: goal.isCompleted

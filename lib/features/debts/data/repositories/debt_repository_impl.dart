@@ -6,6 +6,7 @@ import '../../domain/entities/debt.dart';
 import '../../domain/repositories/debt_repository.dart';
 
 import 'package:sika_app/core/services/notification_service.dart';
+import 'package:sika_app/main.dart' show autoSyncService;
 
 class DebtRepositoryImpl implements DebtRepository {
   final AppDatabase _db;
@@ -63,7 +64,7 @@ class DebtRepositoryImpl implements DebtRepository {
           ),
         );
 
-    // Schedule notifications (J-3, J-1, J)
+    // Schedule notifications
     if (debt.status == DebtStatus.pending) {
       await NotificationService().scheduleDebtReminders(
         debtId: debt.id,
@@ -72,6 +73,9 @@ class DebtRepositoryImpl implements DebtRepository {
         dueDate: debt.dueDate,
       );
     }
+
+    // Sync vers Supabase
+    autoSyncService?.forceSync();
   }
 
   @override
@@ -106,6 +110,9 @@ class DebtRepositoryImpl implements DebtRepository {
       // Cancel notifications if paid or overdue
       await NotificationService().cancelDebtReminders(debt.id);
     }
+
+    // Sync vers Supabase
+    autoSyncService?.forceSync();
   }
 
   @override

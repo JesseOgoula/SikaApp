@@ -3,6 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+import 'package:sika_app/core/services/notification_preferences.dart';
+
 /// Service de notifications locales pour SikaApp
 ///
 /// Gère tous les types de notifications:
@@ -121,7 +123,7 @@ class NotificationService {
 
   // ==================== DEBT REMINDERS ====================
 
-  /// Schedule reminders for a debt: J-3, J-1, and J (due date)
+  /// Schedule reminders for a debt based on user preferences
   Future<void> scheduleDebtReminders({
     required String debtId,
     required String title,
@@ -130,48 +132,51 @@ class NotificationService {
   }) async {
     if (!_isInitialized) await init();
 
+    final prefs = NotificationPreferences();
+    final masterEnabled = await prefs.isEnabled;
+    final debtEnabled = await prefs.debtRemindersEnabled;
+    if (!masterEnabled || !debtEnabled) return;
+
     final idHash = debtId.hashCode.abs();
     final formattedAmount = _formatAmount(amount);
+    final reminderDays = await prefs.debtReminderDays;
+    final reminderHour = await prefs.debtReminderHour;
 
-    // J-3: 3 days before
-    final threeDaysBefore = dueDate.subtract(const Duration(days: 3));
-    if (threeDaysBefore.isAfter(DateTime.now())) {
-      await _scheduleNotification(
-        id: _idDebtPre3Days + (idHash % 1000),
-        title: '⏰ Rappel: $title dans 3 jours',
-        body: 'Préparez $formattedAmount FCFA pour le ${_formatDate(dueDate)}',
-        scheduledDate: _setTime(threeDaysBefore, 9, 0),
-        channelId: _channelReminders,
-        channelName: 'Rappels et Échéances',
-      );
+    // Cancel existing reminders first
+    await cancelDebtReminders(debtId);
+
+    // Schedule reminders for each configured day
+    for (final days in reminderDays) {
+      final reminderDate = dueDate.subtract(Duration(days: days));
+      if (reminderDate.isAfter(DateTime.now())) {
+        final label = days == 1 ? 'Demain' : 'Dans $days jours';
+        await _scheduleNotification(
+          id: (idHash + days * 1000) % 100000,
+          title: '⏰ $label: $title',
+          body:
+              'Préparez $formattedAmount FCFA pour le ${_formatDate(dueDate)}',
+          scheduledDate: _setTime(reminderDate, reminderHour, 0),
+          channelId: _channelReminders,
+          channelName: 'Rappels et Échéances',
+        );
+      }
     }
 
-    // J-1: 1 day before
-    final oneDayBefore = dueDate.subtract(const Duration(days: 1));
-    if (oneDayBefore.isAfter(DateTime.now())) {
-      await _scheduleNotification(
-        id: _idDebtPre1Day + (idHash % 1000),
-        title: '⚠️ Demain: $title',
-        body: '$formattedAmount FCFA à payer demain!',
-        scheduledDate: _setTime(oneDayBefore, 18, 0), // 18h la veille
-        channelId: _channelReminders,
-        channelName: 'Rappels et Échéances',
-      );
-    }
-
-    // J: Due date
+    // Always schedule on due date
     if (dueDate.isAfter(DateTime.now())) {
       await _scheduleNotification(
         id: _idDebtBase + (idHash % 1000),
         title: '🔔 Aujourd\'hui: $title',
         body: '$formattedAmount FCFA à payer aujourd\'hui!',
-        scheduledDate: _setTime(dueDate, 9, 0),
+        scheduledDate: _setTime(dueDate, reminderHour, 0),
         channelId: _channelReminders,
         channelName: 'Rappels et Échéances',
       );
     }
 
-    debugPrint('✅ [Notifications] Scheduled debt reminders for $title');
+    debugPrint(
+      '✅ [Notifications] Scheduled debt reminders for $title (days: $reminderDays, hour: $reminderHour)',
+    );
   }
 
   /// Cancel all reminders for a specific debt
@@ -190,6 +195,11 @@ class NotificationService {
     required double threshold,
   }) async {
     if (!_isInitialized) await init();
+
+    final prefs = NotificationPreferences();
+    final masterEnabled = await prefs.isEnabled;
+    final lowBalanceEnabled = await prefs.lowBalanceEnabled;
+    if (!masterEnabled || !lowBalanceEnabled) return;
 
     final formattedBalance = _formatAmount(currentBalance);
     final formattedThreshold = _formatAmount(threshold);
@@ -216,7 +226,7 @@ class NotificationService {
 
   // ==================== GOAL REMINDERS ====================
 
-  /// Schedule weekly goal reminder (every Sunday at 10 AM)
+  /// Schedule weekly goal reminder based on user preferences
   Future<void> scheduleWeeklyGoalReminder({
     required String goalId,
     required String goalName,
@@ -225,27 +235,37 @@ class NotificationService {
   }) async {
     if (!_isInitialized) await init();
 
+    final prefs = NotificationPreferences();
+    final masterEnabled = await prefs.isEnabled;
+    final goalEnabled = await prefs.goalRemindersEnabled;
+    if (!masterEnabled || !goalEnabled) return;
+
+    final goalDay = await prefs.goalReminderDay;
+    final goalHour = await prefs.goalReminderHour;
+
     final idHash = goalId.hashCode.abs();
     final remaining = targetAmount - currentAmount;
     final formattedRemaining = _formatAmount(remaining);
 
-    // Find next Sunday
-    var nextSunday = DateTime.now();
-    while (nextSunday.weekday != DateTime.sunday) {
-      nextSunday = nextSunday.add(const Duration(days: 1));
+    // Find next matching day
+    var nextDay = DateTime.now();
+    while (nextDay.weekday != goalDay) {
+      nextDay = nextDay.add(const Duration(days: 1));
     }
 
     await _scheduleNotification(
       id: _idGoalReminder + (idHash % 1000),
       title: '🎯 Objectif: $goalName',
       body: 'Plus que $formattedRemaining FCFA pour atteindre votre objectif!',
-      scheduledDate: _setTime(nextSunday, 10, 0),
+      scheduledDate: _setTime(nextDay, goalHour, 0),
       channelId: _channelGoals,
       channelName: 'Objectifs d\'épargne',
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
 
-    debugPrint('✅ [Notifications] Weekly reminder scheduled for $goalName');
+    debugPrint(
+      '✅ [Notifications] Weekly reminder scheduled for $goalName (day: $goalDay, hour: $goalHour)',
+    );
   }
 
   /// Cancel goal reminder
@@ -287,27 +307,40 @@ class NotificationService {
 
   // ==================== WEEKLY SUMMARY ====================
 
-  /// Schedule weekly summary notification (every Sunday at 6 PM)
+  /// Schedule weekly summary notification based on user preferences
   Future<void> scheduleWeeklySummary() async {
     if (!_isInitialized) await init();
 
-    // Find next Sunday
-    var nextSunday = DateTime.now();
-    while (nextSunday.weekday != DateTime.sunday) {
-      nextSunday = nextSunday.add(const Duration(days: 1));
+    final prefs = NotificationPreferences();
+    final masterEnabled = await prefs.isEnabled;
+    final summaryEnabled = await prefs.weeklySummaryEnabled;
+    if (!masterEnabled || !summaryEnabled) {
+      await cancel(_idWeeklySummary);
+      return;
+    }
+
+    final summaryDay = await prefs.weeklySummaryDay;
+    final summaryHour = await prefs.weeklySummaryHour;
+
+    // Find next matching day
+    var nextDay = DateTime.now();
+    while (nextDay.weekday != summaryDay) {
+      nextDay = nextDay.add(const Duration(days: 1));
     }
 
     await _scheduleNotification(
       id: _idWeeklySummary,
       title: '📊 Résumé de la semaine',
       body: 'Découvrez vos statistiques financières de la semaine!',
-      scheduledDate: _setTime(nextSunday, 18, 0),
+      scheduledDate: _setTime(nextDay, summaryHour, 0),
       channelId: _channelSummary,
       channelName: 'Résumé Hebdomadaire',
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
 
-    debugPrint('✅ [Notifications] Weekly summary scheduled');
+    debugPrint(
+      '✅ [Notifications] Weekly summary scheduled (day: $summaryDay, hour: $summaryHour)',
+    );
   }
 
   /// Show weekly summary with actual data
@@ -369,7 +402,7 @@ class NotificationService {
           largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         ),
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: matchDateTimeComponents,

@@ -8,45 +8,66 @@ import 'package:sika_app/core/database/app_database.dart';
 
 /// Service de synchronisation automatique
 ///
-/// Détecte les changements de connectivité et synchronise
-/// automatiquement les données locales vers Supabase.
+/// - Sync au démarrage si connecté
+/// - Sync à chaque changement de connectivité (retour réseau)
+/// - Sync périodique toutes les 5 minutes
+/// - `forceSync()` peut être appelé après une action utilisateur
 class AutoSyncService {
   final AppDatabase _db;
   final SupabaseClient _supabase;
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  Timer? _periodicTimer;
   bool _isSyncing = false;
+  bool _hasInternet = false;
+
+  /// Durée entre chaque sync périodique
+  static const _syncInterval = Duration(minutes: 5);
 
   AutoSyncService(this._db) : _supabase = Supabase.instance.client;
 
-  /// Démarre l'écoute des changements de connectivité
+  /// Démarre l'écoute des changements de connectivité + timer périodique
   void startListening() {
+    // Écoute connectivité
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       _onConnectivityChanged,
     );
     debugPrint('🔄 [AutoSync] Started listening for connectivity changes');
 
-    // Sync initiale si connecté
+    // Timer périodique
+    _periodicTimer = Timer.periodic(_syncInterval, (_) {
+      if (_hasInternet) {
+        debugPrint('⏱️ [AutoSync] Periodic sync triggered');
+        _checkAndSync();
+      }
+    });
+    debugPrint(
+      '⏱️ [AutoSync] Periodic timer started (${_syncInterval.inMinutes} min)',
+    );
+
+    // Sync initiale
     _checkAndSync();
   }
 
-  /// Arrête l'écoute
+  /// Arrête l'écoute et le timer
   void stopListening() {
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
     debugPrint('🔄 [AutoSync] Stopped listening');
   }
 
   /// Appelé quand la connectivité change
   void _onConnectivityChanged(List<ConnectivityResult> results) {
-    final hasInternet = results.any(
+    _hasInternet = results.any(
       (r) =>
           r == ConnectivityResult.wifi ||
           r == ConnectivityResult.mobile ||
           r == ConnectivityResult.ethernet,
     );
 
-    if (hasInternet) {
+    if (_hasInternet) {
       debugPrint('🌐 [AutoSync] Internet available - triggering sync');
       _checkAndSync();
     } else {
@@ -54,7 +75,17 @@ class AutoSyncService {
     }
   }
 
-  /// Vérifie s'il y a des données à synchroniser et les envoie
+  /// Force une synchronisation (à appeler après une action utilisateur)
+  ///
+  /// Délai court pour laisser Drift écrire dans la DB avant de lire.
+  Future<void> forceSync() async {
+    // Petit délai pour laisser la transaction DB se terminer
+    await Future.delayed(const Duration(milliseconds: 500));
+    debugPrint('🔄 [AutoSync] Force sync requested');
+    await _checkAndSync();
+  }
+
+  /// Vérifie la connectivité et lance la sync
   Future<void> _checkAndSync() async {
     if (_isSyncing) {
       debugPrint('🔄 [AutoSync] Already syncing, skipping');
@@ -85,22 +116,15 @@ class AutoSyncService {
     }
   }
 
-  /// Force une synchronisation manuelle
-  Future<void> forceSync() async {
-    debugPrint('🔄 [AutoSync] Force sync requested');
-    await _checkAndSync();
-  }
+  // ==================== SYNC METHODS ====================
 
-  /// Synchronise les catégories (incluant budget_limit) vers Supabase
+  /// Synchronise les catégories (syncStatus == 0) vers Supabase
   Future<void> _syncCategories(String userId) async {
     final pending = await (_db.select(
       _db.categoriesTable,
     )..where((c) => c.syncStatus.equals(0))).get();
 
-    if (pending.isEmpty) {
-      debugPrint('📤 [Categories] No pending categories');
-      return;
-    }
+    if (pending.isEmpty) return;
 
     debugPrint('📤 [Categories] Syncing ${pending.length} categories...');
 
@@ -133,16 +157,13 @@ class AutoSyncService {
     }
   }
 
-  /// Synchronise les transactions non-sync vers Supabase
+  /// Synchronise les transactions (syncStatus == 0) vers Supabase
   Future<void> _syncTransactions(String userId) async {
     final pending = await (_db.select(
       _db.transactionsTable,
     )..where((t) => t.syncStatus.equals(0))).get();
 
-    if (pending.isEmpty) {
-      debugPrint('📤 [Transactions] No pending transactions');
-      return;
-    }
+    if (pending.isEmpty) return;
 
     debugPrint('📤 [Transactions] Syncing ${pending.length} transactions...');
 
@@ -154,7 +175,6 @@ class AutoSyncService {
           'amount': tx.amount,
           'type': tx.type,
           'merchant_name': tx.merchantName,
-          // Pas de category_id/account_id pour éviter les FK errors
           'date': tx.date.toIso8601String(),
           'sms_sender': tx.smsSender,
           'sms_raw_content': tx.smsRawContent,
@@ -166,7 +186,6 @@ class AutoSyncService {
           'updated_at': DateTime.now().toIso8601String(),
         });
 
-        // Marque comme synchronisé localement
         await (_db.update(_db.transactionsTable)
               ..where((t) => t.id.equals(tx.id)))
             .write(const TransactionsTableCompanion(syncStatus: Value(1)));
@@ -178,15 +197,11 @@ class AutoSyncService {
     }
   }
 
-  /// Synchronise les comptes (tous, pas seulement pending)
+  /// Synchronise les comptes vers Supabase
   Future<void> _syncAccounts(String userId) async {
-    // Sync ALL accounts, not just pending (to catch accounts created before AutoSync)
     final allAccounts = await _db.select(_db.accountsTable).get();
 
-    if (allAccounts.isEmpty) {
-      debugPrint('📤 [Accounts] No accounts to sync');
-      return;
-    }
+    if (allAccounts.isEmpty) return;
 
     debugPrint('📤 [Accounts] Syncing ${allAccounts.length} accounts...');
 
@@ -220,7 +235,7 @@ class AutoSyncService {
     }
   }
 
-  /// Synchronise les dettes
+  /// Synchronise les dettes (syncStatus == 0) vers Supabase
   Future<void> _syncDebts(String userId) async {
     final pending = await (_db.select(
       _db.debtsTable,
@@ -260,15 +275,16 @@ class AutoSyncService {
     }
   }
 
-  /// Synchronise les objectifs
+  /// Synchronise TOUS les objectifs vers Supabase
+  /// (goals n'a pas de syncStatus, on sync toujours tout)
   Future<void> _syncGoals(String userId) async {
-    final pending = await (_db.select(_db.goalsTable)).get();
+    final goals = await _db.select(_db.goalsTable).get();
 
-    if (pending.isEmpty) return;
+    if (goals.isEmpty) return;
 
-    debugPrint('📤 [Goals] Syncing ${pending.length} goals...');
+    debugPrint('📤 [Goals] Syncing ${goals.length} goals...');
 
-    for (final goal in pending) {
+    for (final goal in goals) {
       try {
         await _supabase.from('goals').upsert({
           'id': goal.id,
