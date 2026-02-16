@@ -7,6 +7,7 @@ import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/goals/presentation/widgets/goal_celebration_overlay.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 /// BottomSheet pour alimenter un objectif d'épargne
 class FeedGoalBottomSheet extends ConsumerStatefulWidget {
@@ -251,6 +252,27 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Veuillez entrer un montant valide'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Vérifier le solde disponible
+    final availableBalance = ref.read(totalAccountsBalanceProvider);
+    if (amount > availableBalance) {
+      // Fermer le bottom sheet d'abord
+      Navigator.pop(context);
+      // Puis afficher le message d'erreur (visible sur l'écran parent)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Solde insuffisant. Disponible : ${_currencyFormat.format(availableBalance)}',
+          ),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(

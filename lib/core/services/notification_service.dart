@@ -47,7 +47,7 @@ class NotificationService {
     tz.initializeTimeZones();
 
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      '@drawable/ic_stat_notification',
     );
 
     const initSettings = InitializationSettings(android: androidSettings);
@@ -217,6 +217,7 @@ class NotificationService {
           priority: Priority.high,
           color: const Color(0xFFE53935), // Rouge
           largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_launcher_foreground',
         ),
       ),
     );
@@ -298,6 +299,7 @@ class NotificationService {
           priority: Priority.high,
           color: const Color(0xFF4CAF50), // Vert
           largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_launcher_foreground',
         ),
       ),
     );
@@ -367,6 +369,7 @@ class NotificationService {
           priority: Priority.defaultPriority,
           color: const Color(0xFF5E35B1), // Violet
           largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_launcher_foreground',
         ),
       ),
     );
@@ -400,6 +403,7 @@ class NotificationService {
           priority: Priority.high,
           color: const Color(0xFF5E35B1),
           largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_launcher_foreground',
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -474,7 +478,8 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           color: const Color(0xFFE53935),
-          icon: '@mipmap/ic_launcher',
+          icon: '@drawable/ic_launcher_foreground',
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
         ),
       ),
       payload: 'budget_exceeded:$categoryName',

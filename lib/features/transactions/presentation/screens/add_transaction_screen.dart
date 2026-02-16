@@ -139,24 +139,30 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       ),
       body: Column(
         children: [
-          // Scrollable content
+          // === MONTANT (FIXE en haut, hors scroll) ===
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildAmountDisplay(),
+          ),
+
+          const SizedBox(height: 8),
+
+          // === TYPE SELECTOR (FIXE) ===
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: _buildTypeSelector(),
+          ),
+
+          const SizedBox(height: 12),
+
+          // Scrollable content (catégories, compte, date, note)
           Expanded(
             child: SingleChildScrollView(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
-                  const SizedBox(height: 20),
-
-                  // === MONTANT (ReadOnly avec affichage formaté) ===
-                  _buildAmountDisplay(),
-
-                  const SizedBox(height: 24),
-
-                  // === TYPE SELECTOR ===
-                  _buildTypeSelector(),
-
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
 
                   // === CATÉGORIES ===
                   _buildCategorySection(categoriesAsync),
@@ -706,6 +712,26 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         ),
       );
       return;
+    }
+
+    // Vérifier le solde disponible pour les dépenses
+    if (_transactionType == 'expense') {
+      final availableBalance = ref.read(totalAccountsBalanceProvider);
+      if (amount > availableBalance) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Solde insuffisant. Disponible : ${NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA', decimalDigits: 0).format(availableBalance)}',
+            ),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
