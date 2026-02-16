@@ -17,7 +17,7 @@ dependencies:
 
   # ===== DRIFT (SQLite ORM) =====
   drift: ^2.22.1
-  sqlite3_flutter_libs: ^0.5.0
+  sqlite3_flutter_libs: ^0.5.41
   sqlite3: ^2.5.0
   path_provider: ^2.1.5
   path: ^1.9.1
@@ -62,6 +62,10 @@ dependencies:
   flutter_svg: ^2.0.10
   google_generative_ai: ^0.4.6
 
+  # ===== OCR / AI Receipt Scanner =====
+  image_picker: ^1.1.2
+  http: ^1.2.2
+
   # ===== AUTH & CLOUD =====
   supabase_flutter: ^2.8.0
   google_sign_in: ^6.2.1
@@ -69,6 +73,7 @@ dependencies:
   # ===== POWERSYNC (Offline-First Sync) =====
   powersync: ^1.17.0
   connectivity_plus: ^7.0.0
+
 
 dev_dependencies:
   flutter_test:

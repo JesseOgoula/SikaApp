@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:image_picker/image_picker.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/core/services/receipt_scanner_service.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
@@ -29,6 +32,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   String? _selectedAccountId;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
+  bool _isScanning = false;
   bool _showKeypad = false; // Clavier numérique caché par défaut
   bool _showTextPad = false; // Clavier texte caché par défaut
   final ScrollController _scrollController = ScrollController();
@@ -135,94 +139,121 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ),
         ),
         centerTitle: true,
-        actions: const [SizedBox(width: 48)],
-      ),
-      body: Column(
-        children: [
-          // === MONTANT (FIXE en haut, hors scroll) ===
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _buildAmountDisplay(),
-          ),
-
-          const SizedBox(height: 8),
-
-          // === TYPE SELECTOR (FIXE) ===
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _buildTypeSelector(),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Scrollable content (catégories, compte, date, note)
-          Expanded(
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-
-                  // === CATÉGORIES ===
-                  _buildCategorySection(categoriesAsync),
-
-                  const SizedBox(height: 20),
-
-                  // === COMPTE ===
-                  _buildAccountSection(),
-
-                  const SizedBox(height: 20),
-
-                  // === DATE ===
-                  _buildDateField(),
-
-                  const SizedBox(height: 12),
-
-                  // === NOTE ===
-                  _buildNoteField(),
-
-                  const SizedBox(height: 16),
-                ],
+        actions: [
+          IconButton(
+            onPressed: _isScanning ? null : _scanReceipt,
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.document_scanner_rounded,
+                color: Colors.white,
+                size: 20,
               ),
             ),
+            tooltip: 'Scanner une facture',
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              // === MONTANT (FIXE en haut, hors scroll) ===
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _buildAmountDisplay(),
+              ),
+
+              const SizedBox(height: 8),
+
+              // === TYPE SELECTOR (FIXE) ===
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: _buildTypeSelector(),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Scrollable content (catégories, compte, date, note)
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 8),
+
+                      // === CATÉGORIES ===
+                      _buildCategorySection(categoriesAsync),
+
+                      const SizedBox(height: 20),
+
+                      // === COMPTE ===
+                      _buildAccountSection(),
+
+                      const SizedBox(height: 20),
+
+                      // === DATE ===
+                      _buildDateField(),
+
+                      const SizedBox(height: 12),
+
+                      // === NOTE ===
+                      _buildNoteField(),
+
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ),
+
+              // === NUMBERPAD AVEC ANIMATION ===
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _showKeypad
+                    ? AnimatedOpacity(
+                        opacity: _showKeypad ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: NumberPad(
+                          onKeyPressed: _onKeyPressed,
+                          onBackspace: _onBackspace,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+
+              // === TEXTPAD AVEC ANIMATION ===
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                child: _showTextPad
+                    ? AnimatedOpacity(
+                        opacity: _showTextPad ? 1.0 : 0.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: TextPad(
+                          onKeyPressed: _onNoteKeyPressed,
+                          onBackspace: _onNoteBackspace,
+                          onDone: _onNoteDone,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+
+              // === BOUTON ENREGISTRER ===
+              _buildSubmitButton(),
+            ],
           ),
 
-          // === NUMBERPAD AVEC ANIMATION ===
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: _showKeypad
-                ? AnimatedOpacity(
-                    opacity: _showKeypad ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: NumberPad(
-                      onKeyPressed: _onKeyPressed,
-                      onBackspace: _onBackspace,
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-
-          // === TEXTPAD AVEC ANIMATION ===
-          AnimatedSize(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            child: _showTextPad
-                ? AnimatedOpacity(
-                    opacity: _showTextPad ? 1.0 : 0.0,
-                    duration: const Duration(milliseconds: 200),
-                    child: TextPad(
-                      onKeyPressed: _onNoteKeyPressed,
-                      onBackspace: _onNoteBackspace,
-                      onDone: _onNoteDone,
-                    ),
-                  )
-                : const SizedBox.shrink(),
-          ),
-
-          // === BOUTON ENREGISTRER ===
-          _buildSubmitButton(),
+          // === OVERLAY SCAN EN COURS ===
+          if (_isScanning) _buildScanOverlay(),
         ],
       ),
     );
@@ -653,6 +684,255 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     'Enregistrer',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ===== OCR SCANNER =====
+
+  Future<void> _scanReceipt() async {
+    final picker = ImagePicker();
+
+    // Ouvre la caméra ou la galerie
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 16, bottom: 8),
+                child: Text(
+                  'Scanner une facture',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6366F1).withAlpha(25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+                title: const Text('Prendre une photo'),
+                subtitle: const Text('Photographier la facture'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withAlpha(25),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: Color(0xFF8B5CF6),
+                  ),
+                ),
+                title: const Text('Choisir depuis la galerie'),
+                subtitle: const Text('Sélectionner une image existante'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final XFile? image = await picker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      maxHeight: 1600,
+      imageQuality: 85,
+    );
+
+    if (image == null) return;
+
+    setState(() => _isScanning = true);
+
+    try {
+      // Récupère la liste des catégories
+      final categories = await ref.read(categoriesProvider.future);
+      final categoryNames = categories.map((c) => c.name).toList();
+
+      // Appel IA
+      final result = await ReceiptScannerService.scanReceipt(
+        imageFile: File(image.path),
+        categoryNames: categoryNames,
+      );
+
+      if (!mounted) return;
+
+      if (!result.hasData) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Impossible de lire cette facture. Essayez avec une photo plus nette.',
+            ),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Auto-remplir les champs
+      setState(() {
+        // Montant
+        if (result.amount != null) {
+          _amountText = result.amount!.toStringAsFixed(0);
+        }
+
+        // Note / Description
+        if (result.description != null) {
+          _noteText = result.description!;
+        }
+
+        // Catégorie
+        if (result.suggestedCategory != null) {
+          final matchedCategory = categories
+              .where(
+                (c) =>
+                    c.name.toLowerCase() ==
+                    result.suggestedCategory!.toLowerCase(),
+              )
+              .firstOrNull;
+          if (matchedCategory != null) {
+            _selectedCategoryId = matchedCategory.id;
+          }
+        }
+
+        // Les factures sont des dépenses
+        _transactionType = 'expense';
+      });
+
+      // Afficher un snackbar de succès
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Facture analysée ! Montant : ${result.amount?.toStringAsFixed(0) ?? "?"} FCFA',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du scan : $e'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isScanning = false);
+      }
+    }
+  }
+
+  Widget _buildScanOverlay() {
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 48),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(25),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.document_scanner_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Analyse en cours...',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'L\'IA analyse votre facture',
+                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              const SizedBox(
+                width: 40,
+                height: 40,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
+    <!-- Permissions Camera (OCR Scanner) -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    
     <application
         android:label="SIKA"
         android:name="${applicationName}"
