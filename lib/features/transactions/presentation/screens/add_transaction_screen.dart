@@ -145,9 +145,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                ),
+                gradient: AppTheme.cardGradient,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
@@ -709,6 +707,16 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Drag handle
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
               const Padding(
                 padding: EdgeInsets.only(top: 16, bottom: 8),
                 child: Text(
@@ -724,12 +732,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withAlpha(25),
+                    color: AppTheme.primaryColor.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
                     Icons.camera_alt_rounded,
-                    color: Color(0xFF6366F1),
+                    color: AppTheme.primaryColor,
                   ),
                 ),
                 title: const Text('Prendre une photo'),
@@ -740,12 +748,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B5CF6).withAlpha(25),
+                    color: AppTheme.primaryColor.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.photo_library_rounded,
-                    color: Color(0xFF8B5CF6),
+                    color: AppTheme.primaryColor.withOpacity(0.7),
                   ),
                 ),
                 title: const Text('Choisir depuis la galerie'),
@@ -898,9 +906,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                  ),
+                  gradient: AppTheme.cardGradient,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
@@ -929,7 +935,9 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 height: 40,
                 child: CircularProgressIndicator(
                   strokeWidth: 3,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    AppTheme.primaryColor,
+                  ),
                 ),
               ),
             ],
