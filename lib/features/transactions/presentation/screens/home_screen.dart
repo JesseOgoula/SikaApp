@@ -357,12 +357,80 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  /// Carte individuelle pour un compte avec solde calculé (design premium)
+  /// Carte individuelle pour un compte avec solde calculé (design premium enrichi)
   Widget _buildAccountCardDynamic(AccountWithBalance acc) {
     final accountColor = Color(int.parse(acc.color.replaceFirst('#', '0xFF')));
     final now = DateTime.now();
-    final formattedDate = DateFormat('dd/MM/yy').format(now);
-    final formattedTime = DateFormat('HH:mm').format(now);
+    final firstOfMonth = DateTime(now.year, now.month, 1);
+
+    // Calcul des stats par compte
+    final transactionsAsync = ref.watch(transactionWithCategoryListProvider);
+    final allTransactions = transactionsAsync.valueOrNull ?? [];
+    final totalBalance = ref.watch(totalAccountsBalanceProvider);
+
+    double monthlyIncome = 0;
+    double monthlyExpense = 0;
+    int monthTxCount = 0; // ignore: unused_local_variable
+    DateTime? lastTxDate;
+
+    for (final txWithCat in allTransactions) {
+      final tx = txWithCat.transaction;
+      if (tx.accountId == acc.id) {
+        // Dernière transaction (toutes périodes)
+        if (lastTxDate == null || tx.date.isAfter(lastTxDate)) {
+          lastTxDate = tx.date;
+        }
+        // Stats mensuelles
+        if (tx.date.isAfter(firstOfMonth)) {
+          monthTxCount++;
+          if (tx.type == 'income') {
+            monthlyIncome += tx.amount;
+          } else if (tx.type == 'expense') {
+            monthlyExpense += tx.amount;
+          }
+        }
+      }
+    }
+
+    // Pourcentage du solde total
+    final percentage = totalBalance > 0
+        ? ((acc.balance / totalBalance) * 100).round()
+        : 0;
+
+    // Formatage dernière activité
+    String lastActivityText;
+    if (lastTxDate == null) {
+      lastActivityText = 'Aucune activité';
+    } else {
+      final diff = now.difference(lastTxDate);
+      if (diff.inMinutes < 60) {
+        lastActivityText = 'Il y a ${diff.inMinutes}min';
+      } else if (diff.inHours < 24) {
+        lastActivityText = 'Il y a ${diff.inHours}h';
+      } else if (diff.inDays == 1) {
+        lastActivityText = 'Hier ${DateFormat('HH:mm').format(lastTxDate)}';
+      } else if (diff.inDays < 7) {
+        lastActivityText = 'Il y a ${diff.inDays}j';
+      } else {
+        lastActivityText = DateFormat('dd/MM').format(lastTxDate);
+      }
+    }
+
+    // Icône appropriée par type de compte
+    IconData accountIcon;
+    switch (acc.iconKey) {
+      case 'phone_android':
+        accountIcon = Icons.phone_android;
+        break;
+      case 'account_balance':
+        accountIcon = Icons.account_balance;
+        break;
+      case 'payments':
+        accountIcon = Icons.payments;
+        break;
+      default:
+        accountIcon = Icons.account_balance_wallet;
+    }
 
     final gradient = LinearGradient(
       begin: Alignment.topLeft,
@@ -390,6 +458,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // === TOP ROW: Type badge + % du total ===
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -405,11 +474,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.white,
-                      size: 14,
-                    ),
+                    Icon(accountIcon, color: Colors.white, size: 14),
                     const SizedBox(width: 6),
                     Text(
                       _getAccountTypeLabel(acc.type),
@@ -422,42 +487,132 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              Text(
-                '$formattedDate • $formattedTime',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 11,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '$percentage% du total',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
           ),
+
           const Spacer(),
+
+          // === MIDDLE: Nom + Solde + Toggle ===
           Text(
             acc.name,
             style: TextStyle(
               color: Colors.white.withOpacity(0.8),
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            _formatAmount(acc.balance),
-            style: const TextStyle(
-              fontSize: 36,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-              letterSpacing: -1,
-              height: 1.1,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _isAmountVisible ? _formatAmount(acc.balance) : '••••••',
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    letterSpacing: -1,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _isAmountVisible = !_isAmountVisible);
+                },
+                icon: Icon(
+                  _isAmountVisible
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: Colors.white.withOpacity(0.7),
+                  size: 18,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
           ),
           Text(
             'FCFA',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
               color: Colors.white.withOpacity(0.7),
             ),
+          ),
+
+          const Spacer(),
+
+          // === BOTTOM: Stats mensuelles + Dernière activité ===
+          Row(
+            children: [
+              // Revenus du mois
+              Icon(
+                Icons.arrow_upward_rounded,
+                color: Colors.greenAccent.shade200,
+                size: 14,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                _isAmountVisible ? _formatAmount(monthlyIncome) : '•••',
+                style: TextStyle(
+                  color: Colors.greenAccent.shade200,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Dépenses du mois
+              Icon(
+                Icons.arrow_downward_rounded,
+                color: Colors.redAccent.shade100,
+                size: 14,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                _isAmountVisible ? _formatAmount(monthlyExpense) : '•••',
+                style: TextStyle(
+                  color: Colors.redAccent.shade100,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              // Dernière activité
+              Icon(
+                Icons.access_time,
+                color: Colors.white.withOpacity(0.5),
+                size: 12,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                lastActivityText,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
