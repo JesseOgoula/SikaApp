@@ -1,7 +1,4 @@
-import 'dart:ffi';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:sqlite3/open.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/core/services/auto_sync_service.dart';
 
@@ -15,12 +12,9 @@ import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/notifications/notification_controller.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/constants/supabase_constants.dart';
-import 'package:sika_app/features/sms_listener/data/services/background_sms_service.dart';
-import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:sika_app/core/widgets/privacy_shield.dart';
-import 'package:sika_app/core/utils/encryption_utils.dart';
 import 'package:sika_app/core/services/security_service.dart';
 import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
 
@@ -28,13 +22,6 @@ import 'package:sika_app/features/accounts/presentation/widgets/account_setup_ch
 AutoSyncService? autoSyncService;
 
 void main() async {
-  // Override SQLite library on Android to use SQLCipher
-  if (Platform.isAndroid) {
-    open.overrideFor(OperatingSystem.android, () {
-      return DynamicLibrary.open('libsqlcipher.so');
-    });
-  }
-
   SikaLogger.info('Starting app initialization...', tag: 'MAIN');
 
   // Assure que les bindings Flutter sont initialisés
@@ -114,20 +101,6 @@ void main() async {
     debugPrint('✅ [MAIN] NotificationService initialized');
   } catch (e) {
     debugPrint('❌ [MAIN] Error initializing NotificationService: $e');
-  }
-
-  // Init SMS Service
-  try {
-    SikaLogger.info('Initializing BackgroundSmsService...', tag: 'MAIN');
-    final smsService = BackgroundSmsService();
-    smsService.setDatabase(database);
-    await smsService.startListening();
-    SikaLogger.info('BackgroundSmsService initialized', tag: 'MAIN');
-  } catch (e) {
-    SikaLogger.error(
-      'Error initializing BackgroundSmsService: $e',
-      tag: 'MAIN',
-    );
   }
 
   runApp(
