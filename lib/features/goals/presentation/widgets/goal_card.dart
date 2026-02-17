@@ -36,170 +36,198 @@ class GoalCard extends StatelessWidget {
     final percentage = (progress * 100).toInt();
     final remaining = goal.targetAmount - goal.savedAmount;
 
-    return GestureDetector(
-      onTap: goal.isCompleted ? onTap : (onFeedPressed ?? onTap),
-      onLongPress: onDeletePressed,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: goal.isCompleted
-                ? AppTheme.success.withOpacity(0.2)
-                : AppTheme.primaryColor.withOpacity(0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+    return Opacity(
+      opacity: goal.isCompleted ? 0.75 : 1.0,
+      child: GestureDetector(
+        onTap: goal.isCompleted ? null : (onFeedPressed ?? onTap),
+        onLongPress: onDeletePressed,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: goal.isCompleted ? const Color(0xFFF0F1F3) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: goal.isCompleted
+                  ? Colors.grey.withOpacity(0.2)
+                  : AppTheme.primaryColor.withOpacity(0.2),
+              width: 1,
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: Icône + Nom + Badge
-            Row(
-              children: [
-                // Icône
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: goal.isCompleted
-                        ? AppTheme.success.withOpacity(0.1)
-                        : AppTheme.primaryColor.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: FaIcon(
-                      _getGoalIcon(goal.iconKey),
+            boxShadow: goal.isCompleted
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: Icône + Nom + Badge
+              Row(
+                children: [
+                  // Icône
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
                       color: goal.isCompleted
-                          ? AppTheme.success
-                          : AppTheme.primaryColor,
-                      size: 18,
+                          ? AppTheme.textSecondary.withOpacity(0.08)
+                          : AppTheme.primaryColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: goal.isCompleted
+                          ? Icon(
+                              Icons.check_rounded,
+                              color: AppTheme.success,
+                              size: 22,
+                            )
+                          : FaIcon(
+                              _getGoalIcon(goal.iconKey),
+                              color: AppTheme.primaryColor,
+                              size: 18,
+                            ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
-                // Nom + Reste
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        goal.name,
-                        style: const TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        goal.isCompleted
-                            ? 'Objectif atteint'
-                            : 'Reste ${currencyFormat.format(remaining)}',
-                        style: TextStyle(
-                          color: goal.isCompleted
-                              ? AppTheme.success
-                              : AppTheme.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Badge pourcentage/complet
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: goal.isCompleted
-                        ? AppTheme.success.withOpacity(0.1)
-                        : AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: goal.isCompleted
-                      ? const Text(
-                          '✓',
+                  // Nom + Reste
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          goal.name,
                           style: TextStyle(
-                            color: AppTheme.success,
-                            fontSize: 14,
+                            color: goal.isCompleted
+                                ? AppTheme.textSecondary
+                                : AppTheme.textPrimary,
+                            fontSize: 15,
                             fontWeight: FontWeight.w600,
                           ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$percentage%',
-                              style: const TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.add_circle_outline,
-                              color: AppTheme.primaryColor,
-                              size: 14,
-                            ),
-                          ],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                ),
-              ],
-            ),
+                        const SizedBox(height: 2),
+                        Text(
+                          goal.isCompleted
+                              ? 'Objectif atteint'
+                              : 'Reste ${currencyFormat.format(remaining)}',
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: goal.isCompleted
+                                ? FontWeight.w500
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
-            const SizedBox(height: 12),
-
-            // Barre de progression
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 6,
-                backgroundColor: Colors.grey[200],
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  goal.isCompleted ? AppTheme.success : AppTheme.primaryColor,
-                ),
+                  // Badge pourcentage/complet
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: goal.isCompleted
+                          ? AppTheme.success.withOpacity(0.08)
+                          : AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: goal.isCompleted
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: AppTheme.success,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Atteint',
+                                style: TextStyle(
+                                  color: AppTheme.success,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$percentage%',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.add_circle_outline,
+                                color: AppTheme.primaryColor,
+                                size: 14,
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
               ),
-            ),
 
-            const SizedBox(height: 8),
+              const SizedBox(height: 12),
 
-            // Montants
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  currencyFormat.format(goal.savedAmount),
-                  style: TextStyle(
-                    color: goal.isCompleted
-                        ? AppTheme.success
+              // Barre de progression
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey[200],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    goal.isCompleted
+                        ? AppTheme.success.withOpacity(0.5)
                         : AppTheme.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
-                  'sur ${currencyFormat.format(goal.targetAmount)}',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                ),
-              ],
-            ),
-          ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // Montants
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    currencyFormat.format(goal.savedAmount),
+                    style: TextStyle(
+                      color: goal.isCompleted
+                          ? AppTheme.textSecondary
+                          : AppTheme.primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    'sur ${currencyFormat.format(goal.targetAmount)}',
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

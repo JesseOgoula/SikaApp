@@ -14,11 +14,11 @@ final goalRepositoryProvider = Provider<GoalRepository>((ref) {
   return GoalRepository(db);
 });
 
-/// Provider pour la liste des objectifs actifs (stream)
+/// Provider pour la liste de tous les objectifs (stream)
 final activeGoalsProvider = StreamProvider<List<GoalsTableData>>((ref) {
   ref.keepAlive(); // Garde en cache pour navigation instantanée
   final repo = ref.watch(goalRepositoryProvider);
-  return repo.watchActiveGoals();
+  return repo.watchAllGoals();
 });
 
 /// Repository pour gérer les objectifs d'épargne

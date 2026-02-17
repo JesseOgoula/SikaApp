@@ -363,30 +363,47 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.delete_sweep_outlined, color: AppTheme.error),
+            Icon(Icons.delete_sweep_outlined, color: AppTheme.textSecondary),
             const SizedBox(width: 12),
             const Expanded(child: Text('Effacer les données')),
           ],
         ),
-        content: const Text(
-          '⚠️ Cette action supprimera TOUTES vos données:\n\n'
-          '• Comptes financiers\n'
-          '• Transactions\n'
-          '• Objectifs\n'
-          '• Dettes et Factures\n'
-          '• Catégories\n\n'
-          'Vous devrez reconfigurer vos comptes.\n\n'
-          'Votre connexion Google restera active.',
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cette action supprimera toutes vos données :',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Comptes, transactions, objectifs, dettes, factures et catégories.',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Vous devrez reconfigurer vos comptes. Votre connexion Google restera active.',
+              style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.4),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () async {
               Navigator.pop(ctx);
@@ -434,42 +451,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(Icons.person_remove_outlined, color: AppTheme.error),
+            Icon(Icons.person_remove_outlined, color: AppTheme.textSecondary),
             const SizedBox(width: 12),
             const Expanded(child: Text('Supprimer le compte')),
           ],
         ),
-        content: SingleChildScrollView(
-          child: const Text(
-            '🚨 ACTION IRRÉVERSIBLE !\n\n'
-            'Cette action supprimera définitivement:\n\n'
-            '• Votre profil utilisateur\n'
-            '• Toutes vos données\n'
-            '• Votre authentification\n\n'
-            'Vous ne pourrez plus récupérer ces informations.',
-          ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Cette action est irréversible.',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Votre profil, vos données et votre authentification seront définitivement supprimés.',
+              style: TextStyle(fontSize: 14, height: 1.4),
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Vous ne pourrez plus récupérer ces informations.',
+              style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.4),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          Flexible(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.error,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await _executeDeleteAccount();
-              },
-              child: const Text('Supprimer'),
+            child: Text(
+              'Annuler',
+              style: TextStyle(color: AppTheme.textSecondary),
             ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _executeDeleteAccount();
+            },
+            child: const Text('Supprimer'),
           ),
         ],
       ),
