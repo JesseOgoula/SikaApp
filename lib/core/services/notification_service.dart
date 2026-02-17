@@ -152,9 +152,9 @@ class NotificationService {
         final label = days == 1 ? 'Demain' : 'Dans $days jours';
         await _scheduleNotification(
           id: (idHash + days * 1000) % 100000,
-          title: '⏰ $label: $title',
+          title: '$label — $title',
           body:
-              'Préparez $formattedAmount FCFA pour le ${_formatDate(dueDate)}',
+              '$formattedAmount FCFA à prévoir pour le ${_formatDate(dueDate)}',
           scheduledDate: _setTime(reminderDate, reminderHour, 0),
           channelId: _channelReminders,
           channelName: 'Rappels et Échéances',
@@ -166,8 +166,8 @@ class NotificationService {
     if (dueDate.isAfter(DateTime.now())) {
       await _scheduleNotification(
         id: _idDebtBase + (idHash % 1000),
-        title: '🔔 Aujourd\'hui: $title',
-        body: '$formattedAmount FCFA à payer aujourd\'hui!',
+        title: 'Échéance aujourd\'hui — $title',
+        body: 'Montant dû : $formattedAmount FCFA',
         scheduledDate: _setTime(dueDate, reminderHour, 0),
         channelId: _channelReminders,
         channelName: 'Rappels et Échéances',
@@ -206,8 +206,8 @@ class NotificationService {
 
     await _notificationsPlugin.show(
       _idLowBalance,
-      '📉 Solde faible!',
-      'Votre solde ($formattedBalance FCFA) est sous $formattedThreshold FCFA',
+      'Solde faible',
+      'Votre solde est de $formattedBalance FCFA, en dessous du seuil de $formattedThreshold FCFA.',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channelBalance,
@@ -256,8 +256,9 @@ class NotificationService {
 
     await _scheduleNotification(
       id: _idGoalReminder + (idHash % 1000),
-      title: '🎯 Objectif: $goalName',
-      body: 'Plus que $formattedRemaining FCFA pour atteindre votre objectif!',
+      title: 'Objectif — $goalName',
+      body:
+          'Il vous reste $formattedRemaining FCFA à épargner pour atteindre cet objectif.',
       scheduledDate: _setTime(nextDay, goalHour, 0),
       channelId: _channelGoals,
       channelName: 'Objectifs d\'épargne',
@@ -288,8 +289,8 @@ class NotificationService {
 
     await _notificationsPlugin.show(
       _idGoalCompleted + DateTime.now().millisecondsSinceEpoch % 1000,
-      '🎉 Félicitations!',
-      'Objectif "$goalName" atteint! Vous avez épargné $formattedAmount FCFA',
+      'Objectif atteint',
+      'Vous avez atteint votre objectif "$goalName" avec $formattedAmount FCFA épargnés.',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channelCelebrations,
@@ -332,8 +333,8 @@ class NotificationService {
 
     await _scheduleNotification(
       id: _idWeeklySummary,
-      title: '📊 Résumé de la semaine',
-      body: 'Découvrez vos statistiques financières de la semaine!',
+      title: 'Résumé hebdomadaire',
+      body: 'Votre bilan financier de la semaine est disponible.',
       scheduledDate: _setTime(nextDay, summaryHour, 0),
       channelId: _channelSummary,
       channelName: 'Résumé Hebdomadaire',
@@ -358,8 +359,8 @@ class NotificationService {
 
     await _notificationsPlugin.show(
       _idWeeklySummary + 1,
-      '📊 Résumé de la semaine',
-      'Revenus: $formattedIncome FCFA | Dépenses: $formattedExpenses FCFA',
+      'Résumé hebdomadaire',
+      'Revenus : $formattedIncome FCFA · Dépenses : $formattedExpenses FCFA',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channelSummary,
@@ -468,8 +469,8 @@ class NotificationService {
 
     await _notificationsPlugin.show(
       _idBudgetExceeded + categoryName.hashCode.abs() % 1000,
-      '⚠️ Budget dépassé: $categoryName',
-      'Vous avez dépassé votre budget de ${exceeded.toStringAsFixed(0)} F',
+      'Budget dépassé — $categoryName',
+      'Vous avez dépassé votre limite de ${exceeded.toStringAsFixed(0)} FCFA sur cette catégorie.',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channelBalance,
