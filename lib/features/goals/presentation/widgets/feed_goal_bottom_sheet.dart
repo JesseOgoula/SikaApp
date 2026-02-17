@@ -33,6 +33,7 @@ class FeedGoalBottomSheet extends ConsumerStatefulWidget {
 class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
   String _amountText = '';
   bool _isLoading = false;
+  String? _selectedAccountId;
 
   final _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',
@@ -114,7 +115,12 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              // Sélecteur de compte
+              _buildAccountSelector(),
+
+              const SizedBox(height: 20),
 
               // Affichage du montant
               Row(
@@ -246,6 +252,101 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
     );
   }
 
+  /// Sélecteur de compte source
+  Widget _buildAccountSelector() {
+    final accountsAsync = ref.watch(accountsWithBalanceProvider);
+
+    return accountsAsync.when(
+      data: (accounts) {
+        if (accounts.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('Aucun compte configuré'),
+          );
+        }
+
+        // Sélectionner le premier compte par défaut
+        _selectedAccountId ??= accounts.first.id;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.grey[50],
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.15)),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedAccountId,
+              isExpanded: true,
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppTheme.primaryColor.withOpacity(0.6),
+              ),
+              items: accounts.map((acc) {
+                final iconData = _getAccountIcon(acc.account.iconKey);
+                final color = Color(
+                  int.parse(acc.account.color.replaceFirst('#', '0xFF')),
+                );
+                return DropdownMenuItem<String>(
+                  value: acc.id,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(iconData, color: color, size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          acc.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _currencyFormat.format(acc.balance),
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              onChanged: (value) => setState(() => _selectedAccountId = value),
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox(
+        height: 48,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (_, __) => const Text('Erreur chargement comptes'),
+    );
+  }
+
+  IconData _getAccountIcon(String iconKey) {
+    switch (iconKey) {
+      case 'phone_android':
+        return Icons.phone_android;
+      case 'account_balance':
+        return Icons.account_balance;
+      case 'payments':
+        return Icons.payments;
+      default:
+        return Icons.account_balance_wallet;
+    }
+  }
+
   Future<void> _feedGoal() async {
     final amount = double.tryParse(_amountText);
     if (amount == null || amount <= 0) {
@@ -262,8 +363,28 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
       return;
     }
 
-    // Vérifier le solde disponible
-    final availableBalance = ref.read(totalAccountsBalanceProvider);
+    if (_selectedAccountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Veuillez sélectionner un compte'),
+          backgroundColor: AppTheme.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Vérifier le solde du compte sélectionné
+    final accountsAsync = ref.read(accountsWithBalanceProvider);
+    final selectedAccount = accountsAsync.whenOrNull(
+      data: (accounts) =>
+          accounts.where((a) => a.id == _selectedAccountId).firstOrNull,
+    );
+    final availableBalance = selectedAccount?.balance ?? 0.0;
+
     if (amount > availableBalance) {
       // Fermer le bottom sheet d'abord
       Navigator.pop(context);
@@ -271,7 +392,7 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Solde insuffisant. Disponible : ${_currencyFormat.format(availableBalance)}',
+            'Solde insuffisant sur ${selectedAccount?.name ?? "ce compte"}. Disponible : ${_currencyFormat.format(availableBalance)}',
           ),
           backgroundColor: AppTheme.error,
           behavior: SnackBarBehavior.floating,
@@ -287,7 +408,11 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
 
     try {
       final repo = ref.read(goalRepositoryProvider);
-      final success = await repo.feedGoal(widget.goal.id, amount);
+      final success = await repo.feedGoal(
+        widget.goal.id,
+        amount,
+        _selectedAccountId!,
+      );
 
       if (success && mounted) {
         // Vérifie si l'objectif est maintenant atteint

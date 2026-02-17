@@ -159,7 +159,8 @@ class GoalRepository {
   /// Exécute une transaction atomique:
   /// 1. Met à jour savedAmount dans Goals
   /// 2. Crée une Transaction de type EXPENSE catégorisée "Épargne"
-  Future<bool> feedGoal(String goalId, double amount) async {
+  ///    rattachée au compte [accountId] pour impacter le solde
+  Future<bool> feedGoal(String goalId, double amount, String accountId) async {
     // Récupérer l'objectif
     final goal = await (_db.select(
       _db.goalsTable,
@@ -182,7 +183,7 @@ class GoalRepository {
         ),
       );
 
-      // 2. Créer une transaction "Dépense d'épargne"
+      // 2. Créer une transaction "Dépense d'épargne" liée au compte
       await _db
           .into(_db.transactionsTable)
           .insert(
@@ -192,6 +193,7 @@ class GoalRepository {
               type: 'expense',
               merchantName: Value('Épargne : ${goal.name}'),
               categoryId: const Value('cat-epargne'),
+              accountId: Value(accountId),
               date: DateTime.now(),
               smsSender: const Value('MANUAL_SAVING'),
               smsRawContent: const Value(''),
