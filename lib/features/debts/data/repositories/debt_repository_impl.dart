@@ -7,6 +7,8 @@ import '../../domain/repositories/debt_repository.dart';
 
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart' show autoSyncService;
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
 class DebtRepositoryImpl implements DebtRepository {
   final AppDatabase _db;
@@ -76,6 +78,9 @@ class DebtRepositoryImpl implements DebtRepository {
 
     // Sync vers Supabase
     autoSyncService?.forceSync();
+
+    // Award XP for adding debt
+    XPService().awardXP(ActionType.addDebt);
   }
 
   @override
@@ -182,6 +187,9 @@ class DebtRepositoryImpl implements DebtRepository {
         ),
       );
     }
+
+    // Award XP for paying debt
+    XPService().awardXP(ActionType.payDebt);
   }
 
   @override

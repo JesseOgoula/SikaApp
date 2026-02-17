@@ -5,6 +5,8 @@ import 'package:sika_app/main.dart' show databaseProvider;
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
 /// Provider pour le repository des comptes
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
@@ -124,6 +126,9 @@ class AccountRepository {
             isActive: const Value(true),
           ),
         );
+
+    // Award XP for adding account
+    XPService().awardXP(ActionType.addAccount);
   }
 
   /// Récupère tous les comptes actifs

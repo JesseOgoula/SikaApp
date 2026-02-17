@@ -4,6 +4,8 @@ import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/main.dart' show autoSyncService;
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/core/services/notification_preferences.dart';
 
@@ -104,6 +106,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     // 2. Déclenche la sync vers Supabase
     autoSyncService?.forceSync();
+
+    // 3. Award XP for transaction
+    XPService().awardXP(ActionType.addTransaction);
 
     // 3. Vérifie le solde après une dépense
     final txType = companion.type.present ? companion.type.value : '';

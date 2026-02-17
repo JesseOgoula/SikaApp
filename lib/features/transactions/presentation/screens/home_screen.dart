@@ -6,7 +6,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/core/services/sync_service.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/analytics/presentation/screens/statistics_screen.dart';
@@ -25,7 +24,15 @@ import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
 import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
-import 'package:sika_app/features/analytics/presentation/widgets/health_score_badge.dart';
+import 'package:sika_app/features/analytics/presentation/widgets/rank_badge_widget.dart';
+import 'package:sika_app/features/analytics/presentation/widgets/level_up_overlay.dart';
+import 'package:sika_app/features/analytics/presentation/widgets/level_down_notification.dart';
+import 'package:sika_app/features/analytics/presentation/screens/leaderboard_screen.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
+import 'package:sika_app/features/analytics/data/services/rank_service.dart';
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/core/services/settings_service.dart';
+import 'package:sika_app/features/budgets/data/repositories/budget_repository.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
@@ -42,6 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _sliderPageIndex = 0;
   int _balancePageIndex = 0;
   final _pageController = PageController();
+  bool _rankChecked = false;
   final _balancePageController = PageController();
 
   @override
@@ -49,6 +57,119 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _pageController.dispose();
     _balancePageController.dispose();
     super.dispose();
+  }
+
+  /// Vérifie si l'utilisateur a changé de rang et déclenche l'animation
+  Future<void> _checkRankTransition(
+    int healthScore,
+    RankInfo currentRank,
+  ) async {
+    final settings = SettingsService();
+    await settings.init();
+
+    // XP: check daily login + bonus santé
+    final xpService = XPService();
+    await xpService.checkDailyLogin();
+    final healthBonus = (healthScore / 10).round();
+    if (healthBonus > 0) {
+      await xpService.awardCustomXP(healthBonus, 'Bonus santé financière');
+    }
+
+    final totalXP = await xpService.getTotalXP();
+    final xpRank = RankDefinitions.getRankForXP(totalXP);
+    final previousLevel = await settings.getPreviousRankLevel();
+
+    // Sync vers Supabase
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      final metadata = user.userMetadata ?? {};
+      final displayName =
+          (metadata['full_name'] ?? metadata['name'] ?? 'Utilisateur')
+              as String;
+      final avatarUrl = metadata['avatar_url'] as String?;
+
+      final rankService = RankService();
+      await rankService.syncRank(
+        totalXP: totalXP,
+        displayName: displayName,
+        avatarUrl: avatarUrl,
+      );
+    }
+
+    // Détecter transition
+    if (previousLevel != xpRank.level) {
+      final oldRank = RankDefinitions.all[previousLevel - 1];
+      final transition = RankTransition(
+        type: xpRank.level > previousLevel
+            ? RankTransitionType.levelUp
+            : RankTransitionType.levelDown,
+        oldRank: oldRank,
+        newRank: xpRank,
+      );
+
+      // Sauvegarder le nouveau niveau
+      await settings.setPreviousRankLevel(xpRank.level);
+
+      if (!mounted) return;
+
+      if (transition.type == RankTransitionType.levelUp) {
+        LevelUpOverlay.show(context, transition);
+      } else {
+        LevelDownNotification.show(context, transition);
+      }
+    }
+
+    // Check budget respect pour le mois précédent
+    await _checkBudgetRespect(xpService, settings);
+  }
+
+  /// Vérifie les budgets du mois précédent et attribue +25 XP par budget respecté
+  Future<void> _checkBudgetRespect(
+    XPService xpService,
+    SettingsService settings,
+  ) async {
+    try {
+      final now = DateTime.now();
+      final currentMonthKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}';
+      final lastCheck = await settings.getLastBudgetCheckMonth();
+
+      // Déjà vérifié ce mois-ci
+      if (lastCheck == currentMonthKey) return;
+
+      // Mois précédent
+      final prevMonth = now.month == 1 ? 12 : now.month - 1;
+      final prevYear = now.month == 1 ? now.year - 1 : now.year;
+
+      // Récupérer les catégories avec budget
+      final budgetRepo = ref.read(budgetRepositoryProvider);
+      final categoriesWithBudget = await budgetRepo.getCategoriesWithBudgets();
+
+      int respected = 0;
+      for (final cat in categoriesWithBudget) {
+        if (cat.budgetLimit == null || cat.budgetLimit! <= 0) continue;
+        final spent = await budgetRepo.getSpentForCategoryInMonth(
+          cat.id,
+          prevYear,
+          prevMonth,
+        );
+        if (spent <= cat.budgetLimit!) {
+          respected++;
+          await xpService.awardXP(ActionType.respectBudget);
+        }
+      }
+
+      // Marquer comme vérifié
+      await settings.setLastBudgetCheckMonth(currentMonthKey);
+
+      if (respected > 0) {
+        debugPrint(
+          '🎯 [XP] $respected budget(s) respecté(s) le mois dernier → +${respected * 25} XP',
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ [XP] Erreur vérification budgets: $e');
+    }
   }
 
   @override
@@ -202,6 +323,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 diversificationScore)
             .round()
             .clamp(0, 100);
+
+    // === GAMIFICATION: Sync rang + détection transition ===
+    final rank = RankDefinitions.getRankForXP(
+      0,
+    ); // XP loaded async in _checkRankTransition
+    if (!_rankChecked) {
+      _rankChecked = true;
+      _checkRankTransition(healthScore, rank);
+    }
 
     // Layout sans scroll vertical
     return Column(
@@ -696,15 +826,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final formattedDate = DateFormat('dd/MM/yy').format(now);
     final formattedTime = DateFormat('HH:mm').format(now);
 
+    // Gradient dynamique basé sur le rang (AppTheme par défaut)
+    final cardGradient = AppTheme.cardGradient;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: AppTheme.cardGradient,
+        gradient: cardGradient,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.2),
+            color: AppTheme.primaryColor.withOpacity(0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -741,8 +874,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              // Health Score Badge
-              HealthScoreBadge(score: healthScore, size: 42),
+              // Rank Badge (remplace HealthScoreBadge)
+              RankBadgeWidget(xp: 0, size: 42), // XP loaded async
             ],
           ),
 
@@ -921,40 +1054,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-          // Avatar cliquable -> ProfileScreen
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              );
-            },
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                  width: 2,
+          Row(
+            children: [
+              // Bouton Classement
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LeaderboardScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.15),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.emoji_events_outlined,
+                    color: AppTheme.primaryColor.withOpacity(0.7),
+                    size: 20,
+                  ),
                 ),
               ),
-              child: ClipOval(
-                child: avatarUrl != null && avatarUrl.isNotEmpty
-                    ? Image.network(
-                        avatarUrl,
-                        width: 48,
-                        height: 48,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Icon(
-                          Icons.person,
-                          color: AppTheme.primaryColor,
-                        ),
-                      )
-                    : const Icon(Icons.person, color: AppTheme.primaryColor),
+              // Avatar cliquable -> ProfileScreen
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  );
+                },
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      width: 2,
+                    ),
+                  ),
+                  child: ClipOval(
+                    child: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? Image.network(
+                            avatarUrl,
+                            width: 48,
+                            height: 48,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.person,
+                              color: AppTheme.primaryColor,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.person,
+                            color: AppTheme.primaryColor,
+                          ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

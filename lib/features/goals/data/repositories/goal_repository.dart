@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart' show autoSyncService, databaseProvider;
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
 /// Provider pour le GoalRepository
 final goalRepositoryProvider = Provider<GoalRepository>((ref) {
@@ -76,6 +78,9 @@ class GoalRepository {
 
     // Sync vers Supabase
     autoSyncService?.forceSync();
+
+    // Award XP for creating goal
+    XPService().awardXP(ActionType.createGoal);
   }
 
   /// Ajouter de l'épargne à un objectif
@@ -106,6 +111,9 @@ class GoalRepository {
         );
         // Cancel weekly reminder
         await NotificationService().cancelGoalReminder(goalId);
+
+        // Award XP for reaching goal
+        XPService().awardXP(ActionType.reachGoal);
       } else {
         // Update weekly reminder with new amount
         await NotificationService().scheduleWeeklyGoalReminder(
@@ -205,6 +213,9 @@ class GoalRepository {
 
     // Sync vers Supabase
     autoSyncService?.forceSync();
+
+    // Award XP for feeding goal
+    XPService().awardXP(ActionType.feedGoal);
 
     return true;
   }

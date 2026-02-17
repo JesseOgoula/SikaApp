@@ -113,6 +113,88 @@ class SettingsService {
     await setLastSyncDate(DateTime.now());
   }
 
+  // ==================== RANK TRACKING ====================
+
+  static const String _keyPreviousRankLevel = 'previous_rank_level';
+  static const String _keyTotalXP = 'total_xp';
+  static const String _keyDailyStreak = 'daily_streak';
+  static const String _keyLastLoginDate = 'last_login_date';
+  static const String _keyLastBudgetCheckMonth = 'last_budget_check_month';
+
+  /// Récupère le niveau de rang précédent (pour détecter les transitions)
+  Future<int> getPreviousRankLevel() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return 1;
+    return prefs.getInt(_keyPreviousRankLevel) ?? 1;
+  }
+
+  /// Enregistre le niveau de rang actuel
+  Future<void> setPreviousRankLevel(int level) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setInt(_keyPreviousRankLevel, level);
+  }
+
+  /// Récupère le total XP accumulé
+  Future<int> getTotalXP() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return 0;
+    return prefs.getInt(_keyTotalXP) ?? 0;
+  }
+
+  /// Enregistre le total XP
+  Future<void> setTotalXP(int xp) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setInt(_keyTotalXP, xp);
+  }
+
+  /// Récupère le streak de connexion (jours consécutifs)
+  Future<int> getDailyStreak() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return 0;
+    return prefs.getInt(_keyDailyStreak) ?? 0;
+  }
+
+  /// Enregistre le streak de connexion
+  Future<void> setDailyStreak(int streak) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setInt(_keyDailyStreak, streak);
+  }
+
+  /// Récupère la dernière date de connexion
+  Future<DateTime?> getLastLoginDate() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return null;
+    final dateStr = prefs.getString(_keyLastLoginDate);
+    if (dateStr == null) return null;
+    return DateTime.tryParse(dateStr);
+  }
+
+  /// Enregistre la dernière date de connexion
+  Future<void> setLastLoginDate(DateTime date) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setString(_keyLastLoginDate, date.toIso8601String());
+  }
+
+  // ==================== BUDGET CHECK TRACKING ====================
+
+  /// Récupère le dernier mois vérifié pour les budgets (format "YYYY-MM")
+  Future<String?> getLastBudgetCheckMonth() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return null;
+    return prefs.getString(_keyLastBudgetCheckMonth);
+  }
+
+  /// Enregistre le mois vérifié pour les budgets
+  Future<void> setLastBudgetCheckMonth(String monthKey) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setString(_keyLastBudgetCheckMonth, monthKey);
+  }
+
   // ==================== RESET ====================
 
   /// Réinitialise tous les paramètres

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/main.dart' show databaseProvider;
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
 /// Classe représentant un budget de catégorie avec les dépenses actuelles
 class CategoryBudget {
@@ -112,6 +114,9 @@ class BudgetRepository {
         updatedAt: Value(DateTime.now()),
       ),
     );
+
+    // Award XP for creating budget
+    XPService().awardXP(ActionType.createBudget);
   }
 
   /// Supprimer le budget d'une catégorie
@@ -139,6 +144,25 @@ class BudgetRepository {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+
+    final expenses =
+        await (_db.select(_db.transactionsTable)
+              ..where((t) => t.categoryId.equals(categoryId))
+              ..where((t) => t.type.equals('expense'))
+              ..where((t) => t.date.isBetweenValues(startOfMonth, endOfMonth)))
+            .get();
+
+    return expenses.fold<double>(0, (sum, tx) => sum + tx.amount);
+  }
+
+  /// Récupérer les dépenses d'un mois spécifique pour une catégorie
+  Future<double> getSpentForCategoryInMonth(
+    String categoryId,
+    int year,
+    int month,
+  ) async {
+    final startOfMonth = DateTime(year, month, 1);
+    final endOfMonth = DateTime(year, month + 1, 0, 23, 59, 59);
 
     final expenses =
         await (_db.select(_db.transactionsTable)
