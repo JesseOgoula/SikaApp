@@ -109,34 +109,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           child: Column(
             children: [
               // ─── En-tête logo ───
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
               Image.asset(
-                'assets/images/logocolor.png',
-                width: 64,
-                height: 64,
+                'assets/images/LOGOLOGIN.png',
+                width: 140,
+                height: 140,
                 fit: BoxFit.contain,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'SIKA',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.primaryColor,
-                  letterSpacing: 2,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Votre coach financier intelligent',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
 
-              const SizedBox(height: 28),
+              const SizedBox(height: 8),
 
               // ─── Carousel Onboarding ───
               Expanded(
