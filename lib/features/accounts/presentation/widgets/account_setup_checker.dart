@@ -36,10 +36,10 @@ class _AccountSetupCheckerState extends ConsumerState<AccountSetupChecker> {
     if (flagCompleted) {
       // Double-check : vérifier qu'il y a bien des comptes en base
       try {
-        final accounts = await ref
+        final hasAccounts = await ref
             .read(accountRepositoryProvider)
-            .getAccounts();
-        if (accounts.isEmpty) {
+            .hasAnyAccounts();
+        if (!hasAccounts) {
           // Flag dit "fait" mais pas de comptes → reset le flag
           await prefs.setBool(kHasCompletedAccountSetup, false);
           if (mounted) {

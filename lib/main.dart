@@ -8,6 +8,7 @@ import 'package:sika_app/core/utils/logger.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
@@ -27,6 +28,14 @@ void main() async {
   // Assure que les bindings Flutter sont initialisés
   WidgetsFlutterBinding.ensureInitialized();
   SikaLogger.info('WidgetsFlutterBinding initialized', tag: 'MAIN');
+
+  // Charge les variables d'environnement (.env)
+  try {
+    await dotenv.load(fileName: '.env');
+    SikaLogger.info('Environment variables loaded', tag: 'MAIN');
+  } catch (e) {
+    SikaLogger.error('Error loading .env: $e', tag: 'MAIN');
+  }
 
   // Initialise les données de localisation pour le formatage des dates
   try {
