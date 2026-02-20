@@ -68,13 +68,17 @@ class GoalRepository {
           ),
         );
 
-    // Schedule weekly reminder
-    await NotificationService().scheduleWeeklyGoalReminder(
-      goalId: goalId,
-      goalName: name,
-      currentAmount: 0,
-      targetAmount: targetAmount,
-    );
+    // Schedule weekly reminder (non-blocking)
+    try {
+      await NotificationService().scheduleWeeklyGoalReminder(
+        goalId: goalId,
+        goalName: name,
+        currentAmount: 0,
+        targetAmount: targetAmount,
+      );
+    } catch (e) {
+      debugPrint('⚠️ [Goals] Notification scheduling failed: $e');
+    }
 
     // Sync vers Supabase
     autoSyncService?.forceSync();
@@ -105,23 +109,29 @@ class GoalRepository {
 
       // Show celebration if just completed
       if (isNowCompleted && wasNotCompleted) {
-        await NotificationService().showGoalCompletedNotification(
-          goalName: goal.name,
-          amount: newSavedAmount,
-        );
-        // Cancel weekly reminder
-        await NotificationService().cancelGoalReminder(goalId);
+        try {
+          await NotificationService().showGoalCompletedNotification(
+            goalName: goal.name,
+            amount: newSavedAmount,
+          );
+          await NotificationService().cancelGoalReminder(goalId);
+        } catch (e) {
+          debugPrint('⚠️ [Goals] Celebration notification failed: $e');
+        }
 
         // Award XP for reaching goal
         XPService().awardXP(ActionType.reachGoal);
       } else {
-        // Update weekly reminder with new amount
-        await NotificationService().scheduleWeeklyGoalReminder(
-          goalId: goalId,
-          goalName: goal.name,
-          currentAmount: newSavedAmount,
-          targetAmount: goal.targetAmount,
-        );
+        try {
+          await NotificationService().scheduleWeeklyGoalReminder(
+            goalId: goalId,
+            goalName: goal.name,
+            currentAmount: newSavedAmount,
+            targetAmount: goal.targetAmount,
+          );
+        } catch (e) {
+          debugPrint('⚠️ [Goals] Reminder update failed: $e');
+        }
       }
 
       // Sync vers Supabase
@@ -138,8 +148,12 @@ class GoalRepository {
 
   /// Supprimer un objectif
   Future<void> deleteGoal(String goalId) async {
-    // Cancel weekly reminder
-    await NotificationService().cancelGoalReminder(goalId);
+    // Cancel weekly reminder (non-blocking)
+    try {
+      await NotificationService().cancelGoalReminder(goalId);
+    } catch (e) {
+      debugPrint('⚠️ [Goals] Cancel reminder failed: $e');
+    }
 
     // Supprimer localement
     await (_db.delete(_db.goalsTable)..where((g) => g.id.equals(goalId))).go();
