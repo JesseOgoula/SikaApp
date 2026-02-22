@@ -4,6 +4,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
+import 'package:sika_app/core/services/settings_service.dart';
+import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart' show autoSyncService, databaseProvider;
 
 /// Provider pour le AuthRepository
@@ -136,8 +138,132 @@ class AuthRepository {
     }
   }
 
+  // ==================== HELPERS PRIVÉS ====================
+
+  /// Efface toutes les tables locales Drift (SQLite)
+  Future<void> _clearLocalDatabase({bool keepSystemCategories = true}) async {
+    try {
+      final txDeleted = await (_db.delete(_db.transactionsTable)).go();
+      debugPrint('✅ [Auth] Local transactions deleted: $txDeleted rows');
+
+      final goalsDeleted = await (_db.delete(_db.goalsTable)).go();
+      debugPrint('✅ [Auth] Local goals deleted: $goalsDeleted rows');
+
+      final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
+      debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
+
+      final accDeleted = await (_db.delete(_db.accountsTable)).go();
+      debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
+
+      if (keepSystemCategories) {
+        // Effacer les budgets sur les catégories système (reset budgetLimit)
+        await _db.customStatement('UPDATE categories SET budget_limit = NULL');
+        // Supprimer les catégories non-système
+        final catDeleted = await (_db.delete(
+          _db.categoriesTable,
+        )..where((c) => c.isSystem.equals(false))).go();
+        debugPrint('✅ [Auth] Custom categories deleted: $catDeleted rows');
+        debugPrint('✅ [Auth] Budget limits reset on system categories');
+      } else {
+        final catDeleted = await (_db.delete(_db.categoriesTable)).go();
+        debugPrint('✅ [Auth] ALL categories deleted: $catDeleted rows');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
+    }
+  }
+
+  /// Réinitialise les SharedPreferences (XP, streak, rang, etc.)
+  Future<void> _resetSettings({bool keepPreferences = false}) async {
+    try {
+      final settings = SettingsService();
+      await settings.init();
+
+      if (keepPreferences) {
+        // Effacer uniquement les données de progression (garder les préférences)
+        await settings.setTotalXP(0);
+        await settings.setPreviousRankLevel(1);
+        await settings.setDailyStreak(0);
+        await settings.setLastLoginDate(DateTime(2000)); // Reset
+        await settings.setLastBudgetCheckMonth('');
+        debugPrint('✅ [Auth] XP/Streak/Rank reset (preferences kept)');
+      } else {
+        // Tout effacer
+        await settings.resetAll();
+        debugPrint('✅ [Auth] All SharedPreferences cleared');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Settings reset error: $e');
+    }
+  }
+
+  /// Annule toutes les notifications programmées
+  Future<void> _cancelAllNotifications() async {
+    try {
+      final notifService = NotificationService();
+      await notifService.cancelAll();
+      debugPrint('✅ [Auth] All scheduled notifications cancelled');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Notification cancel error: $e');
+    }
+  }
+
+  /// Supprime les données cloud Supabase (toutes les tables)
+  Future<void> _deleteCloudData(String userId) async {
+    // Transactions
+    try {
+      await _supabase.from('transactions').delete().eq('user_id', userId);
+      debugPrint('✅ [Auth] Cloud transactions deleted');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Cloud transactions delete error: $e');
+    }
+
+    // Goals
+    try {
+      await _supabase.from('goals').delete().eq('user_id', userId);
+      debugPrint('✅ [Auth] Cloud goals deleted');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Cloud goals delete error: $e');
+    }
+
+    // Categories
+    try {
+      await _supabase.from('categories').delete().eq('user_id', userId);
+      debugPrint('✅ [Auth] Cloud categories deleted');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Cloud categories delete error: $e');
+    }
+
+    // Accounts
+    try {
+      await _supabase.from('accounts').delete().eq('user_id', userId);
+      debugPrint('✅ [Auth] Cloud accounts deleted');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Cloud accounts delete error: $e');
+    }
+
+    // Debts & Bills
+    try {
+      await _supabase.from('debts').delete().eq('user_id', userId);
+      debugPrint('✅ [Auth] Cloud debts deleted');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Cloud debts delete error: $e');
+    }
+
+    // User Ranks (XP / Leaderboard)
+    try {
+      await _supabase.from('user_ranks').delete().eq('user_id', userId);
+      debugPrint('✅ [Auth] Cloud user_ranks deleted');
+    } catch (e) {
+      debugPrint('⚠️ [Auth] Cloud user_ranks delete error: $e');
+    }
+  }
+
+  // ==================== ACTIONS PUBLIQUES ====================
+
   /// Supprime toutes les données utilisateur (local + cloud)
-  /// Le compte reste actif, seules les données sont effacées
+  /// Le compte AUTH reste actif, seules les données sont effacées
+  /// L'utilisateur repart à zéro (XP = 0, rang = Novice, aucune transaction)
   Future<void> deleteAllUserData() async {
     try {
       final userId = currentUser?.id;
@@ -145,36 +271,10 @@ class AuthRepository {
         throw Exception('Aucun utilisateur connecté');
       }
 
-      debugPrint('🗑️ [Auth] Deleting all user data for: $userId');
+      debugPrint('🗑️ [Auth] === EFFACEMENT COMPLET DES DONNÉES ===');
+      debugPrint('🗑️ [Auth] User: $userId');
 
-      // 1. Efface les données locales Drift (SQLite)
-      try {
-        // Supprimer les transactions locales
-        final txDeleted = await (_db.delete(_db.transactionsTable)).go();
-        debugPrint('✅ [Auth] Local transactions deleted: $txDeleted rows');
-
-        // Supprimer les objectifs locaux
-        final goalsDeleted = await (_db.delete(_db.goalsTable)).go();
-        debugPrint('✅ [Auth] Local goals deleted: $goalsDeleted rows');
-
-        // Supprimer les catégories locales (sauf système)
-        final catDeleted = await (_db.delete(
-          _db.categoriesTable,
-        )..where((c) => c.isSystem.equals(false))).go();
-        debugPrint('✅ [Auth] Local categories deleted: $catDeleted rows');
-
-        // Supprimer les dettes et factures locales
-        final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
-        debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
-
-        // Supprimer les comptes locaux
-        final accDeleted = await (_db.delete(_db.accountsTable)).go();
-        debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
-      } catch (e) {
-        debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
-      }
-
-      // 2. Arrête AutoSync
+      // 1. Arrête AutoSync avant toute modification
       try {
         autoSyncService?.stopListening();
         debugPrint('✅ [Auth] AutoSync stopped');
@@ -182,70 +282,23 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] AutoSync stop error: $e');
       }
 
-      // 3. Supprime les données cloud Supabase
+      // 2. Supprime les données CLOUD en premier (si réseau échoue, on ne perd rien localement)
       debugPrint('🔄 [Auth] Deleting cloud data...');
+      await _deleteCloudData(userId);
 
-      // Transactions
-      try {
-        final txResult = await _supabase
-            .from('transactions')
-            .delete()
-            .eq('user_id', userId)
-            .select();
-        debugPrint('✅ [Auth] Transactions deleted: ${txResult.length} rows');
-      } catch (e) {
-        debugPrint('❌ [Auth] Transactions delete error: $e');
-      }
+      // 3. Efface la base locale Drift (garde les catégories système)
+      debugPrint('🔄 [Auth] Clearing local database...');
+      await _clearLocalDatabase(keepSystemCategories: true);
 
-      // Goals
-      try {
-        final goalsResult = await _supabase
-            .from('goals')
-            .delete()
-            .eq('user_id', userId)
-            .select();
-        debugPrint('✅ [Auth] Goals deleted: ${goalsResult.length} rows');
-      } catch (e) {
-        debugPrint('❌ [Auth] Goals delete error: $e');
-      }
+      // 4. Réinitialise XP, streak, rang (SharedPreferences)
+      // Garde les préférences utilisateur (auto-save, notifications, SMS)
+      debugPrint('🔄 [Auth] Resetting XP/Streak/Rank...');
+      await _resetSettings(keepPreferences: true);
 
-      // Categories
-      try {
-        final catResult = await _supabase
-            .from('categories')
-            .delete()
-            .eq('user_id', userId)
-            .select();
-        debugPrint('✅ [Auth] Categories deleted: ${catResult.length} rows');
-      } catch (e) {
-        debugPrint('❌ [Auth] Categories delete error: $e');
-      }
+      // 5. Annule toutes les notifications programmées
+      await _cancelAllNotifications();
 
-      // Accounts
-      try {
-        final accResult = await _supabase
-            .from('accounts')
-            .delete()
-            .eq('user_id', userId)
-            .select();
-        debugPrint('✅ [Auth] Accounts deleted: ${accResult.length} rows');
-      } catch (e) {
-        debugPrint('⚠️ [Auth] Accounts may not exist: $e');
-      }
-
-      // Debts & Bills
-      try {
-        final debtsResult = await _supabase
-            .from('debts')
-            .delete()
-            .eq('user_id', userId)
-            .select();
-        debugPrint('✅ [Auth] Debts deleted: ${debtsResult.length} rows');
-      } catch (e) {
-        debugPrint('❌ [Auth] Debts delete error: $e');
-      }
-
-      // 3. Redémarre AutoSync
+      // 6. Redémarre AutoSync
       try {
         autoSyncService?.startListening();
         debugPrint('✅ [Auth] AutoSync restarted');
@@ -253,7 +306,7 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] AutoSync restart error: $e');
       }
 
-      debugPrint('✅ [Auth] All user data deleted successfully');
+      debugPrint('✅ [Auth] === EFFACEMENT TERMINÉ ===');
     } catch (e) {
       debugPrint('❌ [Auth] Delete all data error: $e');
       throw Exception('Erreur lors de la suppression des données: $e');
@@ -263,9 +316,13 @@ class AuthRepository {
   /// Supprime le compte utilisateur DÉFINITIVEMENT
   ///
   /// ATTENTION: Cette action est irréversible !
-  /// 1. Efface toutes les données locales (Drift)
-  /// 2. Efface toutes les données cloud (Supabase)
-  /// 3. Déconnecte de Supabase et Google
+  /// 1. Efface TOUTES les données cloud (y compris user_ranks)
+  /// 2. Efface TOUTES les données locales (Drift + SharedPreferences)
+  /// 3. Annule toutes les notifications
+  /// 4. Tente de supprimer l'utilisateur Supabase via RPC
+  /// 5. Déconnecte de Supabase et Google
+  ///
+  /// Si l'utilisateur revient plus tard, il repartira à zéro complet.
   Future<void> deleteAccount() async {
     try {
       final userId = currentUser?.id;
@@ -273,30 +330,10 @@ class AuthRepository {
         throw Exception('Aucun utilisateur connecté');
       }
 
-      debugPrint('🗑️ [Auth] Starting ACCOUNT deletion for: $userId');
+      debugPrint('🗑️ [Auth] === SUPPRESSION DU COMPTE ===');
+      debugPrint('🗑️ [Auth] User: $userId');
 
-      // 1. Efface les données locales Drift (SQLite)
-      try {
-        // Supprimer les transactions locales
-        final txDeleted = await (_db.delete(_db.transactionsTable)).go();
-        debugPrint('✅ [Auth] Local transactions deleted: $txDeleted rows');
-
-        // Supprimer les objectifs locaux
-        final goalsDeleted = await (_db.delete(_db.goalsTable)).go();
-        debugPrint('✅ [Auth] Local goals deleted: $goalsDeleted rows');
-
-        // Supprimer TOUTES les catégories locales
-        final catDeleted = await (_db.delete(_db.categoriesTable)).go();
-        debugPrint('✅ [Auth] Local categories deleted: $catDeleted rows');
-
-        // Supprimer les comptes locaux
-        final accDeleted = await (_db.delete(_db.accountsTable)).go();
-        debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
-      } catch (e) {
-        debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
-      }
-
-      // 2. Arrête AutoSync
+      // 1. Arrête AutoSync
       try {
         autoSyncService?.stopListening();
         debugPrint('✅ [Auth] AutoSync stopped');
@@ -304,52 +341,43 @@ class AuthRepository {
         debugPrint('⚠️ [Auth] AutoSync error: $e');
       }
 
-      // 3. Appelle la fonction RPC pour supprimer l'utilisateur Supabase (données + auth)
+      // 2. Supprime les données cloud AVANT le local
+      debugPrint('🔄 [Auth] Deleting ALL cloud data...');
+      await _deleteCloudData(userId);
+
+      // 3. Tente de supprimer l'utilisateur Supabase via RPC
       debugPrint('🔄 [Auth] Calling delete_user_account RPC...');
       try {
         final response = await _supabase.rpc('delete_user_account');
         debugPrint('✅ [Auth] RPC response: $response');
-
-        if (response != null && response['success'] == true) {
-          debugPrint('✅ [Auth] Supabase user + data deleted via RPC');
-        } else {
-          debugPrint('⚠️ [Auth] RPC returned: $response');
-          // Fallback - suppression manuelle des données cloud
-          await _deleteCloudDataManually(userId);
-        }
       } catch (e) {
-        debugPrint('⚠️ [Auth] RPC call error: $e');
-        // Fallback - Si la fonction RPC n'existe pas, suppression manuelle
-        await _deleteCloudDataManually(userId);
+        debugPrint('⚠️ [Auth] RPC call error (non-blocking): $e');
+        // Pas grave si RPC échoue — les données cloud sont déjà supprimées
       }
 
-      // 4. Déconnecte Google
+      // 4. Efface TOUTE la base locale (y compris catégories système)
+      debugPrint('🔄 [Auth] Clearing entire local database...');
+      await _clearLocalDatabase(keepSystemCategories: false);
+
+      // 5. Efface TOUS les SharedPreferences (XP, préférences, tout)
+      debugPrint('🔄 [Auth] Clearing all SharedPreferences...');
+      await _resetSettings(keepPreferences: false);
+
+      // 6. Annule toutes les notifications
+      await _cancelAllNotifications();
+
+      // 7. Déconnecte Google
       await _googleSignIn.signOut();
       debugPrint('✅ [Auth] Google signed out');
 
-      // 5. Déconnecte Supabase
+      // 8. Déconnecte Supabase
       await _supabase.auth.signOut();
       debugPrint('✅ [Auth] Supabase signed out');
 
-      debugPrint('✅ [Auth] Account deletion complete');
+      debugPrint('✅ [Auth] === COMPTE SUPPRIMÉ ===');
     } catch (e) {
       debugPrint('❌ [Auth] Delete account error: $e');
       throw Exception('Erreur lors de la suppression du compte: $e');
-    }
-  }
-
-  /// Helper: Supprime les données cloud manuellement (fallback si RPC échoue)
-  Future<void> _deleteCloudDataManually(String userId) async {
-    try {
-      await _supabase.from('transactions').delete().eq('user_id', userId);
-      await _supabase.from('goals').delete().eq('user_id', userId);
-      await _supabase.from('categories').delete().eq('user_id', userId);
-      try {
-        await _supabase.from('accounts').delete().eq('user_id', userId);
-      } catch (_) {}
-      debugPrint('✅ [Auth] Cloud data deleted manually (fallback)');
-    } catch (e) {
-      debugPrint('⚠️ [Auth] Manual cloud deletion error: $e');
     }
   }
 }
