@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/main.dart' show databaseProvider;
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
@@ -7,6 +8,49 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
+
+/// Les 4 types de comptes supportés (un seul par catégorie par user)
+class AccountTypeConfig {
+  final String name;
+  final String type;
+  final String? iconPath;
+  final String color;
+
+  const AccountTypeConfig({
+    required this.name,
+    required this.type,
+    this.iconPath,
+    required this.color,
+  });
+}
+
+/// Définition des 4 comptes possibles
+const List<AccountTypeConfig> kAllAccountTypes = [
+  AccountTypeConfig(
+    name: 'Airtel Money',
+    type: 'mobileMoney',
+    iconPath: 'assets/icons/airtel.png',
+    color: '#E53935',
+  ),
+  AccountTypeConfig(
+    name: 'Moov Money',
+    type: 'mobileMoney',
+    iconPath: 'assets/icons/moov.png',
+    color: '#1E88E5',
+  ),
+  AccountTypeConfig(
+    name: 'UBA',
+    type: 'bank',
+    iconPath: 'assets/icons/uba.png',
+    color: '#C62828',
+  ),
+  AccountTypeConfig(
+    name: 'Cash',
+    type: 'cash',
+    iconPath: null,
+    color: '#43A047',
+  ),
+];
 
 /// Provider pour le repository des comptes
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
@@ -100,8 +144,84 @@ class AccountRepository {
 
   AccountRepository(this._db);
 
+  // ==================== CLOUD METHODS ====================
+
+  /// Fetch les comptes depuis Supabase et les insère dans la DB locale (Drift)
+  /// Retourne true si des comptes ont été trouvés sur le cloud
+  Future<bool> fetchAccountsFromSupabase() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return false;
+
+      final response = await Supabase.instance.client
+          .from('accounts')
+          .select()
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+      if (response.isEmpty) return false;
+
+      debugPrint('☁️ [Accounts] Found ${response.length} accounts on Supabase');
+
+      // Insérer/mettre à jour dans Drift local
+      for (final row in response) {
+        await _db
+            .into(_db.accountsTable)
+            .insertOnConflictUpdate(
+              AccountsTableCompanion.insert(
+                id: row['id'] as String,
+                name: row['name'] as String,
+                type: row['type'] as String,
+                balance: Value((row['balance'] as num?)?.toDouble() ?? 0.0),
+                phoneNumber: Value(row['phone_number'] as String?),
+                iconKey: Value(row['icon_key'] as String? ?? 'wallet'),
+                color: Value(row['color'] as String? ?? '#4CAF50'),
+                isDefault: Value(row['is_default'] as bool? ?? false),
+                isActive: const Value(true),
+                syncStatus: const Value(1), // Déjà synced
+              ),
+            );
+      }
+
+      debugPrint('✅ [Accounts] Synced ${response.length} accounts from cloud');
+      return true;
+    } catch (e) {
+      debugPrint('❌ [Accounts] Error fetching from Supabase: $e');
+      return false;
+    }
+  }
+
+  /// Vérifie si un compte avec ce nom existe déjà (localement)
+  Future<bool> hasAccountOfName(String name) async {
+    final existing =
+        await (_db.select(_db.accountsTable)
+              ..where((a) => a.name.equals(name))
+              ..where((a) => a.isActive.equals(true)))
+            .getSingleOrNull();
+    return existing != null;
+  }
+
+  /// Retourne les types de comptes pas encore créés par l'utilisateur
+  Future<List<AccountTypeConfig>> getAvailableAccountTypes() async {
+    final existingAccounts = await getActiveAccounts();
+    final existingNames = existingAccounts.map((a) => a.name).toSet();
+
+    return kAllAccountTypes
+        .where((config) => !existingNames.contains(config.name))
+        .toList();
+  }
+
+  /// Retourne les comptes déjà créés sous forme de AccountTypeConfig names
+  Future<Set<String>> getExistingAccountNames() async {
+    final accounts = await getActiveAccounts();
+    return accounts.map((a) => a.name).toSet();
+  }
+
+  // ==================== LOCAL METHODS ====================
+
   /// Crée un nouveau compte avec solde initial
-  Future<void> createAccount({
+  /// Vérifie d'abord qu'un compte du même nom n'existe pas
+  Future<bool> createAccount({
     required String name,
     required String type,
     required double initialBalance,
@@ -110,6 +230,12 @@ class AccountRepository {
     required String color,
     bool isDefault = false,
   }) async {
+    // Guard : un seul compte par nom/catégorie
+    if (await hasAccountOfName(name)) {
+      debugPrint('⚠️ [Accounts] Account "$name" already exists, skipping');
+      return false;
+    }
+
     final id = _uuid.v4();
     await _db
         .into(_db.accountsTable)
@@ -129,6 +255,7 @@ class AccountRepository {
 
     // Award XP for adding account
     XPService().awardXP(ActionType.addAccount);
+    return true;
   }
 
   /// Récupère tous les comptes actifs

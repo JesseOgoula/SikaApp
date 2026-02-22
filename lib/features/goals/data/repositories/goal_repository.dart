@@ -176,6 +176,49 @@ class GoalRepository {
     autoSyncService?.forceSync();
   }
 
+  /// Supprimer un objectif et rembourser l'argent épargné sur un compte
+  ///
+  /// Crée d'abord une transaction de type 'income' sur le compte [accountId]
+  /// puis supprime l'objectif avec [deleteGoal].
+  Future<void> deleteGoalWithRefund({
+    required String goalId,
+    required String goalName,
+    required double savedAmount,
+    required String accountId,
+  }) async {
+    if (savedAmount > 0) {
+      await _db.transaction(() async {
+        // Ajouter l'argent au compte via une transaction de revenu
+        await _db
+            .into(_db.transactionsTable)
+            .insert(
+              TransactionsTableCompanion.insert(
+                id: _uuid.v4(),
+                amount: savedAmount,
+                type: 'income',
+                merchantName: Value('Remboursement objectif : $goalName'),
+                categoryId: const Value(
+                  'cat-epargne',
+                ), // ou autre catégorisation
+                accountId: Value(accountId),
+                date: DateTime.now(),
+                smsSender: const Value('MANUAL_REFUND'),
+                smsRawContent: const Value(''),
+                validationStatus: const Value(1),
+                syncStatus: const Value(0),
+              ),
+            );
+      });
+      // Synchroniser localement le solde du compte
+      await autoSyncService?.forceSync();
+      // On donne l'XP (facultatif mais récompense l'honnêteté financière :)
+      XPService().awardXP(ActionType.feedGoal);
+    }
+
+    // Supprimer l'objectif
+    await deleteGoal(goalId);
+  }
+
   /// Alimenter un objectif (ajoute épargne + crée transaction)
   ///
   /// Exécute une transaction atomique:

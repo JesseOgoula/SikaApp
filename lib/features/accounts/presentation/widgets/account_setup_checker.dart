@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
 import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+import 'package:sika_app/main.dart' show autoSyncService;
 
 /// Constante pour le flag de setup
 const String kHasCompletedAccountSetup = 'has_completed_account_setup';
@@ -30,36 +30,48 @@ class _AccountSetupCheckerState extends ConsumerState<AccountSetupChecker> {
   }
 
   Future<void> _checkSetupStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final flagCompleted = prefs.getBool(kHasCompletedAccountSetup) ?? false;
+    try {
+      final repo = ref.read(accountRepositoryProvider);
 
-    if (flagCompleted) {
-      // Double-check : vérifier qu'il y a bien des comptes en base
-      try {
-        final hasAccounts = await ref
-            .read(accountRepositoryProvider)
-            .hasAnyAccounts();
-        if (!hasAccounts) {
-          // Flag dit "fait" mais pas de comptes → reset le flag
-          await prefs.setBool(kHasCompletedAccountSetup, false);
-          if (mounted) {
-            setState(() {
-              _hasCompletedSetup = false;
-              _isLoading = false;
-            });
-          }
-          return;
+      // 1. Tenter de récupérer les comptes depuis Supabase
+      final hasCloudAccounts = await repo.fetchAccountsFromSupabase();
+
+      if (hasCloudAccounts) {
+        // Des comptes ont été trouvés ! Restaurer TOUTES les données
+        debugPrint(
+          '📥 [AccountSetup] Cloud accounts found — restoring all data...',
+        );
+        await autoSyncService?.restoreFromCloud();
+
+        if (mounted) {
+          setState(() {
+            _hasCompletedSetup = true;
+            _isLoading = false;
+          });
         }
-      } catch (_) {
-        // En cas d'erreur DB, on fait confiance au flag
+        return;
       }
-    }
 
-    if (mounted) {
-      setState(() {
-        _hasCompletedSetup = flagCompleted;
-        _isLoading = false;
-      });
+      // 2. Si rien sur le cloud, vérifier localement (cas offline ou nouveau device sans internet)
+      final hasLocalAccounts = await repo.hasAnyAccounts();
+
+      if (mounted) {
+        setState(() {
+          _hasCompletedSetup = hasLocalAccounts;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ [AccountSetup] Error checking status: $e');
+      // En cas d'erreur complète, se rabattre sur le local minimum
+      if (mounted) {
+        final repo = ref.read(accountRepositoryProvider);
+        final hasLocal = await repo.hasAnyAccounts();
+        setState(() {
+          _hasCompletedSetup = hasLocal;
+          _isLoading = false;
+        });
+      }
     }
   }
 

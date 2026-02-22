@@ -7,6 +7,8 @@ import 'package:sika_app/utils/time_utils.dart';
 import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
 import 'package:sika_app/features/accounts/presentation/screens/account_setup_screen.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+import 'package:sika_app/features/accounts/presentation/widgets/add_account_bottom_sheet.dart';
 import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
 import 'package:sika_app/features/profile/presentation/screens/notification_settings_screen.dart';
 
@@ -208,6 +210,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             context,
             MaterialPageRoute(builder: (_) => const BudgetsScreen()),
           ),
+        ),
+        _buildDivider(),
+        _buildActionTile(
+          icon: Icons.add_card_outlined,
+          title: 'Comptes',
+          subtitle: 'Ajouter un nouveau compte (Moov, Airtel, UBA...)',
+          onTap: () async {
+            final result = await showModalBottomSheet<bool>(
+              context: context,
+              backgroundColor: Colors.transparent,
+              isScrollControlled: true,
+              builder: (context) => Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: const AddAccountBottomSheet(),
+              ),
+            );
+
+            // Si un compte a été ajouté, rafraichir le provider UI
+            if (result == true && mounted) {
+              ref.invalidate(activeAccountsProvider);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Compte ajouté avec succès !'),
+                  backgroundColor: AppTheme.success,
+                ),
+              );
+            }
+          },
         ),
         _buildDivider(),
         _buildActionTile(

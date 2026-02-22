@@ -11,6 +11,7 @@ import 'tables/accounts_table.dart';
 import 'tables/categories_table.dart';
 import 'tables/goals_table.dart';
 import 'tables/debts_table.dart';
+import 'tables/budgets_table.dart';
 
 // Export des tables pour faciliter les imports
 export 'tables/transactions_table.dart';
@@ -18,6 +19,7 @@ export 'tables/accounts_table.dart';
 export 'tables/categories_table.dart';
 export 'tables/goals_table.dart';
 export 'tables/debts_table.dart';
+export 'tables/budgets_table.dart';
 
 // Fichier généré par build_runner (drift)
 part 'app_database.g.dart';
@@ -52,6 +54,7 @@ class TransactionWithCategory {
     CategoriesTable,
     GoalsTable,
     DebtsTable,
+    BudgetsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -61,7 +64,7 @@ class AppDatabase extends _$AppDatabase {
   // Constructeur prenant une clé (pour compatibilité future/main.dart)
   // Pour l'instant on ignore la clé car la logique de chiffrement est dans openConnection si nécessaire
   factory AppDatabase.encrypted(String key) {
-    return AppDatabase(); 
+    return AppDatabase();
   }
 
   /// Constructeur pour les tests avec un executor personnalisé
@@ -70,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   /// Migrations de la base de données
   ///
@@ -100,12 +103,18 @@ class AppDatabase extends _$AppDatabase {
         }
         if (from < 5) {
           // Ajout de la table DebtsTable (si elle n'existe pas déjà)
-          // Utilise createTable qui gère la création si inexistant
           try {
             await m.createTable(debtsTable);
           } catch (e) {
-            // Si la table existe déjà (cas bizarre de v4), on ignore
             print('Erreur migration v5 (DebtsTable): $e');
+          }
+        }
+        if (from < 7) {
+          // Ajout de la table BudgetsTable
+          try {
+            await m.createTable(budgetsTable);
+          } catch (e) {
+            print('Erreur migration v7 (BudgetsTable): $e');
           }
         }
       },

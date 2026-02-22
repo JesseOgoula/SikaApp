@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
+import 'package:sika_app/core/services/settings_service.dart';
 
 /// Service de synchronisation automatique
 ///
@@ -107,6 +108,7 @@ class AutoSyncService {
       await _syncAccounts(user.id);
       await _syncDebts(user.id);
       await _syncGoals(user.id);
+      await _syncBudgets(user.id);
 
       debugPrint('✅ [AutoSync] Sync complete');
     } catch (e) {
@@ -303,6 +305,341 @@ class AutoSyncService {
       } catch (e) {
         debugPrint('❌ [Goals] Failed to sync ${goal.name}: $e');
       }
+    }
+  }
+
+  /// Synchronise les budgets vers Supabase
+  Future<void> _syncBudgets(String userId) async {
+    final pending = await (_db.select(
+      _db.budgetsTable,
+    )..where((b) => b.syncStatus.equals(0))).get();
+
+    if (pending.isEmpty) return;
+
+    debugPrint('📤 [Budgets] Syncing ${pending.length} budgets...');
+
+    for (final budget in pending) {
+      try {
+        await _supabase.from('budgets').upsert({
+          'id': budget.id,
+          'user_id': userId,
+          'category_id': budget.categoryId,
+          'category_name': budget.categoryName,
+          'amount': budget.amount,
+          'period_type': budget.periodType,
+          'start_date': budget.startDate.toIso8601String(),
+          'end_date': budget.endDate?.toIso8601String(),
+          'is_active': budget.isActive,
+          'alert_threshold': budget.alertThreshold,
+          'sync_status': 1,
+          'created_at': budget.createdAt.toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+
+        await (_db.update(_db.budgetsTable)
+              ..where((b) => b.id.equals(budget.id)))
+            .write(const BudgetsTableCompanion(syncStatus: Value(1)));
+
+        debugPrint('✅ [Budgets] Synced ${budget.categoryName}');
+      } catch (e) {
+        debugPrint('❌ [Budgets] Failed to sync ${budget.categoryName}: $e');
+      }
+    }
+  }
+
+  // ==================== RESTORE FROM CLOUD ====================
+
+  /// Restaure TOUTES les données depuis Supabase vers la base locale
+  ///
+  /// Appelé quand l'utilisateur se reconnecte après une réinstallation.
+  /// Utilise insertOrReplace pour gérer les doublons.
+  Future<bool> restoreFromCloud() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      debugPrint('👤 [Restore] No user logged in - skipping');
+      return false;
+    }
+
+    debugPrint(
+      '📥 [Restore] Starting full cloud restoration for ${user.id}...',
+    );
+
+    try {
+      await _restoreCategories(user.id);
+      await _restoreAccounts(user.id);
+      await _restoreTransactions(user.id);
+      await _restoreGoals(user.id);
+      await _restoreDebts(user.id);
+      await _restoreBudgets(user.id);
+      await _restoreXP(user.id);
+
+      debugPrint('✅ [Restore] Full cloud restoration complete!');
+      return true;
+    } catch (e) {
+      debugPrint('❌ [Restore] Restoration failed: $e');
+      return false;
+    }
+  }
+
+  /// Restaure les catégories depuis Supabase
+  Future<void> _restoreCategories(String userId) async {
+    try {
+      final data = await _supabase
+          .from('categories')
+          .select()
+          .eq('user_id', userId);
+
+      if (data.isEmpty) {
+        debugPrint('📥 [Restore] No categories to restore');
+        return;
+      }
+
+      for (final row in data) {
+        await _db
+            .into(_db.categoriesTable)
+            .insertOnConflictUpdate(
+              CategoriesTableCompanion.insert(
+                id: row['id'] as String,
+                name: row['name'] as String,
+                iconKey: Value(row['icon_key'] as String? ?? 'question'),
+                color: Value(row['color'] as String? ?? '#9E9E9E'),
+                keywordsJson: Value(row['keywords_json'] as String? ?? ''),
+                parentId: Value(row['parent_id'] as String?),
+                isSystem: Value((row['is_system'] as num?)?.toInt() == 1),
+                budgetLimit: Value((row['budget_limit'] as num?)?.toDouble()),
+                sortOrder: Value((row['sort_order'] as num?)?.toInt() ?? 0),
+                syncStatus: const Value(1),
+              ),
+            );
+      }
+      debugPrint('✅ [Restore] Restored ${data.length} categories');
+    } catch (e) {
+      debugPrint('❌ [Restore] Categories restoration failed: $e');
+    }
+  }
+
+  /// Restaure les comptes depuis Supabase
+  Future<void> _restoreAccounts(String userId) async {
+    try {
+      final data = await _supabase
+          .from('accounts')
+          .select()
+          .eq('user_id', userId);
+
+      if (data.isEmpty) {
+        debugPrint('📥 [Restore] No accounts to restore');
+        return;
+      }
+
+      for (final row in data) {
+        await _db
+            .into(_db.accountsTable)
+            .insertOnConflictUpdate(
+              AccountsTableCompanion.insert(
+                id: row['id'] as String,
+                name: row['name'] as String,
+                type: row['type'] as String,
+                balance: Value((row['balance'] as num?)?.toDouble() ?? 0.0),
+                currency: Value(row['currency'] as String? ?? 'XAF'),
+                phoneNumber: Value(row['phone_number'] as String?),
+                iconKey: Value(row['icon_key'] as String?),
+                color: Value(row['color'] as String?),
+                isDefault: Value(row['is_default'] as bool? ?? false),
+                isActive: Value(row['is_active'] as bool? ?? true),
+                syncStatus: const Value(1),
+              ),
+            );
+      }
+      debugPrint('✅ [Restore] Restored ${data.length} accounts');
+    } catch (e) {
+      debugPrint('❌ [Restore] Accounts restoration failed: $e');
+    }
+  }
+
+  /// Restaure les transactions depuis Supabase
+  Future<void> _restoreTransactions(String userId) async {
+    try {
+      final data = await _supabase
+          .from('transactions')
+          .select()
+          .eq('user_id', userId);
+
+      if (data.isEmpty) {
+        debugPrint('📥 [Restore] No transactions to restore');
+        return;
+      }
+
+      for (final row in data) {
+        await _db
+            .into(_db.transactionsTable)
+            .insertOnConflictUpdate(
+              TransactionsTableCompanion.insert(
+                id: row['id'] as String,
+                amount: (row['amount'] as num).toDouble(),
+                type: row['type'] as String,
+                merchantName: Value(row['merchant_name'] as String?),
+                date: DateTime.parse(row['date'] as String),
+                smsSender: Value(row['sms_sender'] as String?),
+                smsRawContent: Value(row['sms_raw_content'] as String?),
+                externalId: Value(row['external_id'] as String?),
+                categoryId: Value(row['category_id'] as String?),
+                accountId: Value(row['account_id'] as String?),
+                isAiCategorized: Value(
+                  (row['is_ai_categorized'] as num?)?.toInt() == 1,
+                ),
+                validationStatus: Value(
+                  (row['validation_status'] as num?)?.toInt() ?? 0,
+                ),
+                syncStatus: const Value(1),
+              ),
+            );
+      }
+      debugPrint('✅ [Restore] Restored ${data.length} transactions');
+    } catch (e) {
+      debugPrint('❌ [Restore] Transactions restoration failed: $e');
+    }
+  }
+
+  /// Restaure les objectifs depuis Supabase
+  Future<void> _restoreGoals(String userId) async {
+    try {
+      final data = await _supabase.from('goals').select().eq('user_id', userId);
+
+      if (data.isEmpty) {
+        debugPrint('📥 [Restore] No goals to restore');
+        return;
+      }
+
+      for (final row in data) {
+        await _db
+            .into(_db.goalsTable)
+            .insertOnConflictUpdate(
+              GoalsTableCompanion.insert(
+                id: row['id'] as String,
+                name: row['name'] as String,
+                targetAmount: (row['target_amount'] as num).toDouble(),
+                savedAmount: Value(
+                  (row['saved_amount'] as num?)?.toDouble() ?? 0.0,
+                ),
+                iconKey: Value(row['icon_key'] as String?),
+                deadline: Value(
+                  row['deadline'] != null
+                      ? DateTime.parse(row['deadline'] as String)
+                      : null,
+                ),
+                isCompleted: Value((row['is_completed'] as num?)?.toInt() == 1),
+              ),
+            );
+      }
+      debugPrint('✅ [Restore] Restored ${data.length} goals');
+    } catch (e) {
+      debugPrint('❌ [Restore] Goals restoration failed: $e');
+    }
+  }
+
+  /// Restaure les dettes depuis Supabase
+  Future<void> _restoreDebts(String userId) async {
+    try {
+      final data = await _supabase.from('debts').select().eq('user_id', userId);
+
+      if (data.isEmpty) {
+        debugPrint('📥 [Restore] No debts to restore');
+        return;
+      }
+
+      for (final row in data) {
+        await _db
+            .into(_db.debtsTable)
+            .insertOnConflictUpdate(
+              DebtsTableCompanion.insert(
+                id: row['id'] as String,
+                name: row['name'] as String,
+                amount: (row['amount'] as num).toDouble(),
+                type: row['type'] as String,
+                dueDate: DateTime.parse(row['due_date'] as String),
+                status: Value(row['status'] as String? ?? 'pending'),
+                personName: Value(row['person_name'] as String?),
+                notes: Value(row['notes'] as String?),
+                isRecurring: Value((row['is_recurring'] as num?)?.toInt() == 1),
+                recurrenceRule: Value(row['recurrence_rule'] as String?),
+                notificationId: Value(
+                  (row['notification_id'] as num?)?.toInt(),
+                ),
+                syncStatus: const Value(1),
+              ),
+            );
+      }
+      debugPrint('✅ [Restore] Restored ${data.length} debts');
+    } catch (e) {
+      debugPrint('❌ [Restore] Debts restoration failed: $e');
+    }
+  }
+
+  /// Restaure les budgets depuis Supabase
+  Future<void> _restoreBudgets(String userId) async {
+    try {
+      final data = await _supabase
+          .from('budgets')
+          .select()
+          .eq('user_id', userId);
+
+      if (data.isEmpty) {
+        debugPrint('📥 [Restore] No budgets to restore');
+        return;
+      }
+
+      for (final row in data) {
+        await _db
+            .into(_db.budgetsTable)
+            .insertOnConflictUpdate(
+              BudgetsTableCompanion.insert(
+                id: row['id'] as String,
+                categoryId: row['category_id'] as String,
+                categoryName: row['category_name'] as String,
+                amount: (row['amount'] as num).toDouble(),
+                periodType: Value(row['period_type'] as String? ?? 'monthly'),
+                startDate: DateTime.parse(row['start_date'] as String),
+                endDate: Value(
+                  row['end_date'] != null
+                      ? DateTime.parse(row['end_date'] as String)
+                      : null,
+                ),
+                isActive: Value(row['is_active'] as bool? ?? true),
+                alertThreshold: Value(
+                  (row['alert_threshold'] as num?)?.toDouble() ?? 80.0,
+                ),
+                syncStatus: const Value(1),
+              ),
+            );
+      }
+      debugPrint('✅ [Restore] Restored ${data.length} budgets');
+    } catch (e) {
+      debugPrint('❌ [Restore] Budgets restoration failed: $e');
+    }
+  }
+
+  /// Restaure les XP depuis la table user_ranks de Supabase
+  Future<void> _restoreXP(String userId) async {
+    try {
+      final data = await _supabase
+          .from('user_ranks')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (data == null) {
+        debugPrint('📥 [Restore] No XP data to restore');
+        return;
+      }
+
+      final totalXP = (data['total_xp'] as num?)?.toInt() ?? 0;
+      final settings = SettingsService();
+      await settings.init();
+      await settings.setTotalXP(totalXP);
+
+      debugPrint('✅ [Restore] Restored XP: $totalXP');
+    } catch (e) {
+      debugPrint('❌ [Restore] XP restoration failed: $e');
     }
   }
 }

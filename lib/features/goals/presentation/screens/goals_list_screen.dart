@@ -7,6 +7,7 @@ import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/goals/presentation/screens/add_goal_screen.dart';
 import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
 import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
+import 'package:sika_app/features/goals/presentation/widgets/delete_goal_dialog.dart';
 
 /// Ecran listant tous les objectifs d'epargne
 class GoalsListScreen extends ConsumerWidget {
@@ -118,77 +119,52 @@ class GoalsListScreen extends ConsumerWidget {
     FeedGoalBottomSheet.show(context, goal);
   }
 
-  void _onDeleteGoal(BuildContext context, WidgetRef ref, GoalsTableData goal) {
-    showDialog(
+  void _onDeleteGoal(
+    BuildContext context,
+    WidgetRef ref,
+    GoalsTableData goal,
+  ) async {
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          'Supprimer l\'objectif',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        content: Text(
-          'Es-tu sur de vouloir supprimer "${goal.name}" ? Cette action est irreversible.',
-          style: const TextStyle(
-            color: AppTheme.textSecondary,
-            fontSize: 14,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Annuler',
-              style: TextStyle(
-                color: AppTheme.textSecondary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final repo = ref.read(goalRepositoryProvider);
-              await repo.deleteGoal(goal.id);
-              ref.invalidate(activeGoalsProvider);
-
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      '"${goal.name}" a ete supprime',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    backgroundColor: AppTheme.textPrimary,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-            child: const Text(
-              'Supprimer',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ],
-      ),
+      builder: (ctx) => DeleteGoalDialog(goal: goal),
     );
+
+    // If result is null, user cancelled or pressed outside
+    if (result == null || result['confirmed'] != true) return;
+
+    final repo = ref.read(goalRepositoryProvider);
+    final selectedAccount = result['account'] as AccountsTableData?;
+
+    if (selectedAccount != null && goal.savedAmount > 0) {
+      // Option 1 : Rembourser
+      await repo.deleteGoalWithRefund(
+        goalId: goal.id,
+        goalName: goal.name,
+        savedAmount: goal.savedAmount,
+        accountId: selectedAccount.id,
+      );
+    } else {
+      // Option 2 : Supprimer sans remboursement (ou objectif vide)
+      await repo.deleteGoal(goal.id);
+    }
+
+    // Invalidate providers to refresh the list and transaction/account balances
+    ref.invalidate(activeGoalsProvider);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '"${goal.name}" a été supprimé',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppTheme.textPrimary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
   }
 }

@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
-
-/// Clé SharedPreferences pour savoir si le setup est terminé
-const String kHasCompletedAccountSetup = 'has_completed_account_setup';
 
 /// Écran de configuration initiale des comptes
 /// Affiché après la première connexion pour définir les soldes initiaux
@@ -22,38 +17,56 @@ class AccountSetupScreen extends ConsumerStatefulWidget {
 
 class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
   // Comptes disponibles avec leurs configurations
-  final List<_AccountConfig> _accounts = [
-    _AccountConfig(
-      name: 'Airtel Money',
-      type: 'mobileMoney',
-      iconPath: 'assets/icons/airtel.png',
-      color: '#E53935',
-    ),
-    _AccountConfig(
-      name: 'Moov Money',
-      type: 'mobileMoney',
-      iconPath: 'assets/icons/moov.png',
-      color: '#1E88E5',
-    ),
-    _AccountConfig(
-      name: 'UBA',
-      type: 'bank',
-      iconPath: 'assets/icons/uba.png',
-      color: '#C62828',
-    ),
-    _AccountConfig(
-      name: 'Cash',
-      type: 'cash',
-      iconPath: null,
-      color: '#43A047',
-    ),
-  ];
+  List<_AccountConfig> _accounts = [];
 
-  bool _isLoading = false;
+  bool _isLoading = true;
   int? _focusedIndex;
 
   @override
+  void initState() {
+    super.initState();
+    _loadAvailableAccounts();
+  }
+
+  Future<void> _loadAvailableAccounts() async {
+    final repo = ref.read(accountRepositoryProvider);
+    final availableTypes = await repo.getAvailableAccountTypes();
+
+    if (mounted) {
+      if (availableTypes.isEmpty) {
+        // Déjà tout configuré, redirection Home directe
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+        return;
+      }
+
+      setState(() {
+        _accounts = availableTypes
+            .map(
+              (config) => _AccountConfig(
+                name: config.name,
+                type: config.type,
+                iconPath: config.iconPath,
+                color: config.color,
+              ),
+            )
+            .toList();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: AppTheme.scaffoldBackground,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
       appBar: AppBar(
@@ -419,10 +432,6 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
           );
         }
       }
-
-      // Marque le setup comme terminé
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(kHasCompletedAccountSetup, true);
 
       // Navigation vers Home
       if (mounted) {
