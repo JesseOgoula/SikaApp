@@ -19,6 +19,7 @@ import 'package:sika_app/features/transactions/data/providers/transaction_provid
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/features/budgets/data/repositories/budget_repository.dart';
 import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 
 /// Dashboard Analytics - Redesign Premium avec Financial Health Score
 class StatisticsScreen extends ConsumerStatefulWidget {
@@ -47,6 +48,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   Map<DateTime, List<TransactionWithCategory>> _groupedTransactions = {};
   bool _isLoading = true;
   bool _isBackgroundLoading = false;
+  int _totalXP = 0;
 
   final _currencyFormat = NumberFormat.currency(
     locale: 'fr_FR',
@@ -235,6 +237,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           _isBackgroundLoading = false;
         });
       }
+
+      // Charger les XP en parallèle (non bloquant)
+      XPService().getTotalXP().then((xp) {
+        if (mounted) {
+          setState(() => _totalXP = xp);
+        }
+      });
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -411,7 +420,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   }
 
   Widget _buildHealthScoreSection() {
-    return HealthScoreCard(healthScore: _healthScore);
+    return HealthScoreCard(healthScore: _healthScore, totalXP: _totalXP);
   }
 
   Widget _buildOverviewSection() {

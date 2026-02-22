@@ -388,9 +388,20 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     AsyncValue<List<CategoriesTableData>> categoriesAsync,
   ) {
     categoriesAsync.whenData((categories) {
-      // Filtrer les catégories sans budget
+      // Récupérer les IDs des catégories qui ont déjà un budget actif
+      final budgetsAsync = ref.read(categoryBudgetsProvider);
+      final budgetedCategoryIds = <String>{};
+      budgetsAsync.whenData((budgets) {
+        for (final b in budgets) {
+          budgetedCategoryIds.add(b.category.id);
+        }
+      });
+
+      // Filtrer : exclure celles avec un budget ET exclure Épargne
       final availableCategories = categories
-          .where((c) => c.budgetLimit == null || c.budgetLimit == 0)
+          .where(
+            (c) => !budgetedCategoryIds.contains(c.id) && c.id != 'cat-epargne',
+          )
           .toList();
 
       if (availableCategories.isEmpty) {

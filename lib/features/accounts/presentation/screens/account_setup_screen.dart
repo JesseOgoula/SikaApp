@@ -21,11 +21,33 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
 
   bool _isLoading = true;
   int? _focusedIndex;
+  final _scrollController = ScrollController();
+  final Map<int, GlobalKey> _cardKeys = {};
 
   @override
   void initState() {
     super.initState();
     _loadAvailableAccounts();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToFocusedCard(int index) {
+    final key = _cardKeys[index];
+    if (key?.currentContext != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Scrollable.ensureVisible(
+          key!.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+        );
+      });
+    }
   }
 
   Future<void> _loadAvailableAccounts() async {
@@ -87,6 +109,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
           children: [
             Expanded(
               child: SingleChildScrollView(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +139,9 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                     ..._accounts.asMap().entries.map((entry) {
                       final index = entry.key;
                       final account = entry.value;
+                      _cardKeys.putIfAbsent(index, () => GlobalKey());
                       return Padding(
+                        key: _cardKeys[index],
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _buildAccountCard(account, index),
                       );
@@ -303,6 +328,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                     } else {
                       // Focus automatically on enable
                       _focusedIndex = index;
+                      _scrollToFocusedCard(index);
                     }
                   });
                 },
@@ -319,6 +345,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                 setState(() {
                   _focusedIndex = index;
                 });
+                _scrollToFocusedCard(index);
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(

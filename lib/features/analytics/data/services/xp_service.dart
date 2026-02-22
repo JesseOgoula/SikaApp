@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
+import 'package:sika_app/features/analytics/data/services/rank_service.dart';
 
 /// Service de gestion des points d'expérience (XP)
 ///
 /// Gère l'attribution des XP par action, les streaks de connexion,
-/// et les limites quotidiennes pour certaines actions.
+/// et la synchronisation automatique vers Supabase.
 class XPService {
   final SettingsService _settings = SettingsService();
   bool _initialized = false;
@@ -14,6 +16,33 @@ class XPService {
     if (!_initialized) {
       await _settings.init();
       _initialized = true;
+    }
+  }
+
+  /// Synchronise automatiquement les XP vers Supabase (fire-and-forget)
+  void _syncToCloud(int totalXP) {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
+      final metadata = user.userMetadata ?? {};
+      final displayName =
+          (metadata['full_name'] ?? metadata['name'] ?? 'Utilisateur')
+              as String;
+      final avatarUrl = metadata['avatar_url'] as String?;
+
+      // Fire-and-forget : on ne bloque pas l'UX
+      RankService()
+          .syncRank(
+            totalXP: totalXP,
+            displayName: displayName,
+            avatarUrl: avatarUrl,
+          )
+          .catchError((e) {
+            debugPrint('⚠️ [XP] Cloud sync failed (will retry later): $e');
+          });
+    } catch (e) {
+      debugPrint('⚠️ [XP] Cloud sync error: $e');
     }
   }
 
@@ -31,6 +60,10 @@ class XPService {
     debugPrint(
       '🎯 [XP] +$points XP (${ActionPoints.getLabel(action)}) → Total: $newXP',
     );
+
+    // Sync automatique vers Supabase
+    _syncToCloud(newXP);
+
     return points;
   }
 
@@ -44,6 +77,10 @@ class XPService {
     await _settings.setTotalXP(newXP);
 
     debugPrint('🎯 [XP] +$points XP ($reason) → Total: $newXP');
+
+    // Sync automatique vers Supabase
+    _syncToCloud(newXP);
+
     return points;
   }
 

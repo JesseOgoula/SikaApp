@@ -13,13 +13,11 @@ import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/goals/presentation/screens/add_goal_screen.dart';
 import 'package:sika_app/features/goals/presentation/screens/goals_list_screen.dart';
 import 'package:sika_app/features/goals/presentation/widgets/feed_goal_bottom_sheet.dart';
-import 'package:sika_app/features/goals/presentation/widgets/goal_card.dart';
 import 'package:sika_app/features/profile/presentation/screens/profile_screen.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/add_transaction_screen.dart';
 import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/quick_actions.dart';
-import 'package:sika_app/features/transactions/presentation/widgets/transaction_tile.dart';
 import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
 import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
@@ -46,15 +44,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentNavIndex = 0;
   bool _isAmountVisible = true;
-  int _sliderPageIndex = 0;
   int _balancePageIndex = 0;
-  final _pageController = PageController();
   bool _rankChecked = false;
+  int _totalXP = 0;
   final _balancePageController = PageController();
 
   @override
   void dispose() {
-    _pageController.dispose();
     _balancePageController.dispose();
     super.dispose();
   }
@@ -78,6 +74,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final totalXP = await xpService.getTotalXP();
     final xpRank = RankDefinitions.getRankForXP(totalXP);
     final previousLevel = await settings.getPreviousRankLevel();
+
+    // Mettre à jour l'état pour afficher les XP sur la carte
+    if (mounted) {
+      setState(() => _totalXP = totalXP);
+    }
 
     // Sync vers Supabase
     final user = Supabase.instance.client.auth.currentUser;
@@ -356,56 +357,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
 
-        // Section Title avec indicateur de slider
+        // Section Activités récentes
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _sliderPageIndex == 0
-                      ? 'Transactions Récentes'
-                      : _sliderPageIndex == 1
-                      ? 'Mes Objectifs'
-                      : 'Mes Engagements',
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              // Dots indicator
-              Row(
-                children: [
-                  _buildDot(0),
-                  const SizedBox(width: 6),
-                  _buildDot(1),
-                  const SizedBox(width: 6),
-                  _buildDot(2),
-                ],
-              ),
-            ],
+          child: Text(
+            'Activités récentes',
+            style: const TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
 
         const SizedBox(height: 12),
 
-        // PageView Slider (Transactions / Objectifs) - prend l'espace restant
-        Expanded(
-          child: PageView(
-            controller: _pageController,
-            onPageChanged: (index) => setState(() => _sliderPageIndex = index),
-            children: [
-              // Page 1: Transactions
-              _buildTransactionsPage(transactions),
-              // Page 2: Objectifs
-              _buildGoalsPage(),
-              // Page 3: Engagements
-              _buildDebtsPage(),
-            ],
-          ),
-        ),
+        // Liste des 3 dernières activités
+        Expanded(child: _buildRecentActivities(transactions)),
       ],
     );
   }
@@ -875,7 +843,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               // Rank Badge (remplace HealthScoreBadge)
-              RankBadgeWidget(xp: 0, size: 42), // XP loaded async
+              RankBadgeWidget(xp: _totalXP, size: 42),
             ],
           ),
 
@@ -1241,237 +1209,249 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildDot(int index) {
-    final isActive = _sliderPageIndex == index;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      width: isActive ? 20 : 8,
-      height: 8,
-      decoration: BoxDecoration(
-        color: isActive ? AppTheme.primaryColor : Colors.grey[300],
-        borderRadius: BorderRadius.circular(4),
-      ),
-    );
-  }
+  // ==================== ACTIVITÉS RÉCENTES ====================
 
-  Widget _buildTransactionsPage(List<TransactionWithCategory> transactions) {
-    if (transactions.isEmpty) {
+  Widget _buildRecentActivities(List<TransactionWithCategory> transactions) {
+    final goalsAsync = ref.watch(activeGoalsProvider);
+    final debtsAsync = ref.watch(allDebtsProvider);
+
+    final goals = goalsAsync.valueOrNull ?? [];
+    final debts = debtsAsync.valueOrNull ?? [];
+
+    // Construire une liste unifiée d'activités
+    final List<_RecentActivity> activities = [];
+
+    // Ajouter les transactions
+    for (final txWithCat in transactions) {
+      final tx = txWithCat.transaction;
+      activities.add(
+        _RecentActivity(
+          type: _ActivityType.transaction,
+          title:
+              tx.merchantName ?? (tx.type == 'income' ? 'Revenu' : 'Dépense'),
+          subtitle: txWithCat.category?.name ?? 'Transaction',
+          amount: tx.amount,
+          isPositive: tx.type == 'income',
+          date: tx.date,
+          icon: tx.type == 'income'
+              ? FontAwesomeIcons.arrowDown
+              : FontAwesomeIcons.arrowUp,
+          iconColor: tx.type == 'income'
+              ? const Color(0xFF2ECC71)
+              : const Color(0xFFE74C3C),
+        ),
+      );
+    }
+
+    // Ajouter les objectifs
+    for (final goal in goals) {
+      activities.add(
+        _RecentActivity(
+          type: _ActivityType.goal,
+          title: goal.name,
+          subtitle: 'Objectif d\'épargne',
+          amount: goal.targetAmount,
+          isPositive: true,
+          date: goal.createdAt,
+          icon: FontAwesomeIcons.bullseye,
+          iconColor: AppTheme.primaryColor,
+        ),
+      );
+    }
+
+    // Ajouter les dettes
+    for (final debt in debts) {
+      activities.add(
+        _RecentActivity(
+          type: _ActivityType.debt,
+          title: debt.name,
+          subtitle: debt.type == DebtType.bill ? 'Facture' : 'Prêt',
+          amount: debt.amount,
+          isPositive: false,
+          date: debt.createdAt,
+          icon: debt.type == DebtType.bill
+              ? FontAwesomeIcons.fileInvoiceDollar
+              : FontAwesomeIcons.handHoldingDollar,
+          iconColor: const Color(0xFFE67E22),
+        ),
+      );
+    }
+
+    // Trier par date décroissante et prendre les 3 plus récents
+    activities.sort((a, b) => b.date.compareTo(a.date));
+    final recentActivities = activities.take(3).toList();
+
+    if (recentActivities.isEmpty) {
       return _buildEmptyState();
     }
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: transactions
-            .take(3)
-            .map((tx) => TransactionTile(txWithCategory: tx))
-            .toList(),
-      ),
-    );
-  }
 
-  Widget _buildGoalsPage() {
-    final goalsAsync = ref.watch(activeGoalsProvider);
-    return goalsAsync.when(
-      data: (goals) {
-        if (goals.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.flag_rounded,
-                    size: 40,
-                    color: AppTheme.primaryColor.withOpacity(0.4),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Aucun objectif',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Épargnez pour vos rêves.',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-          );
-        }
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: goals
-                .take(3)
-                .map(
-                  (goal) => GoalCard(
-                    goal: goal,
-                    onFeedPressed: () => _onFeedGoal(goal),
-                  ),
-                )
-                .toList(),
-          ),
-        );
-      },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: AppTheme.primaryColor),
-      ),
-      error: (e, _) => Center(child: Text('Erreur: $e')),
-    );
-  }
-
-  Widget _buildDebtsPage() {
-    final debtsAsync = ref.watch(allDebtsProvider);
     final currencyFormat = NumberFormat.currency(
       locale: 'fr_FR',
       symbol: 'FCFA',
       decimalDigits: 0,
     );
-    final dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
 
-    return debtsAsync.when(
-      data: (debts) {
-        if (debts.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.assignment_turned_in_rounded,
-                    size: 40,
-                    color: AppTheme.primaryColor.withOpacity(0.4),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Aucun engagement',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tout est en ordre !',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // On n'affiche que les 3 prochains engagements non payés ou récents
-        final displayDebts = debts
-            .where((d) => d.status != DebtStatus.paid)
-            .toList();
-
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: displayDebts
-                .take(3)
-                .map((debt) => _buildDebtTile(debt, currencyFormat, dateFormat))
-                .toList(),
-          ),
-        );
-      },
-      loading: () => const Center(
-        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: recentActivities
+            .map((activity) => _buildActivityTile(activity, currencyFormat))
+            .toList(),
       ),
-      error: (e, _) => Center(child: Text('Erreur: $e')),
     );
   }
 
-  Widget _buildDebtTile(
-    Debt debt,
+  Widget _buildActivityTile(
+    _RecentActivity activity,
     NumberFormat currencyFormat,
-    DateFormat dateFormat,
   ) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade100, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF5F7FA),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: FaIcon(
-                debt.type == DebtType.bill
-                    ? FontAwesomeIcons.fileInvoiceDollar
-                    : FontAwesomeIcons.handHoldingDollar,
-                color: AppTheme.primaryColor,
-                size: 16,
+    return GestureDetector(
+      onTap: () => _navigateToActivityScreen(activity.type),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade100, width: 1),
+        ),
+        child: Row(
+          children: [
+            // Icône
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: activity.iconColor.withOpacity(0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: FaIcon(
+                  activity.icon,
+                  color: activity.iconColor,
+                  size: 16,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            // Titre + Sous-titre
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    activity.title,
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    activity.subtitle,
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Montant + Date
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  debt.name,
-                  style: const TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                  '${activity.isPositive ? '+' : '-'} ${currencyFormat.format(activity.amount)}',
+                  style: TextStyle(
+                    color: activity.isPositive
+                        ? const Color(0xFF2ECC71)
+                        : AppTheme.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  'Échéance: ${dateFormat.format(debt.dueDate)}',
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                  _formatRelativeDate(activity.date),
+                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 10),
                 ),
               ],
             ),
-          ),
-          Text(
-            currencyFormat.format(debt.amount),
-            style: const TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  String _formatRelativeDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final diff = today.difference(dateOnly).inDays;
+
+    if (diff == 0) return 'Aujourd\'hui';
+    if (diff == 1) return 'Hier';
+    if (diff < 7) return 'Il y a $diff jours';
+    return DateFormat('dd MMM', 'fr_FR').format(date);
+  }
+
+  void _navigateToActivityScreen(_ActivityType type) {
+    switch (type) {
+      case _ActivityType.transaction:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TransactionsListScreen()),
+        );
+        break;
+      case _ActivityType.goal:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const GoalsListScreen()),
+        );
+        break;
+      case _ActivityType.debt:
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const DebtsScreen()),
+        );
+        break;
+    }
   }
 
   Future<void> _onFeedGoal(GoalsTableData goal) async {
     await FeedGoalBottomSheet.show(context, goal);
   }
+}
+
+// ==================== MODÈLES PRIVÉS ====================
+
+enum _ActivityType { transaction, goal, debt }
+
+class _RecentActivity {
+  final _ActivityType type;
+  final String title;
+  final String subtitle;
+  final double amount;
+  final bool isPositive;
+  final DateTime date;
+  final IconData icon;
+  final Color iconColor;
+
+  _RecentActivity({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+    required this.isPositive,
+    required this.date,
+    required this.icon,
+    required this.iconColor,
+  });
 }
 
 class _CountryInfo {

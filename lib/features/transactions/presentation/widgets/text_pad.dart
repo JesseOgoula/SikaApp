@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 
 /// Clavier texte personnalisé style Neo-Bank (AZERTY) - Pleine largeur
+/// Supporte les accents via appui long sur les voyelles et certaines consonnes
 class TextPad extends StatefulWidget {
   final Function(String) onKeyPressed;
   final VoidCallback onBackspace;
@@ -23,6 +25,18 @@ class _TextPadState extends State<TextPad> {
   bool _isCapsLock = false; // Mode verrouillage majuscules
   bool _showNumbers = false;
   DateTime _lastShiftTap = DateTime.now();
+
+  // Map des accents disponibles par lettre (minuscule)
+  static const Map<String, List<String>> _accentMap = {
+    'a': ['à', 'â', 'ä', 'æ'],
+    'e': ['é', 'è', 'ê', 'ë'],
+    'i': ['î', 'ï'],
+    'o': ['ô', 'ö', 'œ'],
+    'u': ['ù', 'û', 'ü'],
+    'y': ['ÿ'],
+    'c': ['ç'],
+    'n': ['ñ'],
+  };
 
   final List<List<String>> _lettersLower = [
     ['a', 'z', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
@@ -87,10 +101,26 @@ class _TextPadState extends State<TextPad> {
     );
   }
 
+  /// Vérifie si une touche a des accents disponibles
+  bool _hasAccents(String key) {
+    return _accentMap.containsKey(key.toLowerCase());
+  }
+
+  /// Récupère les accents pour une touche (avec respect de la casse)
+  List<String> _getAccentsForKey(String key) {
+    final accents = _accentMap[key.toLowerCase()] ?? [];
+    if (_isUpperCase || _isCapsLock) {
+      return accents.map((a) => a.toUpperCase()).toList();
+    }
+    return accents;
+  }
+
   Widget _buildKey(String key) {
     final isSpecial =
         key == '⇧' || key == '⌫' || key == '123' || key == 'ABC' || key == '✓';
     final isSpace = key == ' ';
+    final hasAccent =
+        !isSpecial && !isSpace && !_showNumbers && _hasAccents(key);
 
     // Flex values for different key types
     int flex = 1;
@@ -101,10 +131,10 @@ class _TextPadState extends State<TextPad> {
     Color bgColor = Colors.white;
     Color textColor = Colors.black87;
 
-    // Shift key colors - différent pour caps lock vs shift simple
+    // Shift key colors
     if (key == '⇧' && !_showNumbers) {
       if (_isCapsLock) {
-        bgColor = AppTheme.secondaryColor; // Teal pour caps lock
+        bgColor = AppTheme.secondaryColor;
         textColor = Colors.white;
       } else if (_isUpperCase) {
         bgColor = AppTheme.primaryColor;
@@ -123,6 +153,7 @@ class _TextPadState extends State<TextPad> {
       flex: flex,
       child: GestureDetector(
         onTap: () => _handleKeyPress(key),
+        onLongPress: hasAccent ? () => _showAccentPopup(key) : null,
         child: Container(
           height: 42,
           margin: const EdgeInsets.symmetric(horizontal: 1),
@@ -137,8 +168,53 @@ class _TextPadState extends State<TextPad> {
               ),
             ],
           ),
-          child: Center(child: _buildKeyContent(key, textColor)),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              _buildKeyContent(key, textColor),
+              // Petit indicateur d'accent disponible
+              if (hasAccent)
+                Positioned(
+                  top: 2,
+                  right: 4,
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.4),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// Affiche le popup d'accents au-dessus de la touche
+  void _showAccentPopup(String key) {
+    HapticFeedback.mediumImpact();
+    final accents = _getAccentsForKey(key);
+    if (accents.isEmpty) return;
+
+    // Inclure la lettre originale en premier
+    final allOptions = [key, ...accents];
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black26,
+      builder: (ctx) => _AccentPicker(
+        options: allOptions,
+        onSelected: (selected) {
+          Navigator.pop(ctx);
+          widget.onKeyPressed(selected);
+          // Si pas caps lock, repasse en minuscules
+          if (_isUpperCase && !_isCapsLock && !_showNumbers) {
+            setState(() => _isUpperCase = false);
+          }
+        },
       ),
     );
   }
@@ -148,7 +224,6 @@ class _TextPadState extends State<TextPad> {
       return Icon(Icons.backspace_outlined, color: color, size: 20);
     }
     if (key == '⇧') {
-      // Icône différente selon l'état
       IconData icon;
       if (_isCapsLock) {
         icon = Icons.keyboard_capslock;
@@ -197,13 +272,11 @@ class _TextPadState extends State<TextPad> {
       // Double-tap pour caps lock
       final now = DateTime.now();
       if (now.difference(_lastShiftTap).inMilliseconds < 400 && _isUpperCase) {
-        // Double tap - toggle caps lock
         setState(() {
           _isCapsLock = !_isCapsLock;
           _isUpperCase = true;
         });
       } else {
-        // Simple tap - toggle uppercase
         setState(() {
           if (_isCapsLock) {
             _isCapsLock = false;
@@ -227,5 +300,63 @@ class _TextPadState extends State<TextPad> {
         setState(() => _isUpperCase = false);
       }
     }
+  }
+}
+
+/// Widget popup pour sélectionner un accent
+class _AccentPicker extends StatelessWidget {
+  final List<String> options;
+  final Function(String) onSelected;
+
+  const _AccentPicker({required this.options, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: options.map((char) {
+              return GestureDetector(
+                onTap: () => onSelected(char),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      char,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
   }
 }

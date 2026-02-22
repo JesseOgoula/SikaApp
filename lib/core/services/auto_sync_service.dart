@@ -442,8 +442,8 @@ class AutoSyncService {
                 balance: Value((row['balance'] as num?)?.toDouble() ?? 0.0),
                 currency: Value(row['currency'] as String? ?? 'XAF'),
                 phoneNumber: Value(row['phone_number'] as String?),
-                iconKey: Value(row['icon_key'] as String?),
-                color: Value(row['color'] as String?),
+                iconKey: Value(row['icon_key'] as String? ?? 'wallet'),
+                color: Value(row['color'] as String? ?? '#1E3A5F'),
                 isDefault: Value(row['is_default'] as bool? ?? false),
                 isActive: Value(row['is_active'] as bool? ?? true),
                 syncStatus: const Value(1),
@@ -553,6 +553,7 @@ class AutoSyncService {
             .insertOnConflictUpdate(
               DebtsTableCompanion.insert(
                 id: row['id'] as String,
+                userId: userId,
                 name: row['name'] as String,
                 amount: (row['amount'] as num).toDouble(),
                 type: row['type'] as String,
