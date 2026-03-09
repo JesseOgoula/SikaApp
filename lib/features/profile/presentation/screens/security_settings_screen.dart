@@ -6,9 +6,7 @@ import 'package:sika_app/core/services/app_lock_service.dart';
 
 /// Écran des paramètres de sécurité
 ///
-/// Permet de :
-/// - Changer le code PIN
-/// - Activer/désactiver l'empreinte digitale
+/// Permet de changer le code PIN.
 class SecuritySettingsScreen extends StatefulWidget {
   const SecuritySettingsScreen({super.key});
 
@@ -18,47 +16,6 @@ class SecuritySettingsScreen extends StatefulWidget {
 
 class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
   final _appLock = AppLockService();
-
-  bool _biometricAvailable = false;
-  bool _biometricEnabled = false;
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final bioAvailable = await _appLock.isBiometricAvailable();
-    final bioEnabled = await _appLock.isBiometricEnabled();
-
-    if (mounted) {
-      setState(() {
-        _biometricAvailable = bioAvailable;
-        _biometricEnabled = bioEnabled;
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _toggleBiometric(bool value) async {
-    if (value) {
-      // Tester la biométrie avant d'activer
-      final success = await _appLock.authenticateWithBiometric();
-      if (success) {
-        await _appLock.enableBiometric();
-        setState(() => _biometricEnabled = true);
-        _showSnackBar('Empreinte digitale activée', isSuccess: true);
-      } else {
-        _showSnackBar('Authentification échouée', isSuccess: false);
-      }
-    } else {
-      await _appLock.disableBiometric();
-      setState(() => _biometricEnabled = false);
-      _showSnackBar('Empreinte digitale désactivée', isSuccess: true);
-    }
-  }
 
   void _showChangePinDialog() {
     final oldPinControllers = List.generate(4, (_) => TextEditingController());
@@ -71,6 +28,23 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
     final newFocusNodes = List.generate(4, (_) => FocusNode());
     final confirmFocusNodes = List.generate(4, (_) => FocusNode());
     String? errorMsg;
+
+    void disposeAll() {
+      for (final c in [
+        ...oldPinControllers,
+        ...newPinControllers,
+        ...confirmPinControllers,
+      ]) {
+        c.dispose();
+      }
+      for (final f in [
+        ...oldFocusNodes,
+        ...newFocusNodes,
+        ...confirmFocusNodes,
+      ]) {
+        f.dispose();
+      }
+    }
 
     showDialog(
       context: context,
@@ -137,20 +111,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                for (final c in [
-                  ...oldPinControllers,
-                  ...newPinControllers,
-                  ...confirmPinControllers,
-                ]) {
-                  c.dispose();
-                }
-                for (final f in [
-                  ...oldFocusNodes,
-                  ...newFocusNodes,
-                  ...confirmFocusNodes,
-                ]) {
-                  f.dispose();
-                }
+                disposeAll();
               },
               child: Text(
                 'Annuler',
@@ -185,27 +146,13 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                 final success = await _appLock.changePin(oldPin, newPin);
                 if (success) {
                   Navigator.pop(ctx);
+                  disposeAll();
                   _showSnackBar(
                     'Code PIN modifié avec succès',
                     isSuccess: true,
                   );
                 } else {
                   setDialogState(() => errorMsg = 'PIN actuel incorrect');
-                }
-
-                for (final c in [
-                  ...oldPinControllers,
-                  ...newPinControllers,
-                  ...confirmPinControllers,
-                ]) {
-                  c.dispose();
-                }
-                for (final f in [
-                  ...oldFocusNodes,
-                  ...newFocusNodes,
-                  ...confirmFocusNodes,
-                ]) {
-                  f.dispose();
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -312,161 +259,92 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
         ),
         centerTitle: true,
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppTheme.primaryColor),
-            )
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                // Section PIN
-                _buildSectionCard(
-                  children: [
-                    ListTile(
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.lock_outline,
-                          color: AppTheme.primaryColor,
-                          size: 20,
-                        ),
-                      ),
-                      title: const Text(
-                        'Code PIN',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'PIN à 4 chiffres configuré',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                      trailing: TextButton(
-                        onPressed: _showChangePinDialog,
-                        child: Text(
-                          'Modifier',
-                          style: TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          // Section PIN
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade100),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
                 ),
-
-                const SizedBox(height: 16),
-
-                // Section Biométrie
-                if (_biometricAvailable)
-                  _buildSectionCard(
-                    children: [
-                      SwitchListTile(
-                        secondary: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color:
-                                (_biometricEnabled
-                                        ? AppTheme.success
-                                        : AppTheme.textSecondary)
-                                    .withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            Icons.fingerprint_rounded,
-                            color: _biometricEnabled
-                                ? AppTheme.success
-                                : AppTheme.textSecondary,
-                            size: 22,
-                          ),
-                        ),
-                        title: const Text(
-                          'Empreinte digitale',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        subtitle: Text(
-                          _biometricEnabled
-                              ? 'Activée — déverrouillage rapide'
-                              : 'Désactivée',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                        value: _biometricEnabled,
-                        onChanged: _toggleBiometric,
-                        activeColor: AppTheme.success,
-                      ),
-                    ],
+              ],
+            ),
+            child: ListTile(
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.lock_outline,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Code PIN',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+              subtitle: Text(
+                'PIN à 4 chiffres configuré',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              trailing: TextButton(
+                onPressed: _showChangePinDialog,
+                child: Text(
+                  'Modifier',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
+                ),
+              ),
+            ),
+          ),
 
-                const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-                // Info
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
+          // Info
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.shield_outlined,
+                  color: AppTheme.primaryColor.withOpacity(0.6),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Votre code PIN est demandé à chaque ouverture de l\'application, même après une mise en veille.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                      height: 1.5,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        color: AppTheme.primaryColor.withOpacity(0.6),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Votre code PIN est stocké de manière chiffrée sur votre appareil. Personne ne peut y accéder.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondary,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               ],
             ),
-    );
-  }
-
-  Widget _buildSectionCard({required List<Widget> children}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
           ),
         ],
       ),
-      child: Column(children: children),
     );
   }
 }

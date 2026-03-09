@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
@@ -208,34 +209,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     const SizedBox(height: 12),
 
-                    // Mode local
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: TextButton(
-                        onPressed: () {
-                          ref.read(authControllerProvider.notifier).skipLogin();
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.textSecondary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: const Text(
-                          'Continuer sans compte',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Color(0xFF9CA3AF),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
                     // Disclaimer
                     Text(
                       'En continuant, vous acceptez nos conditions d\'utilisation',
@@ -313,33 +286,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  /// Icône Google (fallback safe)
+  /// Icône Google (SVG transparent)
   Widget _buildGoogleIcon() {
-    return Image.network(
-      'https://developers.google.com/identity/images/g-logo.png',
-      width: 20,
-      height: 20,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return Container(
-          width: 20,
-          height: 20,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-          ),
-          child: const Center(
-            child: Text(
-              'G',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF4285F4),
-              ),
-            ),
-          ),
-        );
-      },
+    return SvgPicture.asset(
+      'assets/icons/google_logo.svg',
+      width: 22,
+      height: 22,
     );
   }
 }

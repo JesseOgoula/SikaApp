@@ -157,7 +157,7 @@ class _AuthGate extends ConsumerStatefulWidget {
 }
 
 class _AuthGateState extends ConsumerState<_AuthGate>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool _showSplash = true;
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -172,6 +172,7 @@ class _AuthGateState extends ConsumerState<_AuthGate>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkSecurity();
     _controller = AnimationController(
       vsync: this,
@@ -200,8 +201,22 @@ class _AuthGateState extends ConsumerState<_AuthGate>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// Re-verrouille l'app quand elle revient au premier plan
+  /// (fermeture, mise en veille, verrouillage du téléphone)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Quand l'app revient au premier plan, on re-verrouille
+      // seulement si la sécurité a été configurée et l'utilisateur est authentifié
+      if (_securitySetupDone && _isLocallyAuthenticated) {
+        setState(() => _isLocallyAuthenticated = false);
+      }
+    }
   }
 
   Future<void> _checkSecurity() async {
