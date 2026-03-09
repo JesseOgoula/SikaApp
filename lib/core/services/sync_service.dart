@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -30,8 +29,6 @@ class SyncService {
       return SyncResult(success: false, message: 'Non connecté');
     }
 
-    debugPrint('🔄 [Sync] Starting full sync...');
-
     int categoriesCount = 0;
     int transactionsCount = 0;
     int goalsCount = 0;
@@ -41,42 +38,32 @@ class SyncService {
     try {
       // 1. Sync des catégories
       categoriesCount = await _syncCategories();
-      debugPrint('✅ [Sync] Categories: $categoriesCount');
     } catch (e) {
       errors.add('Categories: $e');
-      debugPrint('❌ [Sync] Categories error: $e');
     }
 
     try {
       // 2. Sync des transactions
       transactionsCount = await _syncTransactions();
-      debugPrint('✅ [Sync] Transactions: $transactionsCount');
     } catch (e) {
       errors.add('Transactions: $e');
-      debugPrint('❌ [Sync] Transactions error: $e');
     }
 
     try {
       // 3. Sync des objectifs
       goalsCount = await _syncGoals();
-      debugPrint('✅ [Sync] Goals: $goalsCount');
     } catch (e) {
       errors.add('Goals: $e');
-      debugPrint('❌ [Sync] Goals error: $e');
     }
 
     try {
       // 4. Sync des dettes
       debtsCount = await _syncDebts();
-      debugPrint('✅ [Sync] Debts: $debtsCount');
     } catch (e) {
       errors.add('Debts: $e');
-      debugPrint('❌ [Sync] Debts error: $e');
     }
 
     final total = categoriesCount + transactionsCount + goalsCount + debtsCount;
-    debugPrint('✅ [Sync] Complete! Total: $total items');
-
     return SyncResult(
       success: errors.isEmpty,
       message: errors.isEmpty
@@ -138,8 +125,6 @@ class SyncService {
             'category_id': t.categoryId,
             'account_id': t.accountId,
             'date': t.date.toIso8601String(),
-            'sms_sender': t.smsSender,
-            'sms_raw_content': t.smsRawContent,
             'external_id': t.externalId,
             'is_ai_categorized': t.isAiCategorized,
             'validation_status': t.validationStatus,

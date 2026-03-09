@@ -1,5 +1,4 @@
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -100,10 +99,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
     // 1. Stocke localement dans Drift
     await _db.into(_db.transactionsTable).insert(companion);
-    debugPrint(
-      '✅ [Transactions] Added manual transaction ${txId} - triggering sync',
-    );
-
     // 2. Déclenche la sync vers Supabase
     autoSyncService?.forceSync();
 
@@ -141,10 +136,6 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final expenses = await expenseQuery.get();
       totalBalance -= expenses.fold<double>(0, (sum, tx) => sum + tx.amount);
 
-      debugPrint(
-        '💰 [LowBalance] Current balance: $totalBalance, threshold: $threshold',
-      );
-
       if (totalBalance <= threshold) {
         await NotificationService().showLowBalanceAlert(
           currentBalance: totalBalance,
@@ -152,67 +143,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         );
       }
     } catch (e) {
-      debugPrint('❌ [LowBalance] Error checking balance: $e');
-    }
-  }
-
-  /// Lie rétroactivement les transactions existantes aux comptes
-  /// basé sur le champ smsSender
-  Future<int> linkExistingTransactionsToAccounts() async {
-    int linkedCount = 0;
-
-    // Récupère les transactions sans accountId
-    final transactions = await (_db.select(
-      _db.transactionsTable,
-    )..where((t) => t.accountId.isNull())).get();
-
-    debugPrint(
-      '🔗 [LinkAccounts] Found ${transactions.length} transactions without accountId',
-    );
-
-    for (final tx in transactions) {
-      if (tx.smsSender == null) continue;
-
-      // Détermine l'opérateur depuis le smsSender stocké
-      String? accountName;
-      final sender = tx.smsSender!.toUpperCase();
-
-      if (sender.contains('AIRTEL') || sender == 'AIRTEL_MONEY') {
-        accountName = 'Airtel Money';
-      } else if (sender.contains('MOOV') || sender == 'MOOV_MONEY') {
-        accountName = 'Moov Money';
-      } else if (sender.contains('UBA')) {
-        accountName = 'UBA';
-      }
-
-      if (accountName == null) continue;
-
-      // Cherche le compte correspondant
-      final account =
-          await (_db.select(_db.accountsTable)
-                ..where((a) => a.name.equals(accountName!))
-                ..where((a) => a.isActive.equals(true)))
-              .getSingleOrNull();
-
-      if (account != null) {
-        // Met à jour la transaction avec l'accountId
-        await (_db.update(
-          _db.transactionsTable,
-        )..where((t) => t.id.equals(tx.id))).write(
-          TransactionsTableCompanion(
-            accountId: Value(account.id),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
-        linkedCount++;
-        debugPrint(
-          '✅ [LinkAccounts] Linked tx ${tx.id.substring(0, 8)} to ${account.name}',
-        );
-      }
-    }
-
-    debugPrint('🔗 [LinkAccounts] Total linked: $linkedCount');
-    return linkedCount;
+    /* ignore */ }
   }
 
   @override
@@ -251,12 +182,10 @@ class TransactionRepositoryImpl implements TransactionRepository {
           });
           // Marque comme synchronisé localement
           await markAsSynced(id);
-          debugPrint('✅ [Transactions] Updated and synced $id to Supabase');
         }
       }
     } catch (e) {
-      debugPrint('⚠️ [Transactions] Update sync failed (will retry): $e');
-    }
+    /* ignore */ }
   }
 
   @override
@@ -285,17 +214,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final userId = supabase.auth.currentUser?.id;
       if (userId != null) {
         await supabase.from('transactions').delete().eq('id', id);
-        debugPrint('✅ [Transactions] Deleted $id from Supabase');
       }
     } catch (e) {
-      debugPrint('⚠️ [Transactions] Delete from Supabase failed: $e');
-    }
+    /* ignore */ }
 
     // 2. Supprime localement
     await (_db.delete(
       _db.transactionsTable,
     )..where((t) => t.id.equals(id))).go();
-    debugPrint('✅ [Transactions] Deleted $id locally');
   }
 
   // ==================== SYNC METHODS ====================

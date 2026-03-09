@@ -13,6 +13,7 @@ import 'package:sika_app/features/transactions/presentation/widgets/number_pad.d
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+import 'package:sika_app/core/services/analytics_service.dart';
 
 /// Écran d'ajout manuel - Design Neo-Bank avec Keypad personnalisé
 class AddTransactionScreen extends ConsumerStatefulWidget {
@@ -480,7 +481,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                 );
               }
               return DropdownButtonFormField<String>(
-                value: _selectedAccountId,
+                initialValue: _selectedAccountId,
                 decoration: InputDecoration(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -1038,8 +1039,6 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ? Value(_selectedAccountId!)
             : const Value.absent(),
         date: Value(_selectedDate),
-        smsSender: const Value('MANUAL'),
-        smsRawContent: const Value(''),
         externalId: const Value.absent(),
         isAiCategorized: const Value(false),
         syncStatus: const Value(0),
@@ -1048,6 +1047,11 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
       final repo = ref.read(transactionRepositoryProvider);
       await repo.addManualTransaction(companion);
+
+      await AnalyticsService.logEvent(
+        'transaction_added',
+        properties: {'type': _transactionType, 'method': 'manual'},
+      );
 
       if (mounted) {
         Navigator.pop(context, true);

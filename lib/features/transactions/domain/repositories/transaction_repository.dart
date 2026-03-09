@@ -51,9 +51,6 @@ abstract class TransactionRepository {
   /// [transaction] : Companion Drift avec tous les champs
   Future<void> addManualTransaction(TransactionsTableCompanion transaction);
 
-  /// Lie rétroactivement les transactions sans accountId aux comptes
-  Future<int> linkExistingTransactionsToAccounts();
-
   /// Met à jour une transaction existante
   ///
   /// [id] : UUID de la transaction
@@ -77,7 +74,7 @@ abstract class TransactionRepository {
 
   /// Vérifie si une transaction existe par son external_id
   ///
-  /// Utilisé pour la déduplication des SMS.
+  /// Utilisé pour la déduplication des transactions.
   Future<bool> existsByExternalId(String externalId);
 
   /// Récupère les transactions en attente de synchronisation

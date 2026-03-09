@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
@@ -39,11 +38,9 @@ class XPService {
             avatarUrl: avatarUrl,
           )
           .catchError((e) {
-            debugPrint('⚠️ [XP] Cloud sync failed (will retry later): $e');
           });
     } catch (e) {
-      debugPrint('⚠️ [XP] Cloud sync error: $e');
-    }
+    /* ignore */ }
   }
 
   /// Attribue des XP pour une action donnée
@@ -56,10 +53,6 @@ class XPService {
     final currentXP = await _settings.getTotalXP();
     final newXP = (currentXP + points).clamp(0, 10000);
     await _settings.setTotalXP(newXP);
-
-    debugPrint(
-      '🎯 [XP] +$points XP (${ActionPoints.getLabel(action)}) → Total: $newXP',
-    );
 
     // Sync automatique vers Supabase
     _syncToCloud(newXP);
@@ -75,8 +68,6 @@ class XPService {
     final currentXP = await _settings.getTotalXP();
     final newXP = (currentXP + points).clamp(0, 10000);
     await _settings.setTotalXP(newXP);
-
-    debugPrint('🎯 [XP] +$points XP ($reason) → Total: $newXP');
 
     // Sync automatique vers Supabase
     _syncToCloud(newXP);
@@ -118,7 +109,6 @@ class XPService {
       totalAwarded += await awardXP(ActionType.streak30Days);
     }
 
-    debugPrint('🔥 [XP] Streak: $streak jours');
     return totalAwarded;
   }
 

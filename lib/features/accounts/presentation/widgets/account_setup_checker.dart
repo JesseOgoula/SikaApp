@@ -38,9 +38,6 @@ class _AccountSetupCheckerState extends ConsumerState<AccountSetupChecker> {
 
       if (hasCloudAccounts) {
         // Des comptes ont été trouvés ! Restaurer TOUTES les données
-        debugPrint(
-          '📥 [AccountSetup] Cloud accounts found — restoring all data...',
-        );
         await autoSyncService?.restoreFromCloud();
 
         if (mounted) {
@@ -62,7 +59,6 @@ class _AccountSetupCheckerState extends ConsumerState<AccountSetupChecker> {
         });
       }
     } catch (e) {
-      debugPrint('❌ [AccountSetup] Error checking status: $e');
       // En cas d'erreur complète, se rabattre sur le local minimum
       if (mounted) {
         final repo = ref.read(accountRepositoryProvider);

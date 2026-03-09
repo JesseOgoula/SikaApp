@@ -44,7 +44,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   double _prevExpense = 0;
   double _totalPendingDebt = 0;
   int _healthScore = 0;
-  List<TransactionWithCategory> _topTransactions = [];
+  final List<TransactionWithCategory> _topTransactions = [];
   Map<DateTime, List<TransactionWithCategory>> _groupedTransactions = {};
   bool _isLoading = true;
   bool _isBackgroundLoading = false;

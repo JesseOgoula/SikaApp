@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/auth/presentation/providers/auth_controller.dart';
+import 'package:sika_app/core/services/analytics_service.dart';
 
 /// Écran de connexion — Design Onboarding Premium
 class LoginScreen extends ConsumerStatefulWidget {
@@ -165,9 +166,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       child: ElevatedButton(
                         onPressed: isLoading
                             ? null
-                            : () => ref
-                                  .read(authControllerProvider.notifier)
-                                  .login(),
+                            : () async {
+                                await AnalyticsService.logEvent('auth_started');
+                                ref
+                                    .read(authControllerProvider.notifier)
+                                    .login();
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,

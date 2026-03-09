@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
@@ -45,10 +44,8 @@ class SyncStatusNotifier extends StateNotifier<SyncState> {
       state = SyncState.connecting;
       autoSyncService?.startListening();
       state = SyncState.connected;
-      debugPrint('✅ [Sync] AutoSync connected');
     } catch (e) {
       state = SyncState.error;
-      debugPrint('❌ [Sync] AutoSync connect error: $e');
     }
   }
 
@@ -57,10 +54,8 @@ class SyncStatusNotifier extends StateNotifier<SyncState> {
     try {
       autoSyncService?.stopListening();
       state = SyncState.disconnected;
-      debugPrint('✅ [Sync] AutoSync disconnected');
     } catch (e) {
-      debugPrint('❌ [Sync] AutoSync disconnect error: $e');
-    }
+    /* ignore */ }
   }
 
   /// Bascule l'état de synchronisation
@@ -75,19 +70,15 @@ class SyncStatusNotifier extends StateNotifier<SyncState> {
   /// Force une synchronisation
   Future<void> forceSync() async {
     try {
-      debugPrint('🔄 [Sync] Forcing sync...');
       state = SyncState.connecting;
       await autoSyncService?.forceSync();
       state = SyncState.connected;
-      debugPrint('✅ [Sync] Sync complete');
     } catch (e) {
-      debugPrint('❌ [Sync] Force sync error: $e');
-    }
+    /* ignore */ }
   }
 
   /// Supprime la base de données locale (non supporté sans PowerSync)
   Future<void> deleteLocalDatabase() async {
-    debugPrint('⚠️ [Sync] deleteLocalDatabase not supported with AutoSync');
     // Peut être implémenté plus tard si nécessaire
   }
 }

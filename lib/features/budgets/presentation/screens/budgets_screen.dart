@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -541,7 +540,7 @@ class _AddBudgetBottomSheetState extends State<_AddBudgetBottomSheet> {
 
             // Dropdown catégorie
             DropdownButtonFormField<CategoriesTableData>(
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               decoration: InputDecoration(
                 labelText: 'Catégorie',
                 border: OutlineInputBorder(

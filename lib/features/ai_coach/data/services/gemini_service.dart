@@ -72,7 +72,6 @@ Conseil :''';
 
       return text.trim();
     } catch (e) {
-      print('Erreur Gemini: $e');
       return "Impossible de contacter l'IA pour le moment. Vérifie ta connexion internet.";
     }
   }

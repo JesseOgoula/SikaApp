@@ -2,20 +2,18 @@ import 'package:drift/drift.dart';
 
 /// Table des transactions financières
 ///
-/// Stocke toutes les transactions extraites des SMS ou saisies manuellement.
+/// Stocke toutes les transactions saisies manuellement ou scannées par OCR.
 /// Les clés primaires sont des UUIDs (TEXT) pour compatibilité PowerSync.
 ///
 /// Champs:
 /// - [id] : UUID unique de la transaction
 /// - [amount] : Montant en FCFA
 /// - [type] : Type de transaction (income/expense/transfer)
-/// - [merchantName] : Nom du marchand/destinataire extrait du SMS
+/// - [merchantName] : Nom du marchand/destinataire
 /// - [categoryId] : Référence vers la catégorie (FK vers CategoriesTable)
 /// - [accountId] : Référence vers le compte source (FK vers AccountsTable)
 /// - [date] : Date/heure de la transaction
-/// - [smsSender] : Numéro/ID de l'expéditeur du SMS (Airtel, Moov, etc.)
-/// - [smsRawContent] : Contenu brut du SMS (pour ré-entraînement IA)
-/// - [externalId] : ID de transaction fourni par l'opérateur (PP123456)
+/// - [externalId] : ID externe de transaction
 /// - [isAiCategorized] : Indique si la catégorie a été prédite par l'IA
 /// - [syncStatus] : Statut de synchronisation (0=pending, 1=synced, 2=error)
 /// - [createdAt] : Date de création locale
@@ -46,13 +44,7 @@ class TransactionsTable extends Table {
   /// Date et heure de la transaction
   DateTimeColumn get date => dateTime()();
 
-  /// Expéditeur du SMS (ex: "AirtelMoney", "MOOV", "UBA")
-  TextColumn get smsSender => text().nullable()();
-
-  /// Contenu brut du SMS pour ré-entraînement du modèle TFLite
-  TextColumn get smsRawContent => text().nullable()();
-
-  /// ID externe de transaction fourni par l'opérateur (ex: PP123456)
+  /// ID externe de transaction (ex: PP123456)
   TextColumn get externalId => text().nullable()();
 
   /// True si la catégorie a été assignée par l'IA (Smart Labeling)
@@ -79,6 +71,6 @@ class TransactionsTable extends Table {
   /// Index pour optimiser les requêtes fréquentes
   @override
   List<Set<Column>> get uniqueKeys => [
-    {externalId}, // Évite les doublons de transactions SMS
+    {externalId}, // Évite les doublons de transactions
   ];
 }

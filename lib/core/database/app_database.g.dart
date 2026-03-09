@@ -82,28 +82,6 @@ class $TransactionsTableTable extends TransactionsTable
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
-  static const VerificationMeta _smsSenderMeta = const VerificationMeta(
-    'smsSender',
-  );
-  @override
-  late final GeneratedColumn<String> smsSender = GeneratedColumn<String>(
-    'sms_sender',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
-  static const VerificationMeta _smsRawContentMeta = const VerificationMeta(
-    'smsRawContent',
-  );
-  @override
-  late final GeneratedColumn<String> smsRawContent = GeneratedColumn<String>(
-    'sms_raw_content',
-    aliasedName,
-    true,
-    type: DriftSqlType.string,
-    requiredDuringInsert: false,
-  );
   static const VerificationMeta _externalIdMeta = const VerificationMeta(
     'externalId',
   );
@@ -187,8 +165,6 @@ class $TransactionsTableTable extends TransactionsTable
     categoryId,
     accountId,
     date,
-    smsSender,
-    smsRawContent,
     externalId,
     isAiCategorized,
     syncStatus,
@@ -257,21 +233,6 @@ class $TransactionsTableTable extends TransactionsTable
       );
     } else if (isInserting) {
       context.missing(_dateMeta);
-    }
-    if (data.containsKey('sms_sender')) {
-      context.handle(
-        _smsSenderMeta,
-        smsSender.isAcceptableOrUnknown(data['sms_sender']!, _smsSenderMeta),
-      );
-    }
-    if (data.containsKey('sms_raw_content')) {
-      context.handle(
-        _smsRawContentMeta,
-        smsRawContent.isAcceptableOrUnknown(
-          data['sms_raw_content']!,
-          _smsRawContentMeta,
-        ),
-      );
     }
     if (data.containsKey('external_id')) {
       context.handle(
@@ -356,14 +317,6 @@ class $TransactionsTableTable extends TransactionsTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}date'],
       )!,
-      smsSender: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}sms_sender'],
-      ),
-      smsRawContent: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}sms_raw_content'],
-      ),
       externalId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}external_id'],
@@ -420,13 +373,7 @@ class TransactionsTableData extends DataClass
   /// Date et heure de la transaction
   final DateTime date;
 
-  /// Expéditeur du SMS (ex: "AirtelMoney", "MOOV", "UBA")
-  final String? smsSender;
-
-  /// Contenu brut du SMS pour ré-entraînement du modèle TFLite
-  final String? smsRawContent;
-
-  /// ID externe de transaction fourni par l'opérateur (ex: PP123456)
+  /// ID externe de transaction (ex: PP123456)
   final String? externalId;
 
   /// True si la catégorie a été assignée par l'IA (Smart Labeling)
@@ -452,8 +399,6 @@ class TransactionsTableData extends DataClass
     this.categoryId,
     this.accountId,
     required this.date,
-    this.smsSender,
-    this.smsRawContent,
     this.externalId,
     required this.isAiCategorized,
     required this.syncStatus,
@@ -477,12 +422,6 @@ class TransactionsTableData extends DataClass
       map['account_id'] = Variable<String>(accountId);
     }
     map['date'] = Variable<DateTime>(date);
-    if (!nullToAbsent || smsSender != null) {
-      map['sms_sender'] = Variable<String>(smsSender);
-    }
-    if (!nullToAbsent || smsRawContent != null) {
-      map['sms_raw_content'] = Variable<String>(smsRawContent);
-    }
     if (!nullToAbsent || externalId != null) {
       map['external_id'] = Variable<String>(externalId);
     }
@@ -509,12 +448,6 @@ class TransactionsTableData extends DataClass
           ? const Value.absent()
           : Value(accountId),
       date: Value(date),
-      smsSender: smsSender == null && nullToAbsent
-          ? const Value.absent()
-          : Value(smsSender),
-      smsRawContent: smsRawContent == null && nullToAbsent
-          ? const Value.absent()
-          : Value(smsRawContent),
       externalId: externalId == null && nullToAbsent
           ? const Value.absent()
           : Value(externalId),
@@ -539,8 +472,6 @@ class TransactionsTableData extends DataClass
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       accountId: serializer.fromJson<String?>(json['accountId']),
       date: serializer.fromJson<DateTime>(json['date']),
-      smsSender: serializer.fromJson<String?>(json['smsSender']),
-      smsRawContent: serializer.fromJson<String?>(json['smsRawContent']),
       externalId: serializer.fromJson<String?>(json['externalId']),
       isAiCategorized: serializer.fromJson<bool>(json['isAiCategorized']),
       syncStatus: serializer.fromJson<int>(json['syncStatus']),
@@ -560,8 +491,6 @@ class TransactionsTableData extends DataClass
       'categoryId': serializer.toJson<String?>(categoryId),
       'accountId': serializer.toJson<String?>(accountId),
       'date': serializer.toJson<DateTime>(date),
-      'smsSender': serializer.toJson<String?>(smsSender),
-      'smsRawContent': serializer.toJson<String?>(smsRawContent),
       'externalId': serializer.toJson<String?>(externalId),
       'isAiCategorized': serializer.toJson<bool>(isAiCategorized),
       'syncStatus': serializer.toJson<int>(syncStatus),
@@ -579,8 +508,6 @@ class TransactionsTableData extends DataClass
     Value<String?> categoryId = const Value.absent(),
     Value<String?> accountId = const Value.absent(),
     DateTime? date,
-    Value<String?> smsSender = const Value.absent(),
-    Value<String?> smsRawContent = const Value.absent(),
     Value<String?> externalId = const Value.absent(),
     bool? isAiCategorized,
     int? syncStatus,
@@ -595,10 +522,6 @@ class TransactionsTableData extends DataClass
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     accountId: accountId.present ? accountId.value : this.accountId,
     date: date ?? this.date,
-    smsSender: smsSender.present ? smsSender.value : this.smsSender,
-    smsRawContent: smsRawContent.present
-        ? smsRawContent.value
-        : this.smsRawContent,
     externalId: externalId.present ? externalId.value : this.externalId,
     isAiCategorized: isAiCategorized ?? this.isAiCategorized,
     syncStatus: syncStatus ?? this.syncStatus,
@@ -619,10 +542,6 @@ class TransactionsTableData extends DataClass
           : this.categoryId,
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
       date: data.date.present ? data.date.value : this.date,
-      smsSender: data.smsSender.present ? data.smsSender.value : this.smsSender,
-      smsRawContent: data.smsRawContent.present
-          ? data.smsRawContent.value
-          : this.smsRawContent,
       externalId: data.externalId.present
           ? data.externalId.value
           : this.externalId,
@@ -650,8 +569,6 @@ class TransactionsTableData extends DataClass
           ..write('categoryId: $categoryId, ')
           ..write('accountId: $accountId, ')
           ..write('date: $date, ')
-          ..write('smsSender: $smsSender, ')
-          ..write('smsRawContent: $smsRawContent, ')
           ..write('externalId: $externalId, ')
           ..write('isAiCategorized: $isAiCategorized, ')
           ..write('syncStatus: $syncStatus, ')
@@ -671,8 +588,6 @@ class TransactionsTableData extends DataClass
     categoryId,
     accountId,
     date,
-    smsSender,
-    smsRawContent,
     externalId,
     isAiCategorized,
     syncStatus,
@@ -691,8 +606,6 @@ class TransactionsTableData extends DataClass
           other.categoryId == this.categoryId &&
           other.accountId == this.accountId &&
           other.date == this.date &&
-          other.smsSender == this.smsSender &&
-          other.smsRawContent == this.smsRawContent &&
           other.externalId == this.externalId &&
           other.isAiCategorized == this.isAiCategorized &&
           other.syncStatus == this.syncStatus &&
@@ -710,8 +623,6 @@ class TransactionsTableCompanion
   final Value<String?> categoryId;
   final Value<String?> accountId;
   final Value<DateTime> date;
-  final Value<String?> smsSender;
-  final Value<String?> smsRawContent;
   final Value<String?> externalId;
   final Value<bool> isAiCategorized;
   final Value<int> syncStatus;
@@ -727,8 +638,6 @@ class TransactionsTableCompanion
     this.categoryId = const Value.absent(),
     this.accountId = const Value.absent(),
     this.date = const Value.absent(),
-    this.smsSender = const Value.absent(),
-    this.smsRawContent = const Value.absent(),
     this.externalId = const Value.absent(),
     this.isAiCategorized = const Value.absent(),
     this.syncStatus = const Value.absent(),
@@ -745,8 +654,6 @@ class TransactionsTableCompanion
     this.categoryId = const Value.absent(),
     this.accountId = const Value.absent(),
     required DateTime date,
-    this.smsSender = const Value.absent(),
-    this.smsRawContent = const Value.absent(),
     this.externalId = const Value.absent(),
     this.isAiCategorized = const Value.absent(),
     this.syncStatus = const Value.absent(),
@@ -766,8 +673,6 @@ class TransactionsTableCompanion
     Expression<String>? categoryId,
     Expression<String>? accountId,
     Expression<DateTime>? date,
-    Expression<String>? smsSender,
-    Expression<String>? smsRawContent,
     Expression<String>? externalId,
     Expression<bool>? isAiCategorized,
     Expression<int>? syncStatus,
@@ -784,8 +689,6 @@ class TransactionsTableCompanion
       if (categoryId != null) 'category_id': categoryId,
       if (accountId != null) 'account_id': accountId,
       if (date != null) 'date': date,
-      if (smsSender != null) 'sms_sender': smsSender,
-      if (smsRawContent != null) 'sms_raw_content': smsRawContent,
       if (externalId != null) 'external_id': externalId,
       if (isAiCategorized != null) 'is_ai_categorized': isAiCategorized,
       if (syncStatus != null) 'sync_status': syncStatus,
@@ -804,8 +707,6 @@ class TransactionsTableCompanion
     Value<String?>? categoryId,
     Value<String?>? accountId,
     Value<DateTime>? date,
-    Value<String?>? smsSender,
-    Value<String?>? smsRawContent,
     Value<String?>? externalId,
     Value<bool>? isAiCategorized,
     Value<int>? syncStatus,
@@ -822,8 +723,6 @@ class TransactionsTableCompanion
       categoryId: categoryId ?? this.categoryId,
       accountId: accountId ?? this.accountId,
       date: date ?? this.date,
-      smsSender: smsSender ?? this.smsSender,
-      smsRawContent: smsRawContent ?? this.smsRawContent,
       externalId: externalId ?? this.externalId,
       isAiCategorized: isAiCategorized ?? this.isAiCategorized,
       syncStatus: syncStatus ?? this.syncStatus,
@@ -857,12 +756,6 @@ class TransactionsTableCompanion
     }
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
-    }
-    if (smsSender.present) {
-      map['sms_sender'] = Variable<String>(smsSender.value);
-    }
-    if (smsRawContent.present) {
-      map['sms_raw_content'] = Variable<String>(smsRawContent.value);
     }
     if (externalId.present) {
       map['external_id'] = Variable<String>(externalId.value);
@@ -898,8 +791,6 @@ class TransactionsTableCompanion
           ..write('categoryId: $categoryId, ')
           ..write('accountId: $accountId, ')
           ..write('date: $date, ')
-          ..write('smsSender: $smsSender, ')
-          ..write('smsRawContent: $smsRawContent, ')
           ..write('externalId: $externalId, ')
           ..write('isAiCategorized: $isAiCategorized, ')
           ..write('syncStatus: $syncStatus, ')
@@ -4586,8 +4477,6 @@ typedef $$TransactionsTableTableCreateCompanionBuilder =
       Value<String?> categoryId,
       Value<String?> accountId,
       required DateTime date,
-      Value<String?> smsSender,
-      Value<String?> smsRawContent,
       Value<String?> externalId,
       Value<bool> isAiCategorized,
       Value<int> syncStatus,
@@ -4605,8 +4494,6 @@ typedef $$TransactionsTableTableUpdateCompanionBuilder =
       Value<String?> categoryId,
       Value<String?> accountId,
       Value<DateTime> date,
-      Value<String?> smsSender,
-      Value<String?> smsRawContent,
       Value<String?> externalId,
       Value<bool> isAiCategorized,
       Value<int> syncStatus,
@@ -4657,16 +4544,6 @@ class $$TransactionsTableTableFilterComposer
 
   ColumnFilters<DateTime> get date => $composableBuilder(
     column: $table.date,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get smsSender => $composableBuilder(
-    column: $table.smsSender,
-    builder: (column) => ColumnFilters(column),
-  );
-
-  ColumnFilters<String> get smsRawContent => $composableBuilder(
-    column: $table.smsRawContent,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4745,16 +4622,6 @@ class $$TransactionsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get smsSender => $composableBuilder(
-    column: $table.smsSender,
-    builder: (column) => ColumnOrderings(column),
-  );
-
-  ColumnOrderings<String> get smsRawContent => $composableBuilder(
-    column: $table.smsRawContent,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get externalId => $composableBuilder(
     column: $table.externalId,
     builder: (column) => ColumnOrderings(column),
@@ -4819,14 +4686,6 @@ class $$TransactionsTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
-
-  GeneratedColumn<String> get smsSender =>
-      $composableBuilder(column: $table.smsSender, builder: (column) => column);
-
-  GeneratedColumn<String> get smsRawContent => $composableBuilder(
-    column: $table.smsRawContent,
-    builder: (column) => column,
-  );
 
   GeneratedColumn<String> get externalId => $composableBuilder(
     column: $table.externalId,
@@ -4902,8 +4761,6 @@ class $$TransactionsTableTableTableManager
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
-                Value<String?> smsSender = const Value.absent(),
-                Value<String?> smsRawContent = const Value.absent(),
                 Value<String?> externalId = const Value.absent(),
                 Value<bool> isAiCategorized = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
@@ -4919,8 +4776,6 @@ class $$TransactionsTableTableTableManager
                 categoryId: categoryId,
                 accountId: accountId,
                 date: date,
-                smsSender: smsSender,
-                smsRawContent: smsRawContent,
                 externalId: externalId,
                 isAiCategorized: isAiCategorized,
                 syncStatus: syncStatus,
@@ -4938,8 +4793,6 @@ class $$TransactionsTableTableTableManager
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
                 required DateTime date,
-                Value<String?> smsSender = const Value.absent(),
-                Value<String?> smsRawContent = const Value.absent(),
                 Value<String?> externalId = const Value.absent(),
                 Value<bool> isAiCategorized = const Value.absent(),
                 Value<int> syncStatus = const Value.absent(),
@@ -4955,8 +4808,6 @@ class $$TransactionsTableTableTableManager
                 categoryId: categoryId,
                 accountId: accountId,
                 date: date,
-                smsSender: smsSender,
-                smsRawContent: smsRawContent,
                 externalId: externalId,
                 isAiCategorized: isAiCategorized,
                 syncStatus: syncStatus,

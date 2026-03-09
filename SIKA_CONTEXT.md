@@ -33,10 +33,7 @@ CREATE TABLE transactions (
 );
 ```
 
-## 4. KILLER FEATURE : LE PARSEUR DE SMS
-L’application doit écouter les SMS entrants (Airtel Money, Moov, UBA) via un channel natif Android. Utilise des Regex avancées pour extraire le montant, la date, le marchand, et l’ID de transaction. Exemple Airtel : "Paiement effectué de 2500 FCFA à PHARMACIE. ID Trans: PP123456"
-
-## 5. STRATÉGIE IA & MÉCANISMES D’INTELLIGENCE (CRUCIAL)
+## 4. STRATÉGIE IA & MÉCANISMES D’INTELLIGENCE (CRUCIAL)
 L’application comprend deux modules IA qu’il faudra bien architecturer :
 
 - **Smart Labeling (TinyML) :** Modèle local (TFLite) apprenant des corrections utilisateur. Exemple : si "Kiosque Mama" est assigné par l’utilisateur à la catégorie "Alimentation", l’IA l’enregistre pour les prochaines fois.

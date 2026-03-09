@@ -5,6 +5,7 @@ import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/features/transactions/presentation/screens/home_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
+import 'package:sika_app/core/services/analytics_service.dart';
 
 /// Écran de configuration initiale des comptes
 /// Affiché après la première connexion pour définir les soldes initiaux
@@ -27,6 +28,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
   @override
   void initState() {
     super.initState();
+    AnalyticsService.logEvent('onboarding_started');
     _loadAvailableAccounts();
   }
 
@@ -457,8 +459,14 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
             color: account.color,
             isDefault: _accounts.indexOf(account) == 0,
           );
+          await AnalyticsService.logEvent(
+            'account_created',
+            properties: {'type': account.type},
+          );
         }
       }
+
+      await AnalyticsService.logEvent('onboarding_completed');
 
       // Navigation vers Home
       if (mounted) {
@@ -498,6 +506,5 @@ class _AccountConfig {
     required this.type,
     required this.iconPath,
     required this.color,
-    this.enabled = false,
   });
 }

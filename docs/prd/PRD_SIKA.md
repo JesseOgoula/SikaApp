@@ -1,17 +1,17 @@
 # Product Requirements Document (PRD) - SIKA
 
 ## 1. Vision du Produit
-**SIKA** est une application de gestion financière personnelle "Neo-Bank style" conçue spécifiquement pour le marché gabonais. Elle vise à simplifier radicalement le suivi des dépenses en automatisant la saisie via la lecture des SMS bancaires et Mobile Money (Airtel Money, Moov Money, UBA).
+**SIKA** est une application de gestion financière personnelle "Neo-Bank style" conçue spécifiquement pour le marché gabonais. Elle vise à simplifier radicalement le suivi des dépenses via la saisie manuelle assistée, le scan OCR de factures et la catégorisation intelligente par IA.
 
 ## 2. Problématique
-Au Gabon, la majorité des transactions se font par Mobile Money ou cash. Les utilisateurs reçoivent des SMS de confirmation mais n'ont pas d'outil consolidé pour :
+Au Gabon, la majorité des transactions se font par Mobile Money ou cash. Les utilisateurs n'ont pas d'outil consolidé pour :
 - Visualiser leur budget global.
 - Catégoriser automatiquement leurs dépenses.
 - Suivre leurs économies vers des objectifs précis.
 - Anticiper les factures récurrentes (SEEG, loyers).
 
 ## 3. Objectifs Stratégiques
-- **Automatisation** : 90% des transactions Mobile Money doivent être capturées sans saisie manuelle.
+- **Simplicité** : Saisie rapide via NumberPad personnalisé et scan OCR de factures.
 - **Accessibilité** : Fonctionnement hors-ligne prioritaire avec synchronisation cloud transparente.
 - **Éducation Financière** : Fournir un "Financial Health Score" pour inciter à une meilleure gestion.
 
@@ -25,10 +25,13 @@ Au Gabon, la majorité des transactions se font par Mobile Money ou cash. Les ut
 - Connexion via Google Sign-In.
 - Qualification du profil (Ville, profession, revenus estimés).
 
-### 5.2. Smart SMS Parser
-- Lecture automatique en arrière-plan (Android).
-- Import manuel de l'historique des SMS.
-- Support : Airtel Money, Moov Money, UBA Gabon (UBAGAB).
+### 5.2. Saisie de Transactions
+
+> ⚠️ **DÉPRÉCIÉ** : Le module "Smart SMS Parser" (lecture automatique des SMS, `flutter_sms_inbox`, `easy_sms_receiver`, `permission_handler`) a été **supprimé** suite aux contraintes imposées par Android/iOS. Toute la saisie passe désormais par :
+
+- Saisie manuelle via NumberPad personnalisé.
+- Scan OCR de factures via l'IA (Gemini 3 Flash).
+- Catégorisation intelligente par Smart Labeling IA.
 
 ### 5.3. Dashboard & Analyse
 - Solde disponible dynamique (Revenus - Dépenses - Factures engagées).
@@ -49,6 +52,6 @@ Au Gabon, la majorité des transactions se font par Mobile Money ou cash. Les ut
 - **Typographie** : Poppins / Inter.
 
 ## 7. Indicateurs de Succès (KPIs)
-- Nombre de transactions parsées automatiquement par utilisateur.
+- Nombre de transactions enregistrées par utilisateur.
 - Fréquence d'utilisation du dashboard.
 - Montant total épargné via la fonction "Goals".

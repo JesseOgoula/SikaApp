@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:powersync/powersync.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -28,7 +27,6 @@ class SupabaseConnector extends PowerSyncBackendConnector {
       final session = _supabase.auth.currentSession;
 
       if (session == null) {
-        debugPrint('⚠️ [PowerSync] No active session - sync paused');
         return null;
       }
 
@@ -41,7 +39,6 @@ class SupabaseConnector extends PowerSyncBackendConnector {
           expiresAt * 1000,
         );
         if (expiryDate.isBefore(DateTime.now())) {
-          debugPrint('⚠️ [PowerSync] Token expired - refreshing...');
           // Tente de rafraîchir la session
           await _supabase.auth.refreshSession();
           final newSession = _supabase.auth.currentSession;
@@ -55,16 +52,11 @@ class SupabaseConnector extends PowerSyncBackendConnector {
         }
       }
 
-      debugPrint(
-        '✅ [PowerSync] Credentials fetched for user: ${session.user.email}',
-      );
-
       return PowerSyncCredentials(
         endpoint: PowerSyncConfig.powersyncUrl,
         token: accessToken,
       );
     } catch (e) {
-      debugPrint('❌ [PowerSync] Error fetching credentials: $e');
       return null;
     }
   }
@@ -75,29 +67,20 @@ class SupabaseConnector extends PowerSyncBackendConnector {
   /// doivent être synchronisés avec le backend.
   @override
   Future<void> uploadData(PowerSyncDatabase database) async {
-    debugPrint('📤 [PowerSync] Uploading local changes...');
-
     // Récupère toutes les transactions en attente d'upload
     final batch = await database.getCrudBatch();
 
     if (batch == null || batch.crud.isEmpty) {
-      debugPrint('📤 [PowerSync] No changes to upload');
       return;
     }
-
-    debugPrint('📤 [PowerSync] Uploading ${batch.crud.length} operations...');
 
     for (final op in batch.crud) {
       try {
         final table = op.table;
         final data = op.opData;
 
-        debugPrint('📤 [PowerSync] Operation: ${op.op} on $table, id=${op.id}');
-        debugPrint('📤 [PowerSync] Data: $data');
-
         // Skip if no data for upsert/update
         if (data == null && op.op != UpdateType.delete) {
-          debugPrint('⚠️ [PowerSync] Skipping ${op.op} on $table: no data');
           continue;
         }
 
@@ -116,7 +99,6 @@ class SupabaseConnector extends PowerSyncBackendConnector {
               }
 
               await _supabase.from(table).upsert(dataWithId);
-              debugPrint('📤 [PowerSync] Upserted into $table: ${op.id}');
             }
             break;
 
@@ -129,18 +111,15 @@ class SupabaseConnector extends PowerSyncBackendConnector {
                 cleanData.remove('category_id');
               }
               await _supabase.from(table).update(cleanData).eq('id', op.id);
-              debugPrint('📤 [PowerSync] Updated $table: ${op.id}');
             }
             break;
 
           case UpdateType.delete:
             // DELETE
             await _supabase.from(table).delete().eq('id', op.id);
-            debugPrint('📤 [PowerSync] Deleted from $table: ${op.id}');
             break;
         }
       } catch (e) {
-        debugPrint('❌ [PowerSync] Error uploading ${op.op} on ${op.table}: $e');
         // Continue with next operation instead of failing completely
         continue;
       }
@@ -148,6 +127,5 @@ class SupabaseConnector extends PowerSyncBackendConnector {
 
     // Marque le batch comme complété
     await batch.complete();
-    debugPrint('✅ [PowerSync] Upload complete');
   }
 }

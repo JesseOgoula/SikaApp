@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -77,8 +76,7 @@ class GoalRepository {
         targetAmount: targetAmount,
       );
     } catch (e) {
-      debugPrint('⚠️ [Goals] Notification scheduling failed: $e');
-    }
+    /* ignore */ }
 
     // Sync vers Supabase
     autoSyncService?.forceSync();
@@ -116,8 +114,7 @@ class GoalRepository {
           );
           await NotificationService().cancelGoalReminder(goalId);
         } catch (e) {
-          debugPrint('⚠️ [Goals] Celebration notification failed: $e');
-        }
+        /* ignore */ }
 
         // Award XP for reaching goal
         XPService().awardXP(ActionType.reachGoal);
@@ -130,8 +127,7 @@ class GoalRepository {
             targetAmount: goal.targetAmount,
           );
         } catch (e) {
-          debugPrint('⚠️ [Goals] Reminder update failed: $e');
-        }
+        /* ignore */ }
       }
 
       // Sync vers Supabase
@@ -152,8 +148,7 @@ class GoalRepository {
     try {
       await NotificationService().cancelGoalReminder(goalId);
     } catch (e) {
-      debugPrint('⚠️ [Goals] Cancel reminder failed: $e');
-    }
+    /* ignore */ }
 
     // Supprimer localement
     await (_db.delete(_db.goalsTable)..where((g) => g.id.equals(goalId))).go();
@@ -169,8 +164,7 @@ class GoalRepository {
             .eq('user_id', user.id);
       }
     } catch (e) {
-      debugPrint('❌ [Goals] Error deleting from Supabase: $e');
-    }
+    /* ignore */ }
 
     // Sync
     autoSyncService?.forceSync();
@@ -202,8 +196,6 @@ class GoalRepository {
                 ), // ou autre catégorisation
                 accountId: Value(accountId),
                 date: DateTime.now(),
-                smsSender: const Value('MANUAL_REFUND'),
-                smsRawContent: const Value(''),
                 validationStatus: const Value(1),
                 syncStatus: const Value(0),
               ),
@@ -260,8 +252,6 @@ class GoalRepository {
               categoryId: const Value('cat-epargne'),
               accountId: Value(accountId),
               date: DateTime.now(),
-              smsSender: const Value('MANUAL_SAVING'),
-              smsRawContent: const Value(''),
               validationStatus: const Value(1),
               syncStatus: const Value(0),
             ),

@@ -36,14 +36,8 @@ dependencies:
   local_auth: ^2.3.0
   safe_device: ^1.1.4
 
-  # ===== SMS & PERMISSIONS (Android) =====
-  flutter_sms_inbox: ^1.0.4
-  permission_handler: ^11.3.1
-  # Note: telephony non compatible AGP 8.x - polling via flutter_sms_inbox
-
-  # ===== BACKGROUND SERVICE & REAL-TIME SMS =====
+  # ===== BACKGROUND SERVICE =====
   flutter_background_service: ^5.0.5
-  easy_sms_receiver: ^0.0.2
 
   # ===== NOTIFICATIONS =====
   flutter_local_notifications: ^18.0.1
@@ -76,6 +70,9 @@ dependencies:
   flutter_dotenv: ^6.0.0
 
 
+  equatable: any
+  sentry_flutter: ^9.14.0
+  posthog_flutter: ^5.18.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

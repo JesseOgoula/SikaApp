@@ -9,7 +9,7 @@
 
 ## 1. Présentation Générale
 
-**SIKA** est une application mobile de gestion financière personnelle conçue pour le marché gabonais et africain. Elle fonctionne en **mode offline-first** avec synchronisation cloud, intègre une **IA Coach financier** et un **scanner de factures par OCR**, et intercepte automatiquement les **SMS bancaires** (Airtel Money, Moov Money, UBA) pour enregistrer les transactions.
+**SIKA** est une application mobile de gestion financière personnelle conçue pour le marché gabonais et africain. Elle fonctionne en **mode offline-first** avec synchronisation cloud, intègre une **IA Coach financier** et un **scanner de factures par OCR** pour faciliter l'enregistrement des transactions.
 
 ---
 
@@ -24,14 +24,9 @@
 - **Navigation Bottom Nav** : 4 onglets — Accueil, Transactions, Objectifs, Dettes.
 - **Header personnalisé** : Salutation dynamique selon l'heure (Bonjour/Bonsoir) + prénom Google.
 
-### 2.2. Module d'Analyse SMS (Core)
-- **Détection** : Intercepter les SMS entrants en temps réel (`easy_sms_receiver`) ou importer historique via `flutter_sms_inbox`.
-- **Liste blanche d'expéditeurs** : Airtel, Moov, UBAGAB et autres opérateurs/banques configurables.
-- **Extraction Regex** : Montant, marchand/destinataire, type (crédit/débit), ID de transaction (TID/Ref).
-- **Service d'arrière-plan** : `flutter_background_service` pour l'écoute SMS permanente.
-- **Validation Human-in-the-Loop** : `validationStatus` (0=PENDING, 1=VALIDATED, 2=REJECTED) avec notifications actionnables.
-- **Enregistrement automatique** : Mode configurable via `SettingsService.isAutoSaveEnabled`.
-- **Écoute temps réel** : Toggle ON/OFF via `SettingsService.isRealtimeSmsEnabled`.
+### 2.2. ~~Module d'Analyse SMS (Core)~~ — DÉPRÉCIÉ
+
+> ⚠️ **SUPPRIMÉ** (mars 2026) : Ce module a été entièrement retiré suite aux contraintes OS (Android/iOS). Les packages `flutter_sms_inbox`, `easy_sms_receiver` et `permission_handler` sont **bannis** du projet. Toute la saisie passe désormais par la saisie manuelle et le scan OCR.
 
 ### 2.3. Module Transactions
 - **CRUD complet** : Créer, Lire, Modifier, Supprimer.
@@ -181,7 +176,7 @@
 | **Icônes** | font_awesome_flutter | ^10.7.0 |
 | **Police** | Google Fonts (Poppins) | ^6.3.3 |
 | **Notifications** | flutter_local_notifications | ^18.0.1 |
-| **SMS** | flutter_sms_inbox + easy_sms_receiver | — |
+| ~~SMS~~ | ~~flutter_sms_inbox + easy_sms_receiver~~ | **SUPPRIMÉ** (mars 2026) |
 | **Background** | flutter_background_service | ^5.0.5 |
 | **Sécurité** | local_auth, safe_device, flutter_secure_storage | — |
 | **Connexion** | connectivity_plus | ^7.0.0 |
@@ -211,8 +206,6 @@ lib/
 │   ├── debts/            # Dettes & factures
 │   ├── goals/            # Objectifs d'épargne
 │   ├── profile/          # Profil & paramètres
-│   ├── sms_listener/     # Listener SMS natif (Android)
-│   ├── sms_parser/       # Parser Regex SMS
 │   ├── splash/           # Splash screen
 │   └── transactions/     # Transactions (Home, CRUD, widgets)
 ├── utils/                # Utilitaires (time_utils)
@@ -225,7 +218,7 @@ Chaque feature suit le pattern `data/` → `domain/` → `presentation/` (screen
 
 | Table | Champs clés |
 |-------|-------------|
-| **TransactionsTable** | id (UUID), amount (REAL), type (income/expense), merchantName, categoryId (FK), accountId (FK), date, smsSender, smsRawContent, externalId (unique), isAiCategorized, validationStatus (0/1/2), syncStatus (0/1/2) |
+| **TransactionsTable** | id (UUID), amount (REAL), type (income/expense), merchantName, categoryId (FK), accountId (FK), date, externalId (unique), isAiCategorized, validationStatus (0/1/2), syncStatus (0/1/2) |
 | **CategoriesTable** | id, name, iconKey, color, keywordsJson, isSystem, budgetLimit, sortOrder, syncStatus |
 | **AccountsTable** | id, name, type (bank/mobileMoney/cash), balance, currency (XAF), phoneNumber, iconKey, color, isDefault, isActive, syncStatus |
 | **GoalsTable** | id, name, targetAmount, savedAmount, deadline, iconKey, isCompleted, syncStatus |
@@ -275,13 +268,12 @@ Chaque feature suit le pattern `data/` → `domain/` → `presentation/` (screen
 L'app seed automatiquement des catégories système avec mots-clés pour le Smart Labeling :
 - Alimentation, Transport, Logement, Santé, Éducation, Loisirs, Shopping, Communication & Internet, Énergie, Transferts, Revenus, Restaurant & Bar, Beauté & Soins, Épargne, Autres.
 
-Chaque catégorie embarque : icône FontAwesome, couleur hex, keywords JSON pour catégorisation automatique des SMS.
+Chaque catégorie embarque : icône FontAwesome, couleur hex, keywords JSON pour catégorisation automatique.
 
 ---
 
 ## 5. Contraintes Techniques
 - **Performance** : Slivers pour listes longues, Streams Drift pour réactivité instantanée.
-- **Parsing SMS** : Regex robustes, évolutifs pour nouveaux formats opérateurs.
 - **Notifications** : Permission `POST_NOTIFICATIONS` Android 13+.
 - **Connectivité** : `connectivity_plus` pour détecter le réseau et déclencher le sync.
 - **Génération code** : `build_runner` obligatoire après modification des tables Drift ou des providers Riverpod.
@@ -304,6 +296,5 @@ Chaque catégorie embarque : icône FontAwesome, couleur hex, keywords JSON pour
 | P1 | Tests unitaires et d'intégration |
 | P1 | Support iOS |
 | P2 | Exports & rapports PDF/CSV |
-| P2 | Nouveaux opérateurs SMS (autres pays africains) |
 | P3 | Mode sombre (dark theme) |
 | P3 | Widget Android (solde rapide) |

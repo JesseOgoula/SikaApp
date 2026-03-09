@@ -164,13 +164,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       await settings.setLastBudgetCheckMonth(currentMonthKey);
 
       if (respected > 0) {
-        debugPrint(
-          '🎯 [XP] $respected budget(s) respecté(s) le mois dernier → +${respected * 25} XP',
-        );
       }
     } catch (e) {
-      debugPrint('⚠️ [XP] Erreur vérification budgets: $e');
-    }
+    /* ignore */ }
   }
 
   @override
@@ -1126,7 +1122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Importez vos SMS pour commencer.',
+            'Ajoutez une transaction pour commencer.',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
           ),
         ],

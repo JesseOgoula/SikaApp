@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/core/services/notification_preferences.dart';
 import 'package:sika_app/core/services/auto_sync_service.dart';
@@ -59,21 +60,15 @@ void main() async {
 
   // Note: PowerSync désactivé - utilise AutoSyncService à la place
   // pour synchroniser directement avec Supabase
-  debugPrint('🔄 [MAIN] PowerSync disabled - using AutoSyncService instead');
-
   // 6. Initialise la base de données Drift (locale)
   late final AppDatabase database;
   try {
-    debugPrint('⏳ [MAIN] Initializing AppDatabase...');
     database = AppDatabase();
-    debugPrint('✅ [MAIN] AppDatabase instance created');
-
     // Force sync de toutes les catégories existantes (une seule fois au démarrage)
     await database.customUpdate(
       'UPDATE categories SET sync_status = 0 WHERE sync_status = 1',
       updates: {database.categoriesTable},
     );
-    debugPrint('🔄 [MAIN] Categories marked for sync');
   } catch (e) {
     SikaLogger.error('CRITICAL ERROR IN DATABASE INIT: $e', tag: 'MAIN');
     return; // Impossible de continuer sans base de données
@@ -81,31 +76,35 @@ void main() async {
 
   // Initialise AutoSyncService pour la synchronisation automatique
   try {
-    debugPrint('🔄 [MAIN] Initializing AutoSyncService...');
     autoSyncService = AutoSyncService(database);
     autoSyncService!.startListening();
-    debugPrint('✅ [MAIN] AutoSyncService started');
   } catch (e) {
-    debugPrint('❌ [MAIN] Error initializing AutoSyncService: $e');
+    /* ignore */
   }
 
   // Init Notification Services
   try {
-    debugPrint('📱 [MAIN] Initializing NotificationPreferences...');
     await NotificationPreferences().init();
-    debugPrint('📱 [MAIN] Initializing NotificationService...');
     await NotificationService().init();
     await NotificationService().requestPermissions();
     await NotificationService().scheduleWeeklySummary();
-    debugPrint('✅ [MAIN] NotificationService initialized');
   } catch (e) {
-    debugPrint('❌ [MAIN] Error initializing NotificationService: $e');
+    /* ignore */
   }
 
-  runApp(
-    ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(database)],
-      child: const SikaApp(),
+  await SentryFlutter.init(
+    (options) {
+      options.dsn =
+          'https://0e879dedaea1a1698e26073922c6957e@o4511013665964032.ingest.de.sentry.io/4511013669306448';
+      // Set tracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
+      // We recommend adjusting this value in production.
+      options.tracesSampleRate = 1.0;
+    },
+    appRunner: () => runApp(
+      ProviderScope(
+        overrides: [databaseProvider.overrideWithValue(database)],
+        child: const SikaApp(),
+      ),
     ),
   );
 }

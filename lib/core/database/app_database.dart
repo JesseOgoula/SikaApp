@@ -73,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   /// Migrations de la base de données
   ///
@@ -106,16 +106,19 @@ class AppDatabase extends _$AppDatabase {
           try {
             await m.createTable(debtsTable);
           } catch (e) {
-            print('Erreur migration v5 (DebtsTable): $e');
-          }
+          /* ignore */ }
         }
         if (from < 7) {
           // Ajout de la table BudgetsTable
           try {
             await m.createTable(budgetsTable);
           } catch (e) {
-            print('Erreur migration v7 (BudgetsTable): $e');
-          }
+          /* ignore */ }
+        }
+        if (from < 8) {
+          // v8: Colonnes smsSender et smsRawContent supprimées du schema Drift.
+          // Les colonnes restent dans SQLite (pas de DROP COLUMN) mais sont
+          // simplement ignorées par Drift. Aucune action requise.
         }
       },
       // Exécuté à chaque ouverture de la base

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
@@ -33,19 +32,12 @@ class AutoSyncService {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
       _onConnectivityChanged,
     );
-    debugPrint('🔄 [AutoSync] Started listening for connectivity changes');
-
     // Timer périodique
     _periodicTimer = Timer.periodic(_syncInterval, (_) {
       if (_hasInternet) {
-        debugPrint('⏱️ [AutoSync] Periodic sync triggered');
         _checkAndSync();
       }
     });
-    debugPrint(
-      '⏱️ [AutoSync] Periodic timer started (${_syncInterval.inMinutes} min)',
-    );
-
     // Sync initiale
     _checkAndSync();
   }
@@ -56,7 +48,6 @@ class AutoSyncService {
     _connectivitySubscription = null;
     _periodicTimer?.cancel();
     _periodicTimer = null;
-    debugPrint('🔄 [AutoSync] Stopped listening');
   }
 
   /// Appelé quand la connectivité change
@@ -69,10 +60,8 @@ class AutoSyncService {
     );
 
     if (_hasInternet) {
-      debugPrint('🌐 [AutoSync] Internet available - triggering sync');
       _checkAndSync();
     } else {
-      debugPrint('📴 [AutoSync] No internet - sync paused');
     }
   }
 
@@ -82,21 +71,18 @@ class AutoSyncService {
   Future<void> forceSync() async {
     // Petit délai pour laisser la transaction DB se terminer
     await Future.delayed(const Duration(milliseconds: 500));
-    debugPrint('🔄 [AutoSync] Force sync requested');
     await _checkAndSync();
   }
 
   /// Vérifie la connectivité et lance la sync
   Future<void> _checkAndSync() async {
     if (_isSyncing) {
-      debugPrint('🔄 [AutoSync] Already syncing, skipping');
       return;
     }
 
     // Vérifie que l'utilisateur est connecté
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      debugPrint('👤 [AutoSync] No user logged in - skipping sync');
       return;
     }
 
@@ -110,9 +96,6 @@ class AutoSyncService {
       await _syncGoals(user.id);
       await _syncBudgets(user.id);
 
-      debugPrint('✅ [AutoSync] Sync complete');
-    } catch (e) {
-      debugPrint('❌ [AutoSync] Sync error: $e');
     } finally {
       _isSyncing = false;
     }
@@ -127,8 +110,6 @@ class AutoSyncService {
     )..where((c) => c.syncStatus.equals(0))).get();
 
     if (pending.isEmpty) return;
-
-    debugPrint('📤 [Categories] Syncing ${pending.length} categories...');
 
     for (final category in pending) {
       try {
@@ -152,10 +133,8 @@ class AutoSyncService {
               ..where((c) => c.id.equals(category.id)))
             .write(const CategoriesTableCompanion(syncStatus: Value(1)));
 
-        debugPrint('✅ [Categories] Synced ${category.name}');
       } catch (e) {
-        debugPrint('❌ [Categories] Failed to sync ${category.name}: $e');
-      }
+      /* ignore */ }
     }
   }
 
@@ -167,8 +146,6 @@ class AutoSyncService {
 
     if (pending.isEmpty) return;
 
-    debugPrint('📤 [Transactions] Syncing ${pending.length} transactions...');
-
     for (final tx in pending) {
       try {
         await _supabase.from('transactions').upsert({
@@ -178,8 +155,6 @@ class AutoSyncService {
           'type': tx.type,
           'merchant_name': tx.merchantName,
           'date': tx.date.toIso8601String(),
-          'sms_sender': tx.smsSender,
-          'sms_raw_content': tx.smsRawContent,
           'external_id': tx.externalId,
           'is_ai_categorized': tx.isAiCategorized ? 1 : 0,
           'sync_status': 1,
@@ -192,10 +167,8 @@ class AutoSyncService {
               ..where((t) => t.id.equals(tx.id)))
             .write(const TransactionsTableCompanion(syncStatus: Value(1)));
 
-        debugPrint('✅ [Transactions] Synced ${tx.id}');
       } catch (e) {
-        debugPrint('❌ [Transactions] Failed to sync ${tx.id}: $e');
-      }
+      /* ignore */ }
     }
   }
 
@@ -204,8 +177,6 @@ class AutoSyncService {
     final allAccounts = await _db.select(_db.accountsTable).get();
 
     if (allAccounts.isEmpty) return;
-
-    debugPrint('📤 [Accounts] Syncing ${allAccounts.length} accounts...');
 
     for (final account in allAccounts) {
       try {
@@ -230,10 +201,8 @@ class AutoSyncService {
               ..where((a) => a.id.equals(account.id)))
             .write(const AccountsTableCompanion(syncStatus: Value(1)));
 
-        debugPrint('✅ [Accounts] Synced ${account.name}');
       } catch (e) {
-        debugPrint('❌ [Accounts] Failed to sync ${account.name}: $e');
-      }
+      /* ignore */ }
     }
   }
 
@@ -244,8 +213,6 @@ class AutoSyncService {
     )..where((d) => d.syncStatus.equals(0))).get();
 
     if (pending.isEmpty) return;
-
-    debugPrint('📤 [Debts] Syncing ${pending.length} debts...');
 
     for (final debt in pending) {
       try {
@@ -270,10 +237,8 @@ class AutoSyncService {
         await (_db.update(_db.debtsTable)..where((d) => d.id.equals(debt.id)))
             .write(const DebtsTableCompanion(syncStatus: Value(1)));
 
-        debugPrint('✅ [Debts] Synced ${debt.name}');
       } catch (e) {
-        debugPrint('❌ [Debts] Failed to sync ${debt.name}: $e');
-      }
+      /* ignore */ }
     }
   }
 
@@ -283,8 +248,6 @@ class AutoSyncService {
     final goals = await _db.select(_db.goalsTable).get();
 
     if (goals.isEmpty) return;
-
-    debugPrint('📤 [Goals] Syncing ${goals.length} goals...');
 
     for (final goal in goals) {
       try {
@@ -301,10 +264,8 @@ class AutoSyncService {
           'updated_at': DateTime.now().toIso8601String(),
         });
 
-        debugPrint('✅ [Goals] Synced ${goal.name}');
       } catch (e) {
-        debugPrint('❌ [Goals] Failed to sync ${goal.name}: $e');
-      }
+      /* ignore */ }
     }
   }
 
@@ -315,8 +276,6 @@ class AutoSyncService {
     )..where((b) => b.syncStatus.equals(0))).get();
 
     if (pending.isEmpty) return;
-
-    debugPrint('📤 [Budgets] Syncing ${pending.length} budgets...');
 
     for (final budget in pending) {
       try {
@@ -340,10 +299,8 @@ class AutoSyncService {
               ..where((b) => b.id.equals(budget.id)))
             .write(const BudgetsTableCompanion(syncStatus: Value(1)));
 
-        debugPrint('✅ [Budgets] Synced ${budget.categoryName}');
       } catch (e) {
-        debugPrint('❌ [Budgets] Failed to sync ${budget.categoryName}: $e');
-      }
+      /* ignore */ }
     }
   }
 
@@ -356,13 +313,8 @@ class AutoSyncService {
   Future<bool> restoreFromCloud() async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      debugPrint('👤 [Restore] No user logged in - skipping');
       return false;
     }
-
-    debugPrint(
-      '📥 [Restore] Starting full cloud restoration for ${user.id}...',
-    );
 
     try {
       await _restoreCategories(user.id);
@@ -373,10 +325,8 @@ class AutoSyncService {
       await _restoreBudgets(user.id);
       await _restoreXP(user.id);
 
-      debugPrint('✅ [Restore] Full cloud restoration complete!');
       return true;
     } catch (e) {
-      debugPrint('❌ [Restore] Restoration failed: $e');
       return false;
     }
   }
@@ -390,7 +340,6 @@ class AutoSyncService {
           .eq('user_id', userId);
 
       if (data.isEmpty) {
-        debugPrint('📥 [Restore] No categories to restore');
         return;
       }
 
@@ -412,10 +361,8 @@ class AutoSyncService {
               ),
             );
       }
-      debugPrint('✅ [Restore] Restored ${data.length} categories');
     } catch (e) {
-      debugPrint('❌ [Restore] Categories restoration failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Restaure les comptes depuis Supabase
@@ -427,7 +374,6 @@ class AutoSyncService {
           .eq('user_id', userId);
 
       if (data.isEmpty) {
-        debugPrint('📥 [Restore] No accounts to restore');
         return;
       }
 
@@ -450,10 +396,8 @@ class AutoSyncService {
               ),
             );
       }
-      debugPrint('✅ [Restore] Restored ${data.length} accounts');
     } catch (e) {
-      debugPrint('❌ [Restore] Accounts restoration failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Restaure les transactions depuis Supabase
@@ -465,7 +409,6 @@ class AutoSyncService {
           .eq('user_id', userId);
 
       if (data.isEmpty) {
-        debugPrint('📥 [Restore] No transactions to restore');
         return;
       }
 
@@ -479,8 +422,6 @@ class AutoSyncService {
                 type: row['type'] as String,
                 merchantName: Value(row['merchant_name'] as String?),
                 date: DateTime.parse(row['date'] as String),
-                smsSender: Value(row['sms_sender'] as String?),
-                smsRawContent: Value(row['sms_raw_content'] as String?),
                 externalId: Value(row['external_id'] as String?),
                 categoryId: Value(row['category_id'] as String?),
                 accountId: Value(row['account_id'] as String?),
@@ -494,10 +435,8 @@ class AutoSyncService {
               ),
             );
       }
-      debugPrint('✅ [Restore] Restored ${data.length} transactions');
     } catch (e) {
-      debugPrint('❌ [Restore] Transactions restoration failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Restaure les objectifs depuis Supabase
@@ -506,7 +445,6 @@ class AutoSyncService {
       final data = await _supabase.from('goals').select().eq('user_id', userId);
 
       if (data.isEmpty) {
-        debugPrint('📥 [Restore] No goals to restore');
         return;
       }
 
@@ -531,10 +469,8 @@ class AutoSyncService {
               ),
             );
       }
-      debugPrint('✅ [Restore] Restored ${data.length} goals');
     } catch (e) {
-      debugPrint('❌ [Restore] Goals restoration failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Restaure les dettes depuis Supabase
@@ -543,7 +479,6 @@ class AutoSyncService {
       final data = await _supabase.from('debts').select().eq('user_id', userId);
 
       if (data.isEmpty) {
-        debugPrint('📥 [Restore] No debts to restore');
         return;
       }
 
@@ -570,10 +505,8 @@ class AutoSyncService {
               ),
             );
       }
-      debugPrint('✅ [Restore] Restored ${data.length} debts');
     } catch (e) {
-      debugPrint('❌ [Restore] Debts restoration failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Restaure les budgets depuis Supabase
@@ -585,7 +518,6 @@ class AutoSyncService {
           .eq('user_id', userId);
 
       if (data.isEmpty) {
-        debugPrint('📥 [Restore] No budgets to restore');
         return;
       }
 
@@ -613,10 +545,8 @@ class AutoSyncService {
               ),
             );
       }
-      debugPrint('✅ [Restore] Restored ${data.length} budgets');
     } catch (e) {
-      debugPrint('❌ [Restore] Budgets restoration failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Restaure les XP depuis la table user_ranks de Supabase
@@ -629,7 +559,6 @@ class AutoSyncService {
           .maybeSingle();
 
       if (data == null) {
-        debugPrint('📥 [Restore] No XP data to restore');
         return;
       }
 
@@ -638,9 +567,7 @@ class AutoSyncService {
       await settings.init();
       await settings.setTotalXP(totalXP);
 
-      debugPrint('✅ [Restore] Restored XP: $totalXP');
     } catch (e) {
-      debugPrint('❌ [Restore] XP restoration failed: $e');
-    }
+    /* ignore */ }
   }
 }

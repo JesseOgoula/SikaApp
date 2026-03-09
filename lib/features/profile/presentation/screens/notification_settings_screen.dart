@@ -68,8 +68,7 @@ class _NotificationSettingsScreenState
         }
       }
     } catch (e) {
-      debugPrint('⚠️ [NotifSettings] Reschedule error: $e');
-    }
+    /* ignore */ }
   }
 
   @override

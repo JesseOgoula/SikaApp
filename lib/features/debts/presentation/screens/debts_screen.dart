@@ -78,7 +78,6 @@ class _DebtsList extends ConsumerWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  print('🔔 Debt tapped: ${debt.name}, isPaid: $isPaid');
                   if (isPaid) return;
                   _showPaymentDialog(context, ref, debt);
                 },

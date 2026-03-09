@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter/foundation.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/main.dart' show databaseProvider;
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
@@ -161,8 +160,6 @@ class AccountRepository {
 
       if (response.isEmpty) return false;
 
-      debugPrint('☁️ [Accounts] Found ${response.length} accounts on Supabase');
-
       // Insérer/mettre à jour dans Drift local
       for (final row in response) {
         await _db
@@ -183,10 +180,8 @@ class AccountRepository {
             );
       }
 
-      debugPrint('✅ [Accounts] Synced ${response.length} accounts from cloud');
       return true;
     } catch (e) {
-      debugPrint('❌ [Accounts] Error fetching from Supabase: $e');
       return false;
     }
   }
@@ -232,7 +227,6 @@ class AccountRepository {
   }) async {
     // Guard : un seul compte par nom/catégorie
     if (await hasAccountOfName(name)) {
-      debugPrint('⚠️ [Accounts] Account "$name" already exists, skipping');
       return false;
     }
 

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
@@ -36,12 +35,8 @@ class RankService {
         'avatar_url': avatarUrl,
         'updated_at': DateTime.now().toIso8601String(),
       });
-      debugPrint(
-        '🏆 [Rank] Synced: Level ${rank.level} (${rank.name}) — $totalXP XP',
-      );
     } catch (e) {
-      debugPrint('❌ [Rank] Sync failed: $e');
-    }
+    /* ignore */ }
   }
 
   /// Récupère le classement (top 50) trié par XP décroissant
@@ -64,7 +59,6 @@ class RankService {
           )
           .toList();
     } catch (e) {
-      debugPrint('❌ [Rank] Leaderboard fetch failed: $e');
       return [];
     }
   }
@@ -105,7 +99,6 @@ class RankService {
 
       return LeaderboardEntry.fromMap(data, position > 0 ? position : 999);
     } catch (e) {
-      debugPrint('❌ [Rank] Current user rank fetch failed: $e');
       return null;
     }
   }

@@ -399,7 +399,7 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                 );
               }
               return DropdownButtonFormField<String>(
-                value: _selectedAccountId,
+                initialValue: _selectedAccountId,
                 decoration: InputDecoration(
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,

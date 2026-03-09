@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +6,7 @@ import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart' show autoSyncService, databaseProvider;
+import 'package:sika_app/core/services/analytics_service.dart';
 
 /// Provider pour le AuthRepository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -46,17 +46,12 @@ class AuthRepository {
   /// 3. Envoie les tokens à Supabase
   Future<AuthResponse> signInWithGoogle() async {
     try {
-      debugPrint('🔐 [Auth] Starting Google Sign-In...');
-
       // 1. Déclenche le flow Google Sign-In
       final googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
-        debugPrint('❌ [Auth] Google Sign-In cancelled by user');
         throw Exception('Connexion Google annulée par l\'utilisateur');
       }
-
-      debugPrint('✅ [Auth] Google account selected: ${googleUser.email}');
 
       // 2. Récupère les tokens d'authentification
       final googleAuth = await googleUser.authentication;
@@ -64,41 +59,39 @@ class AuthRepository {
       final idToken = googleAuth.idToken;
       final accessToken = googleAuth.accessToken;
 
-      debugPrint('🔑 [Auth] idToken: ${idToken?.substring(0, 20)}...');
-      debugPrint('🔑 [Auth] accessToken: ${accessToken != null}');
-
       if (idToken == null) {
-        debugPrint('❌ [Auth] idToken is null!');
         throw Exception(
           'Impossible de récupérer le token Google. Vérifiez la configuration.',
         );
       }
 
       // 3. Authentifie avec Supabase en utilisant les tokens Google
-      debugPrint('☁️ [Auth] Calling Supabase signInWithIdToken...');
-
       final response = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
 
-      debugPrint('✅ [Auth] Supabase response: user=${response.user?.email}');
-
       // 4. Démarre la synchronisation après connexion
       try {
         autoSyncService?.startListening();
-        debugPrint('✅ [Auth] AutoSync started');
       } catch (e) {
-        debugPrint('⚠️ [Auth] AutoSync start error (non-blocking): $e');
+        /* ignore */
+      }
+
+      // 5. Tracking PostHog : auth_completed + identify
+      await AnalyticsService.logEvent('auth_completed');
+      if (response.user != null) {
+        await AnalyticsService.identifyUser(
+          response.user!.id,
+          email: response.user!.email,
+        );
       }
 
       return response;
     } on AuthException catch (e) {
-      debugPrint('❌ [Auth] Supabase AuthException: ${e.message}');
       throw Exception('Erreur Supabase: ${e.message}');
     } catch (e) {
-      debugPrint('❌ [Auth] Error: $e');
       throw Exception('Erreur de connexion: $e');
     }
   }
@@ -109,9 +102,8 @@ class AuthRepository {
       // 1. Arrête AutoSync
       try {
         autoSyncService?.stopListening();
-        debugPrint('✅ [Auth] AutoSync stopped');
       } catch (e) {
-        debugPrint('⚠️ [Auth] AutoSync stop error: $e');
+        /* ignore */
       }
 
       // 2. Déconnecte Google
@@ -120,9 +112,9 @@ class AuthRepository {
       // 3. Déconnecte Supabase
       await _supabase.auth.signOut();
 
-      debugPrint('✅ [Auth] Signed out successfully');
+      // 4. Reset analytics
+      await AnalyticsService.reset();
     } catch (e) {
-      debugPrint('❌ [Auth] Sign-out error: $e');
       throw Exception('Erreur de déconnexion: $e');
     }
   }
@@ -131,9 +123,7 @@ class AuthRepository {
   Future<void> clearLocalData() async {
     try {
       autoSyncService?.stopListening();
-      debugPrint('✅ [Auth] Local data cleared (AutoSync stopped)');
     } catch (e) {
-      debugPrint('❌ [Auth] Clear local data error: $e');
       throw Exception('Erreur lors de l\'effacement des données: $e');
     }
   }
@@ -144,17 +134,9 @@ class AuthRepository {
   Future<void> _clearLocalDatabase({bool keepSystemCategories = true}) async {
     try {
       final txDeleted = await (_db.delete(_db.transactionsTable)).go();
-      debugPrint('✅ [Auth] Local transactions deleted: $txDeleted rows');
-
       final goalsDeleted = await (_db.delete(_db.goalsTable)).go();
-      debugPrint('✅ [Auth] Local goals deleted: $goalsDeleted rows');
-
       final debtsDeleted = await (_db.delete(_db.debtsTable)).go();
-      debugPrint('✅ [Auth] Local debts deleted: $debtsDeleted rows');
-
       final accDeleted = await (_db.delete(_db.accountsTable)).go();
-      debugPrint('✅ [Auth] Local accounts deleted: $accDeleted rows');
-
       if (keepSystemCategories) {
         // Effacer les budgets sur les catégories système (reset budgetLimit)
         await _db.customStatement('UPDATE categories SET budget_limit = NULL');
@@ -162,14 +144,11 @@ class AuthRepository {
         final catDeleted = await (_db.delete(
           _db.categoriesTable,
         )..where((c) => c.isSystem.equals(false))).go();
-        debugPrint('✅ [Auth] Custom categories deleted: $catDeleted rows');
-        debugPrint('✅ [Auth] Budget limits reset on system categories');
       } else {
         final catDeleted = await (_db.delete(_db.categoriesTable)).go();
-        debugPrint('✅ [Auth] ALL categories deleted: $catDeleted rows');
       }
     } catch (e) {
-      debugPrint('⚠️ [Auth] Local Drift deletion error: $e');
+      /* ignore */
     }
   }
 
@@ -186,14 +165,12 @@ class AuthRepository {
         await settings.setDailyStreak(0);
         await settings.setLastLoginDate(DateTime(2000)); // Reset
         await settings.setLastBudgetCheckMonth('');
-        debugPrint('✅ [Auth] XP/Streak/Rank reset (preferences kept)');
       } else {
         // Tout effacer
         await settings.resetAll();
-        debugPrint('✅ [Auth] All SharedPreferences cleared');
       }
     } catch (e) {
-      debugPrint('⚠️ [Auth] Settings reset error: $e');
+      /* ignore */
     }
   }
 
@@ -202,9 +179,8 @@ class AuthRepository {
     try {
       final notifService = NotificationService();
       await notifService.cancelAll();
-      debugPrint('✅ [Auth] All scheduled notifications cancelled');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Notification cancel error: $e');
+      /* ignore */
     }
   }
 
@@ -213,49 +189,43 @@ class AuthRepository {
     // Transactions
     try {
       await _supabase.from('transactions').delete().eq('user_id', userId);
-      debugPrint('✅ [Auth] Cloud transactions deleted');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Cloud transactions delete error: $e');
+      /* ignore */
     }
 
     // Goals
     try {
       await _supabase.from('goals').delete().eq('user_id', userId);
-      debugPrint('✅ [Auth] Cloud goals deleted');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Cloud goals delete error: $e');
+      /* ignore */
     }
 
     // Categories
     try {
       await _supabase.from('categories').delete().eq('user_id', userId);
-      debugPrint('✅ [Auth] Cloud categories deleted');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Cloud categories delete error: $e');
+      /* ignore */
     }
 
     // Accounts
     try {
       await _supabase.from('accounts').delete().eq('user_id', userId);
-      debugPrint('✅ [Auth] Cloud accounts deleted');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Cloud accounts delete error: $e');
+      /* ignore */
     }
 
     // Debts & Bills
     try {
       await _supabase.from('debts').delete().eq('user_id', userId);
-      debugPrint('✅ [Auth] Cloud debts deleted');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Cloud debts delete error: $e');
+      /* ignore */
     }
 
     // User Ranks (XP / Leaderboard)
     try {
       await _supabase.from('user_ranks').delete().eq('user_id', userId);
-      debugPrint('✅ [Auth] Cloud user_ranks deleted');
     } catch (e) {
-      debugPrint('⚠️ [Auth] Cloud user_ranks delete error: $e');
+      /* ignore */
     }
   }
 
@@ -271,28 +241,21 @@ class AuthRepository {
         throw Exception('Aucun utilisateur connecté');
       }
 
-      debugPrint('🗑️ [Auth] === EFFACEMENT COMPLET DES DONNÉES ===');
-      debugPrint('🗑️ [Auth] User: $userId');
-
       // 1. Arrête AutoSync avant toute modification
       try {
         autoSyncService?.stopListening();
-        debugPrint('✅ [Auth] AutoSync stopped');
       } catch (e) {
-        debugPrint('⚠️ [Auth] AutoSync stop error: $e');
+        /* ignore */
       }
 
       // 2. Supprime les données CLOUD en premier (si réseau échoue, on ne perd rien localement)
-      debugPrint('🔄 [Auth] Deleting cloud data...');
       await _deleteCloudData(userId);
 
       // 3. Efface la base locale Drift (garde les catégories système)
-      debugPrint('🔄 [Auth] Clearing local database...');
       await _clearLocalDatabase(keepSystemCategories: true);
 
       // 4. Réinitialise XP, streak, rang (SharedPreferences)
       // Garde les préférences utilisateur (auto-save, notifications, SMS)
-      debugPrint('🔄 [Auth] Resetting XP/Streak/Rank...');
       await _resetSettings(keepPreferences: true);
 
       // 5. Annule toutes les notifications programmées
@@ -301,14 +264,10 @@ class AuthRepository {
       // 6. Redémarre AutoSync
       try {
         autoSyncService?.startListening();
-        debugPrint('✅ [Auth] AutoSync restarted');
       } catch (e) {
-        debugPrint('⚠️ [Auth] AutoSync restart error: $e');
+        /* ignore */
       }
-
-      debugPrint('✅ [Auth] === EFFACEMENT TERMINÉ ===');
     } catch (e) {
-      debugPrint('❌ [Auth] Delete all data error: $e');
       throw Exception('Erreur lors de la suppression des données: $e');
     }
   }
@@ -330,37 +289,27 @@ class AuthRepository {
         throw Exception('Aucun utilisateur connecté');
       }
 
-      debugPrint('🗑️ [Auth] === SUPPRESSION DU COMPTE ===');
-      debugPrint('🗑️ [Auth] User: $userId');
-
       // 1. Arrête AutoSync
       try {
         autoSyncService?.stopListening();
-        debugPrint('✅ [Auth] AutoSync stopped');
       } catch (e) {
-        debugPrint('⚠️ [Auth] AutoSync error: $e');
+        /* ignore */
       }
 
       // 2. Supprime les données cloud AVANT le local
-      debugPrint('🔄 [Auth] Deleting ALL cloud data...');
       await _deleteCloudData(userId);
 
       // 3. Tente de supprimer l'utilisateur Supabase via RPC
-      debugPrint('🔄 [Auth] Calling delete_user_account RPC...');
       try {
         final response = await _supabase.rpc('delete_user_account');
-        debugPrint('✅ [Auth] RPC response: $response');
       } catch (e) {
-        debugPrint('⚠️ [Auth] RPC call error (non-blocking): $e');
         // Pas grave si RPC échoue — les données cloud sont déjà supprimées
       }
 
       // 4. Efface TOUTE la base locale (y compris catégories système)
-      debugPrint('🔄 [Auth] Clearing entire local database...');
       await _clearLocalDatabase(keepSystemCategories: false);
 
       // 5. Efface TOUS les SharedPreferences (XP, préférences, tout)
-      debugPrint('🔄 [Auth] Clearing all SharedPreferences...');
       await _resetSettings(keepPreferences: false);
 
       // 6. Annule toutes les notifications
@@ -368,15 +317,9 @@ class AuthRepository {
 
       // 7. Déconnecte Google
       await _googleSignIn.signOut();
-      debugPrint('✅ [Auth] Google signed out');
-
       // 8. Déconnecte Supabase
       await _supabase.auth.signOut();
-      debugPrint('✅ [Auth] Supabase signed out');
-
-      debugPrint('✅ [Auth] === COMPTE SUPPRIMÉ ===');
     } catch (e) {
-      debugPrint('❌ [Auth] Delete account error: $e');
       throw Exception('Erreur lors de la suppression du compte: $e');
     }
   }

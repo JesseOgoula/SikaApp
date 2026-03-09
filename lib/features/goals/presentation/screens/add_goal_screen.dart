@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
+import 'package:sika_app/core/services/analytics_service.dart';
 
 /// Écran d'ajout d'un objectif d'épargne avec claviers en bas
 class AddGoalScreen extends ConsumerStatefulWidget {
@@ -641,6 +642,8 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
         iconKey: _selectedIconKey,
         deadline: _selectedDeadline,
       );
+
+      await AnalyticsService.logEvent('goal_created');
 
       if (mounted) {
         Navigator.pop(context, true);

@@ -55,7 +55,6 @@ class NotificationService {
     await _notificationsPlugin.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (details) async {
-        debugPrint('📱 [Notification] Tapped: ${details.payload}');
       },
     );
 
@@ -118,7 +117,6 @@ class NotificationService {
     }
 
     _isInitialized = true;
-    debugPrint('✅ [Notifications] Service initialized with all channels');
   }
 
   // ==================== DEBT REMINDERS ====================
@@ -174,9 +172,6 @@ class NotificationService {
       );
     }
 
-    debugPrint(
-      '✅ [Notifications] Scheduled debt reminders for $title (days: $reminderDays, hour: $reminderHour)',
-    );
   }
 
   /// Cancel all reminders for a specific debt
@@ -222,7 +217,6 @@ class NotificationService {
       ),
     );
 
-    debugPrint('⚠️ [Notifications] Low balance alert shown');
   }
 
   // ==================== GOAL REMINDERS ====================
@@ -265,9 +259,6 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
 
-    debugPrint(
-      '✅ [Notifications] Weekly reminder scheduled for $goalName (day: $goalDay, hour: $goalHour)',
-    );
   }
 
   /// Cancel goal reminder
@@ -305,7 +296,6 @@ class NotificationService {
       ),
     );
 
-    debugPrint('🎉 [Notifications] Goal completed: $goalName');
   }
 
   // ==================== WEEKLY SUMMARY ====================
@@ -341,9 +331,6 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
 
-    debugPrint(
-      '✅ [Notifications] Weekly summary scheduled (day: $summaryDay, hour: $summaryHour)',
-    );
   }
 
   /// Show weekly summary with actual data
@@ -486,8 +473,5 @@ class NotificationService {
       payload: 'budget_exceeded:$categoryName',
     );
 
-    debugPrint(
-      '🔔 [Budget] Notification: $categoryName dépassé de $exceeded F',
-    );
   }
 }
