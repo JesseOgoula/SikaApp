@@ -18,7 +18,11 @@ import 'package:sika_app/features/auth/presentation/providers/auth_controller.da
 import 'package:sika_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:sika_app/core/widgets/privacy_shield.dart';
 import 'package:sika_app/core/services/security_service.dart';
+import 'package:sika_app/core/services/app_lock_service.dart';
+import 'package:sika_app/core/services/analytics_service.dart';
 import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
+import 'package:sika_app/features/auth/presentation/screens/setup_security_screen.dart';
+import 'package:sika_app/features/auth/presentation/screens/app_lock_screen.dart';
 
 /// Instance globale d'AutoSyncService
 AutoSyncService? autoSyncService;
@@ -92,6 +96,13 @@ void main() async {
     /* ignore */
   }
 
+  // Init PostHog Analytics (clé chargée depuis .env, plus dans les manifests natifs)
+  try {
+    await AnalyticsService.init();
+  } catch (e) {
+    /* ignore */
+  }
+
   await SentryFlutter.init(
     (options) {
       options.dsn =
@@ -152,7 +163,11 @@ class _AuthGateState extends ConsumerState<_AuthGate>
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
   bool _isDeviceSecure = true;
-  bool _isAuthenticated = false;
+  bool _isLocallyAuthenticated = false;
+  bool _securitySetupDone = false;
+  bool _securityChecked = false;
+
+  final _appLock = AppLockService();
 
   @override
   void initState() {
@@ -197,14 +212,45 @@ class _AuthGateState extends ConsumerState<_AuthGate>
 
     if (!isSecure) return;
 
+    // Vérifie si le setup sécurité a été fait
+    final setupDone = await _appLock.isSecuritySetupDone();
+    final lockEnabled = await _appLock.isLockEnabled();
+
+    if (!mounted) return;
+    setState(() {
+      _securitySetupDone = setupDone;
+      _securityChecked = true;
+    });
+
     final authState = ref.read(authControllerProvider);
-    if (authState.status == AuthStatus.authenticated) {
-      final authenticated = await security.authenticate();
-      if (mounted) setState(() => _isAuthenticated = authenticated);
+    if (authState.status == AuthStatus.authenticated && lockEnabled) {
+      // Ne pas marquer comme authentifié — le lock screen s'affichera
+      setState(() => _isLocallyAuthenticated = false);
     } else {
-      // Si pas encore connecté, pas besoin de bio maintenant
-      setState(() => _isAuthenticated = true);
+      setState(() => _isLocallyAuthenticated = true);
     }
+  }
+
+  void _onSecuritySetupComplete() {
+    setState(() {
+      _securitySetupDone = true;
+      _isLocallyAuthenticated = true;
+    });
+  }
+
+  void _onUnlocked() {
+    setState(() => _isLocallyAuthenticated = true);
+  }
+
+  Future<void> _onForgotPin() async {
+    // Réinitialise la sécurité et déconnecte
+    await _appLock.clearSecurity();
+    if (!mounted) return;
+    ref.read(authControllerProvider.notifier).logout();
+    setState(() {
+      _securitySetupDone = false;
+      _isLocallyAuthenticated = true;
+    });
   }
 
   @override
@@ -248,7 +294,7 @@ class _AuthGateState extends ConsumerState<_AuthGate>
       );
     }
 
-    if (_showSplash || !_isAuthenticated) {
+    if (_showSplash) {
       return Scaffold(
         backgroundColor: const Color(0xFF1A237E),
         body: AnimatedBuilder(
@@ -290,6 +336,20 @@ class _AuthGateState extends ConsumerState<_AuthGate>
 
     switch (authState.status) {
       case AuthStatus.authenticated:
+        // Étape 1 : Si la config sécurité n'a pas été faite → setup obligatoire
+        if (_securityChecked && !_securitySetupDone) {
+          return SetupSecurityScreen(onComplete: _onSecuritySetupComplete);
+        }
+
+        // Étape 2 : Si pas encore déverrouillé localement → lock screen
+        if (!_isLocallyAuthenticated) {
+          return AppLockScreen(
+            onUnlocked: _onUnlocked,
+            onForgotPin: _onForgotPin,
+          );
+        }
+
+        // Étape 3 : Accès à l'app
         return const AccountSetupChecker();
 
       case AuthStatus.unauthenticated:

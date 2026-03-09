@@ -39,10 +39,8 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- PostHog Analytics -->
-        <meta-data android:name="com.posthog.posthog.API_KEY" android:value="phc_7uEZqcRFLUEUzhjjLvRkpLwQJwjXhKTSuQkO2NCC2gE" />
-        <meta-data android:name="com.posthog.posthog.POSTHOG_HOST" android:value="https://eu.i.posthog.com" />
-        <meta-data android:name="com.posthog.posthog.TRACK_APPLICATION_LIFECYCLE_EVENTS" android:value="true" />
+        <!-- PostHog Analytics — clé chargée depuis .env via Dart -->
+
     </application>
     
     <queries>

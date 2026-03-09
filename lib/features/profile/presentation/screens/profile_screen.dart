@@ -11,6 +11,7 @@ import 'package:sika_app/features/accounts/data/providers/account_providers.dart
 import 'package:sika_app/features/accounts/presentation/widgets/add_account_bottom_sheet.dart';
 import 'package:sika_app/features/budgets/presentation/screens/budgets_screen.dart';
 import 'package:sika_app/features/profile/presentation/screens/notification_settings_screen.dart';
+import 'package:sika_app/features/profile/presentation/screens/security_settings_screen.dart';
 
 /// Écran de profil avancé avec gestion Cloud
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -252,6 +253,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             MaterialPageRoute(
               builder: (_) => const NotificationSettingsScreen(),
             ),
+          ),
+        ),
+        _buildDivider(),
+        _buildActionTile(
+          icon: Icons.shield_outlined,
+          title: 'Sécurité',
+          subtitle: 'Code PIN et empreinte digitale',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SecuritySettingsScreen()),
           ),
         ),
       ],

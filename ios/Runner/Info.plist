@@ -46,11 +46,6 @@
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
-		<key>com.posthog.posthog.API_KEY</key>
-		<string>phc_7uEZqcRFLUEUzhjjLvRkpLwQJwjXhKTSuQkO2NCC2gE</string>
-		<key>com.posthog.posthog.POSTHOG_HOST</key>
-		<string>https://eu.i.posthog.com</string>
-		<key>com.posthog.posthog.TRACK_APPLICATION_LIFECYCLE_EVENTS</key>
-		<true/>
+		<!-- PostHog Analytics — clé chargée depuis .env via Dart -->
 	</dict>
 </plist>
