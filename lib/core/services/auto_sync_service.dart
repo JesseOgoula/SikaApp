@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 
 /// Service de synchronisation automatique
@@ -61,8 +62,7 @@ class AutoSyncService {
 
     if (_hasInternet) {
       _checkAndSync();
-    } else {
-    }
+    } else {}
   }
 
   /// Force une synchronisation (à appeler après une action utilisateur)
@@ -95,7 +95,6 @@ class AutoSyncService {
       await _syncDebts(user.id);
       await _syncGoals(user.id);
       await _syncBudgets(user.id);
-
     } finally {
       _isSyncing = false;
     }
@@ -132,9 +131,9 @@ class AutoSyncService {
         await (_db.update(_db.categoriesTable)
               ..where((c) => c.id.equals(category.id)))
             .write(const CategoriesTableCompanion(syncStatus: Value(1)));
-
-      } catch (e) {
-      /* ignore */ }
+      } catch (e, stackTrace) {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      }
     }
   }
 
@@ -154,11 +153,13 @@ class AutoSyncService {
           'amount': tx.amount,
           'type': tx.type,
           'merchant_name': tx.merchantName,
+          'category_id': tx.categoryId,
+          'account_id': tx.accountId,
           'date': tx.date.toIso8601String(),
           'external_id': tx.externalId,
           'is_ai_categorized': tx.isAiCategorized ? 1 : 0,
           'sync_status': 1,
-          'validation_status': 0,
+          'validation_status': tx.validationStatus,
           'created_at': tx.createdAt.toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
@@ -166,9 +167,9 @@ class AutoSyncService {
         await (_db.update(_db.transactionsTable)
               ..where((t) => t.id.equals(tx.id)))
             .write(const TransactionsTableCompanion(syncStatus: Value(1)));
-
-      } catch (e) {
-      /* ignore */ }
+      } catch (e, stackTrace) {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      }
     }
   }
 
@@ -200,9 +201,9 @@ class AutoSyncService {
         await (_db.update(_db.accountsTable)
               ..where((a) => a.id.equals(account.id)))
             .write(const AccountsTableCompanion(syncStatus: Value(1)));
-
-      } catch (e) {
-      /* ignore */ }
+      } catch (e, stackTrace) {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      }
     }
   }
 
@@ -236,9 +237,9 @@ class AutoSyncService {
 
         await (_db.update(_db.debtsTable)..where((d) => d.id.equals(debt.id)))
             .write(const DebtsTableCompanion(syncStatus: Value(1)));
-
-      } catch (e) {
-      /* ignore */ }
+      } catch (e, stackTrace) {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      }
     }
   }
 
@@ -263,9 +264,9 @@ class AutoSyncService {
           'created_at': goal.createdAt.toIso8601String(),
           'updated_at': DateTime.now().toIso8601String(),
         });
-
-      } catch (e) {
-      /* ignore */ }
+      } catch (e, stackTrace) {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      }
     }
   }
 
@@ -298,9 +299,9 @@ class AutoSyncService {
         await (_db.update(_db.budgetsTable)
               ..where((b) => b.id.equals(budget.id)))
             .write(const BudgetsTableCompanion(syncStatus: Value(1)));
-
-      } catch (e) {
-      /* ignore */ }
+      } catch (e, stackTrace) {
+        Sentry.captureException(e, stackTrace: stackTrace);
+      }
     }
   }
 
@@ -326,7 +327,8 @@ class AutoSyncService {
       await _restoreXP(user.id);
 
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
       return false;
     }
   }
@@ -354,15 +356,16 @@ class AutoSyncService {
                 color: Value(row['color'] as String? ?? '#9E9E9E'),
                 keywordsJson: Value(row['keywords_json'] as String? ?? ''),
                 parentId: Value(row['parent_id'] as String?),
-                isSystem: Value((row['is_system'] as num?)?.toInt() == 1),
+                isSystem: Value(row['is_system'] == true),
                 budgetLimit: Value((row['budget_limit'] as num?)?.toDouble()),
                 sortOrder: Value((row['sort_order'] as num?)?.toInt() ?? 0),
                 syncStatus: const Value(1),
               ),
             );
       }
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 
   /// Restaure les comptes depuis Supabase
@@ -396,8 +399,9 @@ class AutoSyncService {
               ),
             );
       }
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 
   /// Restaure les transactions depuis Supabase
@@ -425,9 +429,7 @@ class AutoSyncService {
                 externalId: Value(row['external_id'] as String?),
                 categoryId: Value(row['category_id'] as String?),
                 accountId: Value(row['account_id'] as String?),
-                isAiCategorized: Value(
-                  (row['is_ai_categorized'] as num?)?.toInt() == 1,
-                ),
+                isAiCategorized: Value(row['is_ai_categorized'] == true),
                 validationStatus: Value(
                   (row['validation_status'] as num?)?.toInt() ?? 0,
                 ),
@@ -435,8 +437,9 @@ class AutoSyncService {
               ),
             );
       }
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 
   /// Restaure les objectifs depuis Supabase
@@ -465,12 +468,13 @@ class AutoSyncService {
                       ? DateTime.parse(row['deadline'] as String)
                       : null,
                 ),
-                isCompleted: Value((row['is_completed'] as num?)?.toInt() == 1),
+                isCompleted: Value(row['is_completed'] == true),
               ),
             );
       }
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 
   /// Restaure les dettes depuis Supabase
@@ -496,7 +500,7 @@ class AutoSyncService {
                 status: Value(row['status'] as String? ?? 'pending'),
                 personName: Value(row['person_name'] as String?),
                 notes: Value(row['notes'] as String?),
-                isRecurring: Value((row['is_recurring'] as num?)?.toInt() == 1),
+                isRecurring: Value(row['is_recurring'] == true),
                 recurrenceRule: Value(row['recurrence_rule'] as String?),
                 notificationId: Value(
                   (row['notification_id'] as num?)?.toInt(),
@@ -505,8 +509,9 @@ class AutoSyncService {
               ),
             );
       }
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 
   /// Restaure les budgets depuis Supabase
@@ -545,8 +550,9 @@ class AutoSyncService {
               ),
             );
       }
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 
   /// Restaure les XP depuis la table user_ranks de Supabase
@@ -566,8 +572,8 @@ class AutoSyncService {
       final settings = SettingsService();
       await settings.init();
       await settings.setTotalXP(totalXP);
-
-    } catch (e) {
-    /* ignore */ }
+    } catch (e, stackTrace) {
+      Sentry.captureException(e, stackTrace: stackTrace);
+    }
   }
 }

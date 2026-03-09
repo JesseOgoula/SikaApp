@@ -143,7 +143,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
         );
       }
     } catch (e) {
-    /* ignore */ }
+      /* ignore */
+    }
   }
 
   @override
@@ -151,41 +152,19 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String id,
     TransactionsTableCompanion updates,
   ) async {
-    // Ajoute la date de mise à jour
+    // Ajoute la date de mise à jour et remet le syncStatus à pending
     final updatesWithTimestamp = updates.copyWith(
       updatedAt: Value(DateTime.now()),
       syncStatus: const Value(0), // Marque comme à re-synchroniser
     );
 
-    // 1. Met à jour localement
+    // Met à jour localement — AutoSyncService sync vers Supabase
     await (_db.update(
       _db.transactionsTable,
     )..where((t) => t.id.equals(id))).write(updatesWithTimestamp);
 
-    // 2. Met à jour dans Supabase
-    try {
-      final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-      if (userId != null) {
-        // Récupère la transaction mise à jour pour avoir toutes les valeurs
-        final tx = await getTransactionById(id);
-        if (tx != null) {
-          await supabase.from('transactions').upsert({
-            'id': tx.id,
-            'user_id': userId,
-            'amount': tx.amount,
-            'type': tx.type,
-            'merchant_name': tx.merchantName,
-            'date': tx.date.toIso8601String(),
-            'sync_status': 1,
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-          // Marque comme synchronisé localement
-          await markAsSynced(id);
-        }
-      }
-    } catch (e) {
-    /* ignore */ }
+    // Déclenche la sync
+    autoSyncService?.forceSync();
   }
 
   @override
@@ -208,7 +187,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<void> deleteTransaction(String id) async {
-    // 1. Supprime dans Supabase d'abord
+    // 1. Supprime localement d'abord (offline-first)
+    await (_db.delete(
+      _db.transactionsTable,
+    )..where((t) => t.id.equals(id))).go();
+
+    // 2. Supprime dans Supabase en arrière-plan
     try {
       final supabase = Supabase.instance.client;
       final userId = supabase.auth.currentUser?.id;
@@ -216,12 +200,9 @@ class TransactionRepositoryImpl implements TransactionRepository {
         await supabase.from('transactions').delete().eq('id', id);
       }
     } catch (e) {
-    /* ignore */ }
-
-    // 2. Supprime localement
-    await (_db.delete(
-      _db.transactionsTable,
-    )..where((t) => t.id.equals(id))).go();
+      // Si offline, la transaction reste sur Supabase
+      // TODO: Implémenter une file d'attente de suppressions
+    }
   }
 
   // ==================== SYNC METHODS ====================

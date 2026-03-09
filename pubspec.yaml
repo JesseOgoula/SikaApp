@@ -55,6 +55,7 @@ dependencies:
   fl_chart: ^0.69.2
   flutter_svg: ^2.0.10
   google_generative_ai: ^0.4.6
+  speech_to_text: ^7.0.0
 
   # ===== OCR / AI Receipt Scanner =====
   image_picker: ^1.1.2

@@ -8,10 +8,14 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/services/receipt_scanner_service.dart';
+import 'package:sika_app/core/services/voice_transaction_service.dart';
+import 'package:sika_app/core/services/voice_transaction_result.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/voice_transaction_button.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/voice_transaction_preview.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/services/analytics_service.dart';
 
@@ -37,6 +41,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   bool _showKeypad = false; // Clavier numérique caché par défaut
   bool _showTextPad = false; // Clavier texte caché par défaut
   final ScrollController _scrollController = ScrollController();
+
+  // === VOICE ===
+  final VoiceTransactionService _voiceService = VoiceTransactionService();
+  bool _isVoiceListening = false;
+  bool _isVoiceProcessing = false;
+  String _voicePartialText = '';
 
   @override
   void dispose() {
@@ -171,6 +181,16 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               ),
 
               const SizedBox(height: 8),
+
+              // === VOICE TRANSACTION BUTTON ===
+              VoiceTransactionButton(
+                isListening: _isVoiceListening,
+                isProcessing: _isVoiceProcessing,
+                partialText: _voicePartialText,
+                onPressed: _isVoiceListening ? _stopVoice : _startVoice,
+              ),
+
+              const SizedBox(height: 4),
 
               // === TYPE SELECTOR (FIXE) ===
               Padding(
@@ -685,6 +705,158 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                   ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ===== VOICE TRANSACTION =====
+
+  Future<void> _startVoice() async {
+    final ok = await _voiceService.initSpeech();
+    if (!ok) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Microphone non disponible. Vérifiez les permissions.',
+            ),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    _voiceService.onPartialResult = (text) {
+      if (mounted) setState(() => _voicePartialText = text);
+    };
+
+    _voiceService.onFinalResult = (text) {
+      if (mounted) {
+        setState(() {
+          _isVoiceListening = false;
+          _isVoiceProcessing = true;
+        });
+        _processVoiceText(text);
+      }
+    };
+
+    _voiceService.onListeningChanged = (listening) {
+      if (mounted && !listening && _isVoiceListening) {
+        // L'écoute s'est arrêtée automatiquement (timeout)
+        setState(() {
+          _isVoiceListening = false;
+          if (_voicePartialText.isNotEmpty) {
+            _isVoiceProcessing = true;
+            _processVoiceText(_voicePartialText);
+          }
+        });
+      }
+    };
+
+    setState(() {
+      _isVoiceListening = true;
+      _voicePartialText = '';
+    });
+
+    await _voiceService.startListening();
+  }
+
+  Future<void> _stopVoice() async {
+    await _voiceService.stopListening();
+    if (mounted) {
+      setState(() {
+        _isVoiceListening = false;
+        if (_voicePartialText.isNotEmpty) {
+          _isVoiceProcessing = true;
+          _processVoiceText(_voicePartialText);
+        }
+      });
+    }
+  }
+
+  Future<void> _processVoiceText(String text) async {
+    print('[VOICE UI] Texte à traiter: "$text"');
+    final categoriesAsync = ref.read(categoriesProvider);
+    final categories = categoriesAsync.valueOrNull ?? [];
+
+    final result = await _voiceService.parseTransaction(text, categories);
+
+    if (mounted) {
+      setState(() => _isVoiceProcessing = false);
+    }
+
+    if (result == null || !result.isValid) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Impossible de comprendre la transaction. Réessayez.',
+            ),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    _showVoicePreview(result, categories);
+  }
+
+  void _showVoicePreview(
+    VoiceTransactionResult result,
+    List<CategoriesTableData> categories,
+  ) {
+    final accountsAsync = ref.read(activeAccountsProvider);
+    final accounts = accountsAsync.valueOrNull ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => VoiceTransactionPreview(
+        result: result,
+        categories: categories,
+        accounts: accounts,
+        onConfirm: (confirmedResult, accountId) async {
+          // Crée la transaction avec les valeurs validées
+          final companion = TransactionsTableCompanion(
+            amount: Value(confirmedResult.amount),
+            type: Value(confirmedResult.type),
+            merchantName: Value(confirmedResult.merchantName),
+            categoryId: confirmedResult.categoryId != null
+                ? Value(confirmedResult.categoryId!)
+                : const Value.absent(),
+            accountId: accountId != null
+                ? Value(accountId)
+                : const Value.absent(),
+            date: Value(DateTime.now()),
+            externalId: const Value.absent(),
+            isAiCategorized: const Value(true),
+            syncStatus: const Value(0),
+            validationStatus: const Value(1),
+          );
+
+          final repo = ref.read(transactionRepositoryProvider);
+          await repo.addManualTransaction(companion);
+
+          await AnalyticsService.logEvent(
+            'transaction_added',
+            properties: {'type': confirmedResult.type, 'method': 'voice'},
+          );
+
+          if (mounted) {
+            Navigator.pop(context, true);
+          }
+        },
       ),
     );
   }

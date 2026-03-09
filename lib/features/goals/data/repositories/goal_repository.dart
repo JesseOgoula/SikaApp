@@ -76,7 +76,8 @@ class GoalRepository {
         targetAmount: targetAmount,
       );
     } catch (e) {
-    /* ignore */ }
+      /* ignore */
+    }
 
     // Sync vers Supabase
     autoSyncService?.forceSync();
@@ -114,7 +115,8 @@ class GoalRepository {
           );
           await NotificationService().cancelGoalReminder(goalId);
         } catch (e) {
-        /* ignore */ }
+          /* ignore */
+        }
 
         // Award XP for reaching goal
         XPService().awardXP(ActionType.reachGoal);
@@ -127,7 +129,8 @@ class GoalRepository {
             targetAmount: goal.targetAmount,
           );
         } catch (e) {
-        /* ignore */ }
+          /* ignore */
+        }
       }
 
       // Sync vers Supabase
@@ -148,12 +151,13 @@ class GoalRepository {
     try {
       await NotificationService().cancelGoalReminder(goalId);
     } catch (e) {
-    /* ignore */ }
+      /* ignore */
+    }
 
-    // Supprimer localement
+    // 1. Supprimer localement d'abord (offline-first)
     await (_db.delete(_db.goalsTable)..where((g) => g.id.equals(goalId))).go();
 
-    // Supprimer sur Supabase
+    // 2. Supprimer sur Supabase en arrière-plan
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
@@ -164,10 +168,9 @@ class GoalRepository {
             .eq('user_id', user.id);
       }
     } catch (e) {
-    /* ignore */ }
-
-    // Sync
-    autoSyncService?.forceSync();
+      // Si offline, le goal reste sur Supabase
+      // TODO: Implémenter une file d'attente de suppressions
+    }
   }
 
   /// Supprimer un objectif et rembourser l'argent épargné sur un compte

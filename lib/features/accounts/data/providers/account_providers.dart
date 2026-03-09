@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/main.dart' show databaseProvider;
+import 'package:sika_app/main.dart' show databaseProvider, autoSyncService;
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -249,6 +249,10 @@ class AccountRepository {
 
     // Award XP for adding account
     XPService().awardXP(ActionType.addAccount);
+
+    // Sync vers Supabase
+    autoSyncService?.forceSync();
+
     return true;
   }
 

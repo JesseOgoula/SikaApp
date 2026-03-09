@@ -506,5 +506,6 @@ class _AccountConfig {
     required this.type,
     required this.iconPath,
     required this.color,
+    this.enabled = false,
   });
 }
