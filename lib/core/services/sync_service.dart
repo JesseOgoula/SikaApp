@@ -179,7 +179,7 @@ class SyncService {
             'user_id': userId,
             'name': d.name,
             'amount': d.amount,
-            'type': d.type,
+            'type': _toSnakeCaseDebtType(d.type),
             'due_date': d.dueDate.toIso8601String(),
             'status': d.status,
             'person_name': d.personName,
@@ -196,6 +196,18 @@ class SyncService {
     await _supabase.from('debts').upsert(data, onConflict: 'id');
 
     return debts.length;
+  }
+
+  /// Convertit le type de dette camelCase en snake_case pour Supabase
+  String _toSnakeCaseDebtType(String type) {
+    switch (type) {
+      case 'debtIn':
+        return 'debt_in';
+      case 'debtOut':
+        return 'debt_out';
+      default:
+        return type;
+    }
   }
 }
 

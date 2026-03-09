@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -9,7 +9,7 @@ import 'package:sika_app/features/budgets/data/repositories/budget_repository.da
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 
-/// Écran de gestion des budgets par catégorie
+/// Ã‰cran de gestion du budget mensuel global
 class BudgetsScreen extends ConsumerStatefulWidget {
   const BudgetsScreen({super.key});
 
@@ -26,7 +26,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final budgetsAsync = ref.watch(categoryBudgetsProvider);
+    final globalBudgetAsync = ref.watch(globalBudgetProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return Scaffold(
@@ -35,7 +35,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
         backgroundColor: AppTheme.scaffoldBackground,
         elevation: 0,
         title: const Text(
-          'Budgets',
+          'Budget Mensuel',
           style: TextStyle(
             color: AppTheme.textPrimary,
             fontSize: 18,
@@ -44,12 +44,12 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
         ),
         centerTitle: true,
       ),
-      body: budgetsAsync.when(
-        data: (budgets) {
-          if (budgets.isEmpty) {
+      body: globalBudgetAsync.when(
+        data: (globalBudget) {
+          if (globalBudget == null) {
             return _buildEmptyState(categoriesAsync);
           }
-          return _buildBudgetList(budgets, categoriesAsync);
+          return _buildBudgetView(globalBudget, categoriesAsync);
         },
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor),
@@ -61,11 +61,13 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddBudgetSheet(categoriesAsync),
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: globalBudgetAsync.valueOrNull == null
+          ? FloatingActionButton(
+              onPressed: () => _showGlobalBudgetSheet(null, categoriesAsync),
+              backgroundColor: AppTheme.primaryColor,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 
@@ -83,7 +85,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Aucun budget défini',
+            'Aucun budget dÃ©fini',
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 18,
@@ -92,14 +94,15 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Définissez des limites de dépenses par catégorie',
+            'DÃ©finissez un budget mensuel global\npour contrÃ´ler vos dÃ©penses',
+            textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () => _showAddBudgetSheet(categoriesAsync),
+            onPressed: () => _showGlobalBudgetSheet(null, categoriesAsync),
             icon: const Icon(Icons.add),
-            label: const Text('Ajouter un budget'),
+            label: const Text('CrÃ©er un budget'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -114,157 +117,182 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     );
   }
 
-  Widget _buildBudgetList(
-    List<CategoryBudget> budgets,
+  Widget _buildBudgetView(
+    GlobalBudget globalBudget,
     AsyncValue<List<CategoriesTableData>> categoriesAsync,
   ) {
-    // Calculer les totaux
-    double totalBudget = budgets.fold(0, (sum, b) => sum + b.budgetLimit);
-    double totalSpent = budgets.fold(0, (sum, b) => sum + b.currentSpent);
-    int overBudgetCount = budgets.where((b) => b.isOverBudget).length;
+    final percentUsed = globalBudget.percentUsed.clamp(0.0, 100.0);
+    final isOver = globalBudget.isOverBudget;
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // Résumé global
-        _buildSummaryCard(totalBudget, totalSpent, overBudgetCount),
-        const SizedBox(height: 24),
-
-        // Liste des budgets
-        const Text(
-          'Budgets par catégorie',
-          style: TextStyle(
-            color: AppTheme.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
+        // â”€â”€â”€ Carte principale du budget global â”€â”€â”€
+        GestureDetector(
+          onTap: () => _showGlobalBudgetSheet(globalBudget, categoriesAsync),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: isOver
+                  ? LinearGradient(
+                      colors: [
+                        AppTheme.error,
+                        AppTheme.error.withOpacity(0.85),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                  : AppTheme.cardGradient,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Budget Mensuel Global',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Icon(
+                      Icons.edit_outlined,
+                      color: Colors.white.withOpacity(0.6),
+                      size: 20,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '${_currencyFormat.format(globalBudget.totalSpent)} / ${_currencyFormat.format(globalBudget.amount)} F',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: (percentUsed / 100).clamp(0.0, 1.0),
+                    backgroundColor: Colors.white.withOpacity(0.3),
+                    color: Colors.white,
+                    minHeight: 8,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${percentUsed.toStringAsFixed(0)}% utilisÃ©',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      globalBudget.remaining >= 0
+                          ? 'Reste: ${_currencyFormat.format(globalBudget.remaining)} F'
+                          : 'DÃ©passÃ© de: ${_currencyFormat.format(-globalBudget.remaining)} F',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 16),
-        ...budgets.map((budget) => _buildBudgetCard(budget, categoriesAsync)),
+
+        // â”€â”€â”€ Sous-budgets â”€â”€â”€
+        if (globalBudget.subBudgets.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const Text(
+            'RÃ©partition par catÃ©gorie',
+            style: TextStyle(
+              color: AppTheme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...globalBudget.subBudgets.map((sub) => _buildSubBudgetCard(sub)),
+        ],
+
+        // â”€â”€â”€ Info non allouÃ© â”€â”€â”€
+        if (globalBudget.unallocatedAmount > 0 &&
+            globalBudget.subBudgets.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  color: AppTheme.primaryColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Non allouÃ©: ${_currencyFormat.format(globalBudget.unallocatedAmount)} F',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildSummaryCard(
-    double totalBudget,
-    double totalSpent,
-    int overBudgetCount,
-  ) {
-    final percentUsed = totalBudget > 0 ? (totalSpent / totalBudget) : 0.0;
-    final isOver = totalSpent > totalBudget;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: isOver
-            ? LinearGradient(
-                colors: [AppTheme.error, AppTheme.error.withOpacity(0.85)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : AppTheme.cardGradient,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Budget Mensuel',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (overBudgetCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$overBudgetCount dépassé(s)',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${_currencyFormat.format(totalSpent)} / ${_currencyFormat.format(totalBudget)} F',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: percentUsed.clamp(0.0, 1.0),
-              backgroundColor: Colors.white.withOpacity(0.3),
-              color: Colors.white,
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${(percentUsed * 100).toStringAsFixed(0)}% utilisé',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBudgetCard(
-    CategoryBudget budget,
-    AsyncValue<List<CategoriesTableData>> categoriesAsync,
-  ) {
-    final color = _parseColor(budget.color);
-    // Use primaryColor for normal progress, error for over budget
-    final progressColor = budget.isOverBudget
+  Widget _buildSubBudgetCard(SubBudget sub) {
+    final percent = sub.percentUsed.clamp(0.0, 100.0);
+    final progressColor = sub.isOverBudget
         ? AppTheme.error
         : AppTheme.primaryColor;
-    final percent = budget.percentUsed.clamp(0.0, 100.0);
+    final iconKey = sub.category?.iconKey;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: budget.isOverBudget
-            ? Border.all(color: AppTheme.error.withOpacity(0.5), width: 2)
+        border: sub.isOverBudget
+            ? Border.all(color: AppTheme.error.withOpacity(0.4), width: 1.5)
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -273,17 +301,17 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.primaryColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: FaIcon(
-                    _getCategoryIcon(budget.iconKey),
+                    _getCategoryIcon(iconKey),
                     color: AppTheme.primaryColor,
-                    size: 18,
+                    size: 16,
                   ),
                 ),
               ),
@@ -296,14 +324,14 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          budget.categoryName,
+                          sub.categoryName,
                           style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                             color: AppTheme.textPrimary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                        if (budget.isOverBudget)
+                        if (sub.isOverBudget)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
@@ -314,10 +342,10 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
-                              'Dépassé!',
+                              'DÃ©passÃ©!',
                               style: TextStyle(
                                 color: AppTheme.error,
-                                fontSize: 10,
+                                fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -326,33 +354,28 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${_currencyFormat.format(budget.currentSpent)} / ${_currencyFormat.format(budget.budgetLimit)} F',
-                      style: const TextStyle(
+                      '${_currencyFormat.format(sub.currentSpent)} / ${_currencyFormat.format(sub.amount)} F',
+                      style: TextStyle(
+                        fontSize: 12,
                         color: AppTheme.textSecondary,
-                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: () => _showEditBudgetSheet(budget, categoriesAsync),
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                color: AppTheme.textSecondary,
-              ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(5),
             child: LinearProgressIndicator(
-              value: percent / 100,
+              value: (percent / 100).clamp(0.0, 1.0),
               backgroundColor: Colors.grey.shade100,
               color: progressColor,
-              minHeight: 8,
+              minHeight: 6,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -360,19 +383,17 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                 '${percent.toStringAsFixed(0)}%',
                 style: TextStyle(
                   color: progressColor,
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               Text(
-                budget.remaining >= 0
-                    ? 'Reste: ${_currencyFormat.format(budget.remaining)} F'
-                    : 'Dépassé de: ${_currencyFormat.format(-budget.remaining)} F',
+                sub.remaining >= 0
+                    ? 'Reste: ${_currencyFormat.format(sub.remaining)} F'
+                    : 'DÃ©passÃ© de: ${_currencyFormat.format(-sub.remaining)} F',
                 style: TextStyle(
-                  color: budget.remaining >= 0
-                      ? AppTheme.success
-                      : AppTheme.error,
-                  fontSize: 12,
+                  color: sub.remaining >= 0 ? AppTheme.success : AppTheme.error,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -383,84 +404,58 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     );
   }
 
-  void _showAddBudgetSheet(
+  /// Bottom sheet pour configurer le budget global
+  void _showGlobalBudgetSheet(
+    GlobalBudget? existing,
     AsyncValue<List<CategoriesTableData>> categoriesAsync,
   ) {
     categoriesAsync.whenData((categories) {
-      // Récupérer les IDs des catégories qui ont déjà un budget actif
-      final budgetsAsync = ref.read(categoryBudgetsProvider);
-      final budgetedCategoryIds = <String>{};
-      budgetsAsync.whenData((budgets) {
-        for (final b in budgets) {
-          budgetedCategoryIds.add(b.category.id);
-        }
-      });
-
-      // Filtrer : exclure celles avec un budget ET exclure Épargne
-      final availableCategories = categories
-          .where(
-            (c) => !budgetedCategoryIds.contains(c.id) && c.id != 'cat-epargne',
-          )
-          .toList();
-
-      if (availableCategories.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Toutes les catégories ont déjà un budget'),
-          ),
-        );
-        return;
-      }
-
       showModalBottomSheet(
         context: context,
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
-        builder: (context) => _AddBudgetBottomSheet(
-          categories: availableCategories,
-          onSave: (categoryId, amount) async {
+        builder: (ctx) => _GlobalBudgetBottomSheet(
+          existing: existing,
+          categories: categories.where((c) => c.id != 'cat-epargne').toList(),
+          onSave: (totalAmount, subBudgets) async {
             final repo = ref.read(budgetRepositoryProvider);
-            await repo.setCategoryBudget(categoryId, amount);
-            ref.invalidate(categoriesProvider);
-            if (mounted) Navigator.pop(context);
+
+            final globalId = await repo.createOrUpdateGlobalBudget(totalAmount);
+
+            // Supprimer les sous-budgets qui ne sont plus sÃ©lectionnÃ©s
+            if (existing != null) {
+              for (final oldSub in existing.subBudgets) {
+                if (!subBudgets.containsKey(oldSub.categoryId)) {
+                  await repo.removeSubBudget(oldSub.budget.id);
+                }
+              }
+            }
+
+            // Ajouter/mettre Ã  jour les sous-budgets
+            for (final entry in subBudgets.entries) {
+              final cat = categories.firstWhere((c) => c.id == entry.key);
+              await repo.addOrUpdateSubBudget(
+                parentBudgetId: globalId,
+                categoryId: entry.key,
+                categoryName: cat.name,
+                amount: entry.value,
+              );
+            }
+
+            ref.invalidate(globalBudgetProvider);
+            if (mounted) Navigator.pop(ctx);
           },
+          onDelete: existing != null
+              ? () async {
+                  final repo = ref.read(budgetRepositoryProvider);
+                  await repo.deleteGlobalBudget(existing.budget.id);
+                  ref.invalidate(globalBudgetProvider);
+                  if (mounted) Navigator.pop(ctx);
+                }
+              : null,
         ),
       );
     });
-  }
-
-  void _showEditBudgetSheet(
-    CategoryBudget budget,
-    AsyncValue<List<CategoriesTableData>> categoriesAsync,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _EditBudgetBottomSheet(
-        budget: budget,
-        onSave: (amount) async {
-          final repo = ref.read(budgetRepositoryProvider);
-          await repo.setCategoryBudget(budget.category.id, amount);
-          ref.invalidate(categoriesProvider);
-          if (mounted) Navigator.pop(context);
-        },
-        onDelete: () async {
-          final repo = ref.read(budgetRepositoryProvider);
-          await repo.removeCategoryBudget(budget.category.id);
-          ref.invalidate(categoriesProvider);
-          if (mounted) Navigator.pop(context);
-        },
-      ),
-    );
-  }
-
-  Color _parseColor(String colorHex) {
-    try {
-      return Color(int.parse(colorHex.replaceFirst('#', '0xFF')));
-    } catch (_) {
-      return AppTheme.primaryColor;
-    }
   }
 
   IconData _getCategoryIcon(String? iconKey) {
@@ -485,371 +480,566 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
   }
 }
 
-/// Bottom Sheet pour ajouter un nouveau budget
-class _AddBudgetBottomSheet extends StatefulWidget {
+/// Bottom Sheet pour configurer le budget mensuel global
+/// Layout: Header fixe â†’ Contenu scrollable â†’ Montant sÃ©lectionnÃ© + NumberPad fixe en bas
+class _GlobalBudgetBottomSheet extends StatefulWidget {
+  final GlobalBudget? existing;
   final List<CategoriesTableData> categories;
-  final Future<void> Function(String categoryId, double amount) onSave;
+  final Future<void> Function(
+    double totalAmount,
+    Map<String, double> subBudgets,
+  )
+  onSave;
+  final Future<void> Function()? onDelete;
 
-  const _AddBudgetBottomSheet({required this.categories, required this.onSave});
-
-  @override
-  State<_AddBudgetBottomSheet> createState() => _AddBudgetBottomSheetState();
-}
-
-class _AddBudgetBottomSheetState extends State<_AddBudgetBottomSheet> {
-  CategoriesTableData? _selectedCategory;
-  final _amountController = TextEditingController();
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Nouveau Budget',
-              style: TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // Dropdown catégorie
-            DropdownButtonFormField<CategoriesTableData>(
-              initialValue: _selectedCategory,
-              decoration: InputDecoration(
-                labelText: 'Catégorie',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                filled: true,
-                fillColor: Colors.grey.shade50,
-              ),
-              items: widget.categories
-                  .map(
-                    (cat) =>
-                        DropdownMenuItem(value: cat, child: Text(cat.name)),
-                  )
-                  .toList(),
-              onChanged: (cat) => setState(() => _selectedCategory = cat),
-            ),
-            const SizedBox(height: 16),
-
-            // Affichage du montant
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Limite mensuelle',
-                    style: TextStyle(
-                      color: AppTheme.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_amountController.text.isEmpty ? '0' : _amountController.text} F',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // NumberPad personnalisé
-            NumberPad(
-              onKeyPressed: (key) {
-                setState(() {
-                  _amountController.text += key;
-                });
-              },
-              onBackspace: () {
-                if (_amountController.text.isNotEmpty) {
-                  setState(() {
-                    _amountController.text = _amountController.text.substring(
-                      0,
-                      _amountController.text.length - 1,
-                    );
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-
-            // Bouton
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Définir le budget',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _save() async {
-    if (_selectedCategory == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sélectionnez une catégorie')),
-      );
-      return;
-    }
-
-    final amount = double.tryParse(_amountController.text.replaceAll(' ', ''));
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Entrez un montant valide')));
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    await widget.onSave(_selectedCategory!.id, amount);
-  }
-}
-
-/// Bottom Sheet pour modifier un budget existant
-class _EditBudgetBottomSheet extends StatefulWidget {
-  final CategoryBudget budget;
-  final Future<void> Function(double amount) onSave;
-  final Future<void> Function() onDelete;
-
-  const _EditBudgetBottomSheet({
-    required this.budget,
+  const _GlobalBudgetBottomSheet({
+    this.existing,
+    required this.categories,
     required this.onSave,
-    required this.onDelete,
+    this.onDelete,
   });
 
   @override
-  State<_EditBudgetBottomSheet> createState() => _EditBudgetBottomSheetState();
+  State<_GlobalBudgetBottomSheet> createState() =>
+      _GlobalBudgetBottomSheetState();
 }
 
-class _EditBudgetBottomSheetState extends State<_EditBudgetBottomSheet> {
-  late final TextEditingController _amountController;
+class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
+  late TextEditingController _totalController;
+  final Map<String, TextEditingController> _subControllers = {};
+  final Set<String> _selectedCategories = {};
   bool _isLoading = false;
+  bool _editingTotal = true;
+  String? _editingSubCategoryId;
+
+  final _currencyFormat = NumberFormat.currency(
+    locale: 'fr_FR',
+    symbol: '',
+    decimalDigits: 0,
+  );
 
   @override
   void initState() {
     super.initState();
-    _amountController = TextEditingController(
-      text: widget.budget.budgetLimit.toStringAsFixed(0),
+    _totalController = TextEditingController(
+      text: widget.existing != null
+          ? widget.existing!.amount.toStringAsFixed(0)
+          : '',
     );
+
+    if (widget.existing != null) {
+      _editingTotal = false;
+      for (final sub in widget.existing!.subBudgets) {
+        _selectedCategories.add(sub.categoryId);
+        _subControllers[sub.categoryId] = TextEditingController(
+          text: sub.amount.toStringAsFixed(0),
+        );
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _totalController.dispose();
+    for (final c in _subControllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  double get _totalAmount {
+    return double.tryParse(_totalController.text.replaceAll(' ', '')) ?? 0;
+  }
+
+  double get _allocatedAmount {
+    double total = 0;
+    for (final catId in _selectedCategories) {
+      final ctrl = _subControllers[catId];
+      if (ctrl != null) {
+        total += double.tryParse(ctrl.text.replaceAll(' ', '')) ?? 0;
+      }
+    }
+    return total;
+  }
+
+  /// RÃ©cupÃ¨re le controller actif (total ou sous-catÃ©gorie)
+  TextEditingController get _activeController {
+    if (_editingTotal) return _totalController;
+    if (_editingSubCategoryId != null) {
+      return _subControllers.putIfAbsent(
+        _editingSubCategoryId!,
+        () => TextEditingController(),
+      );
+    }
+    return _totalController;
+  }
+
+  /// Label du champ en cours d'Ã©dition
+  String get _activeLabel {
+    if (_editingTotal) return 'Budget total mensuel';
+    if (_editingSubCategoryId != null) {
+      final cat = widget.categories
+          .where((c) => c.id == _editingSubCategoryId)
+          .firstOrNull;
+      return cat?.name ?? 'CatÃ©gorie';
+    }
+    return '';
+  }
+
+  /// Valeur du champ actif
+  double get _activeAmount {
+    final text = _activeController.text.replaceAll(' ', '');
+    return double.tryParse(text) ?? 0;
   }
 
   @override
   Widget build(BuildContext context) {
+    final remaining = _totalAmount - _allocatedAmount;
+    final showNumberPad = _editingTotal || _editingSubCategoryId != null;
+
     return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // â”€â”€â”€ Handle â”€â”€â”€
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 20),
-            Text(
-              'Modifier: ${widget.budget.categoryName}',
-              style: const TextStyle(
-                color: AppTheme.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 24),
+          ),
 
-            // Affichage du montant
+          // â”€â”€â”€ Header â”€â”€â”€
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.existing != null
+                      ? 'Modifier le budget'
+                      : 'Budget Mensuel Global',
+                  style: const TextStyle(
+                    color: AppTheme.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (widget.onDelete != null)
+                  IconButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () async {
+                            setState(() => _isLoading = true);
+                            await widget.onDelete!();
+                          },
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppTheme.error,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // â”€â”€â”€ Contenu scrollable (catÃ©gories) â”€â”€â”€
+          Flexible(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+              shrinkWrap: true,
+              children: [
+                // Chip du budget total (tap pour Ã©diter)
+                GestureDetector(
+                  onTap: () => setState(() {
+                    _editingTotal = true;
+                    _editingSubCategoryId = null;
+                  }),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _editingTotal
+                          ? AppTheme.primaryColor.withOpacity(0.08)
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _editingTotal
+                            ? AppTheme.primaryColor
+                            : Colors.grey.shade300,
+                        width: _editingTotal ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Budget total',
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '${_totalAmount > 0 ? _currencyFormat.format(_totalAmount) : '0'} F',
+                          style: TextStyle(
+                            color: _editingTotal
+                                ? AppTheme.primaryColor
+                                : AppTheme.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Section rÃ©partition (visible quand total > 0)
+                if (_totalAmount > 0 && !_editingTotal) ...[
+                  const SizedBox(height: 16),
+
+                  // Info allocation
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: remaining >= 0
+                          ? AppTheme.primaryColor.withOpacity(0.06)
+                          : AppTheme.error.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          remaining >= 0
+                              ? Icons.info_outline
+                              : Icons.warning_amber_rounded,
+                          color: remaining >= 0
+                              ? AppTheme.primaryColor
+                              : AppTheme.error,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          remaining >= 0
+                              ? 'Non allouÃ©: ${_currencyFormat.format(remaining)} F'
+                              : 'DÃ©passement: ${_currencyFormat.format(-remaining)} F',
+                          style: TextStyle(
+                            color: remaining >= 0
+                                ? AppTheme.primaryColor
+                                : AppTheme.error,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'RÃ©partition par catÃ©gorie',
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Categories list
+                  ...widget.categories.map((cat) {
+                    final isSelected = _selectedCategories.contains(cat.id);
+                    final isEditing = _editingSubCategoryId == cat.id;
+                    final controller = _subControllers.putIfAbsent(
+                      cat.id,
+                      () => TextEditingController(),
+                    );
+                    final subAmount =
+                        double.tryParse(controller.text.replaceAll(' ', '')) ??
+                        0;
+
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _editingTotal = false;
+                          if (!isSelected) {
+                            _selectedCategories.add(cat.id);
+                          }
+                          _editingSubCategoryId = cat.id;
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isEditing
+                              ? AppTheme.primaryColor.withOpacity(0.08)
+                              : isSelected
+                              ? Colors.grey.shade50
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isEditing
+                                ? AppTheme.primaryColor
+                                : isSelected
+                                ? AppTheme.primaryColor.withOpacity(0.25)
+                                : Colors.grey.shade200,
+                            width: isEditing ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: Checkbox(
+                                value: isSelected,
+                                onChanged: (val) {
+                                  setState(() {
+                                    if (val == true) {
+                                      _selectedCategories.add(cat.id);
+                                      _editingSubCategoryId = cat.id;
+                                      _editingTotal = false;
+                                    } else {
+                                      _selectedCategories.remove(cat.id);
+                                      controller.clear();
+                                      if (_editingSubCategoryId == cat.id) {
+                                        _editingSubCategoryId = null;
+                                      }
+                                    }
+                                  });
+                                },
+                                activeColor: AppTheme.primaryColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                cat.name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isSelected
+                                      ? AppTheme.textPrimary
+                                      : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              Text(
+                                subAmount > 0
+                                    ? '${_currencyFormat.format(subAmount)} F'
+                                    : 'â€”',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: isEditing
+                                      ? AppTheme.primaryColor
+                                      : subAmount > 0
+                                      ? AppTheme.textPrimary
+                                      : AppTheme.textSecondary.withOpacity(0.4),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+
+          // â”€â”€â”€ Zone fixe en bas : Montant actif + NumberPad + Bouton â”€â”€â”€
+          if (showNumberPad) ...[
+            const Divider(height: 1),
+
+            // Affichage du montant en cours
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
+              color: Colors.grey.shade50,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Limite mensuelle',
-                    style: TextStyle(
+                    _activeLabel,
+                    style: const TextStyle(
                       color: AppTheme.textSecondary,
                       fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${_amountController.text.isEmpty ? '0' : _amountController.text} F',
+                    '${_activeAmount > 0 ? _currencyFormat.format(_activeAmount) : '0'} F',
                     style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
+                      color: AppTheme.primaryColor,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
 
-            // NumberPad personnalisé
-            NumberPad(
-              onKeyPressed: (key) {
-                setState(() {
-                  _amountController.text += key;
-                });
-              },
-              onBackspace: () {
-                if (_amountController.text.isNotEmpty) {
-                  setState(() {
-                    _amountController.text = _amountController.text.substring(
-                      0,
-                      _amountController.text.length - 1,
-                    );
-                  });
-                }
-              },
+            // NumberPad
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              child: NumberPad(
+                onKeyPressed: (key) {
+                  setState(() => _activeController.text += key);
+                },
+                onBackspace: () {
+                  final ctrl = _activeController;
+                  if (ctrl.text.isNotEmpty) {
+                    setState(() {
+                      ctrl.text = ctrl.text.substring(0, ctrl.text.length - 1);
+                    });
+                  }
+                },
+              ),
             ),
-            const SizedBox(height: 16),
 
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () async {
-                            setState(() => _isLoading = true);
-                            await widget.onDelete();
-                          },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.error,
-                      side: const BorderSide(color: AppTheme.error),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+            // Bouton principal
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: _editingTotal
+                    ? ElevatedButton(
+                        onPressed: _totalAmount > 0
+                            ? () => setState(() {
+                                _editingTotal = false;
+                                _editingSubCategoryId = null;
+                              })
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'RÃ©partir le budget â†’',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      )
+                    : ElevatedButton(
+                        onPressed: (_isLoading || _totalAmount <= 0)
+                            ? null
+                            : _saveGlobalBudget,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                widget.existing != null
+                                    ? 'Mettre Ã  jour'
+                                    : 'DÃ©finir le budget',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                       ),
-                    ),
-                    child: const Text('Supprimer'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _save,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Text('Enregistrer'),
-                  ),
-                ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
+          ] else ...[
+            // Pas de NumberPad visible : juste le bouton sauvegarder
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: (_isLoading || _totalAmount <= 0)
+                      ? null
+                      : _saveGlobalBudget,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          widget.existing != null
+                              ? 'Mettre Ã  jour'
+                              : 'DÃ©finir le budget',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                ),
+              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
 
-  Future<void> _save() async {
-    final amount = double.tryParse(_amountController.text.replaceAll(' ', ''));
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Entrez un montant valide')));
-      return;
+  Future<void> _saveGlobalBudget() async {
+    setState(() => _isLoading = true);
+
+    final subBudgets = <String, double>{};
+    for (final catId in _selectedCategories) {
+      final ctrl = _subControllers[catId];
+      if (ctrl != null) {
+        final amount = double.tryParse(ctrl.text.replaceAll(' ', '')) ?? 0;
+        if (amount > 0) {
+          subBudgets[catId] = amount;
+        }
+      }
     }
 
-    setState(() => _isLoading = true);
-    await widget.onSave(amount);
+    await widget.onSave(_totalAmount, subBudgets);
   }
 }

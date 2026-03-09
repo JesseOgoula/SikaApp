@@ -515,13 +515,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  /// Indicateur de statut des budgets
+  /// Indicateur de statut du budget global
   Widget _buildBudgetStatusIndicator() {
-    final budgetsAsync = ref.watch(categoryBudgetsProvider);
+    final globalBudgetAsync = ref.watch(globalBudgetProvider);
 
-    return budgetsAsync.when(
-      data: (budgets) {
-        if (budgets.isEmpty) {
+    return globalBudgetAsync.when(
+      data: (globalBudget) {
+        if (globalBudget == null) {
           return GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -543,7 +543,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'Définir des budgets par catégorie',
+                      'Définir un budget mensuel global',
                       style: TextStyle(
                         color: AppTheme.textSecondary,
                         fontSize: 13,
@@ -561,18 +561,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           );
         }
 
-        final overBudget = budgets.where((b) => b.isOverBudget).length;
-        final totalBudget = budgets.fold<double>(
-          0,
-          (s, b) => s + b.budgetLimit,
-        );
-        final totalSpent = budgets.fold<double>(
-          0,
-          (s, b) => s + b.currentSpent,
-        );
-        final percentUsed = totalBudget > 0 ? (totalSpent / totalBudget) : 0.0;
-
-        final statusColor = overBudget > 0
+        final percentUsed = globalBudget.percentUsed / 100;
+        final overCount = globalBudget.subBudgets
+            .where((s) => s.isOverBudget)
+            .length;
+        final statusColor = globalBudget.isOverBudget
             ? AppTheme.error
             : percentUsed > 0.8
             ? Colors.orange
@@ -600,8 +593,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Budgets du mois',
+                          const Text(
+                            'Budget mensuel',
                             style: TextStyle(
                               color: AppTheme.textPrimary,
                               fontSize: 14,
@@ -609,8 +602,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                             ),
                           ),
                           Text(
-                            overBudget > 0
-                                ? '$overBudget budget(s) dépassé(s)'
+                            globalBudget.isOverBudget
+                                ? 'Budget dépassé${overCount > 0 ? ' ($overCount catégories)' : ''}'
                                 : '${(percentUsed * 100).toStringAsFixed(0)}% utilisé',
                             style: TextStyle(
                               color: statusColor,

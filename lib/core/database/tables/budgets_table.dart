@@ -11,10 +11,15 @@ class BudgetsTable extends Table {
   TextColumn get id => text()();
 
   /// ID de la catégorie associée (FK logique vers CategoriesTable)
+  /// Pour le budget global: 'global'
   TextColumn get categoryId => text()();
 
   /// Nom de la catégorie (dénormalisé pour l'historique)
+  /// Pour le budget global: 'Budget Mensuel'
   TextColumn get categoryName => text()();
+
+  /// ID du budget parent (null = budget de catégorie ou budget global, non-null = sous-budget)
+  TextColumn get parentBudgetId => text().nullable()();
 
   /// Montant du budget
   RealColumn get amount => real()();

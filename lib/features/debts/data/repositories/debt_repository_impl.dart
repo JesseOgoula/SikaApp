@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/database/app_database.dart';
 import '../../domain/entities/debt.dart';
@@ -98,6 +99,7 @@ class DebtRepositoryImpl implements DebtRepository {
         notes: Value(debt.notes),
         isRecurring: Value(debt.isRecurring),
         recurrenceRule: Value(debt.recurrenceRule),
+        syncStatus: const Value(0), // Marquer pour re-sync
         updatedAt: Value(DateTime.now()),
       ),
     );
@@ -124,6 +126,22 @@ class DebtRepositoryImpl implements DebtRepository {
   Future<void> deleteDebt(String id) async {
     // Cancel notifications before deleting
     await NotificationService().cancelDebtReminders(id);
+
+    // Supprimer de Supabase si connecté
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await Supabase.instance.client
+            .from('debts')
+            .delete()
+            .eq('id', id)
+            .eq('user_id', user.id);
+      }
+    } catch (_) {
+      // Ignorer les erreurs Supabase — suppression locale prioritaire
+    }
+
+    // Supprimer localement
     await (_db.delete(_db.debtsTable)..where((t) => t.id.equals(id))).go();
   }
 

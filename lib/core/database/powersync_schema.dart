@@ -62,6 +62,7 @@ const schema = Schema([
     Column.text('user_id'),
     Column.text('category_id'),
     Column.text('category_name'),
+    Column.text('parent_budget_id'),
     Column.real('amount'),
     Column.text('period_type'),
     Column.text('start_date'),

@@ -222,7 +222,7 @@ class AutoSyncService {
           'user_id': userId,
           'name': debt.name,
           'amount': debt.amount,
-          'type': debt.type,
+          'type': _toSnakeCaseDebtType(debt.type),
           'due_date': debt.dueDate.toIso8601String(),
           'status': debt.status,
           'person_name': debt.personName,
@@ -285,6 +285,7 @@ class AutoSyncService {
           'user_id': userId,
           'category_id': budget.categoryId,
           'category_name': budget.categoryName,
+          'parent_budget_id': budget.parentBudgetId,
           'amount': budget.amount,
           'period_type': budget.periodType,
           'start_date': budget.startDate.toIso8601String(),
@@ -534,6 +535,7 @@ class AutoSyncService {
                 id: row['id'] as String,
                 categoryId: row['category_id'] as String,
                 categoryName: row['category_name'] as String,
+                parentBudgetId: Value(row['parent_budget_id'] as String?),
                 amount: (row['amount'] as num).toDouble(),
                 periodType: Value(row['period_type'] as String? ?? 'monthly'),
                 startDate: DateTime.parse(row['start_date'] as String),
@@ -574,6 +576,18 @@ class AutoSyncService {
       await settings.setTotalXP(totalXP);
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
+    }
+  }
+
+  /// Convertit le type de dette camelCase en snake_case pour Supabase
+  String _toSnakeCaseDebtType(String type) {
+    switch (type) {
+      case 'debtIn':
+        return 'debt_in';
+      case 'debtOut':
+        return 'debt_out';
+      default:
+        return type; // 'bill', 'pending', etc. restent inchangés
     }
   }
 }

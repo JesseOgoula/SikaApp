@@ -54,8 +54,7 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: (details) async {
-      },
+      onDidReceiveNotificationResponse: (details) async {},
     );
 
     // Create all notification channels
@@ -171,7 +170,6 @@ class NotificationService {
         channelName: 'Rappels et Échéances',
       );
     }
-
   }
 
   /// Cancel all reminders for a specific debt
@@ -216,7 +214,6 @@ class NotificationService {
         ),
       ),
     );
-
   }
 
   // ==================== GOAL REMINDERS ====================
@@ -258,7 +255,6 @@ class NotificationService {
       channelName: 'Objectifs d\'épargne',
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
-
   }
 
   /// Cancel goal reminder
@@ -295,7 +291,6 @@ class NotificationService {
         ),
       ),
     );
-
   }
 
   // ==================== WEEKLY SUMMARY ====================
@@ -330,7 +325,6 @@ class NotificationService {
       channelName: 'Résumé Hebdomadaire',
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
     );
-
   }
 
   /// Show weekly summary with actual data
@@ -472,6 +466,37 @@ class NotificationService {
       ),
       payload: 'budget_exceeded:$categoryName',
     );
+  }
 
+  /// Notification quand le budget global mensuel est dépassé
+  static const int _idGlobalBudgetExceeded = 9000;
+
+  Future<void> showGlobalBudgetExceededNotification({
+    required double budgetLimit,
+    required double currentSpent,
+  }) async {
+    if (!_isInitialized) await init();
+
+    final exceeded = currentSpent - budgetLimit;
+    final formattedExceeded = _formatAmount(exceeded);
+
+    await _notificationsPlugin.show(
+      _idGlobalBudgetExceeded,
+      '⚠️ Budget mensuel dépassé',
+      'Vous avez dépassé votre budget global de $formattedExceeded FCFA. Réduisez vos dépenses !',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelBalance,
+          'Alertes Budget',
+          channelDescription: 'Alertes de dépassement de budget',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: const Color(0xFFE53935),
+          icon: '@drawable/ic_stat_notification',
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+        ),
+      ),
+      payload: 'global_budget_exceeded',
+    );
   }
 }

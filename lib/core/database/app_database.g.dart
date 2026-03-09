@@ -3745,6 +3745,17 @@ class $BudgetsTableTable extends BudgetsTable
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _parentBudgetIdMeta = const VerificationMeta(
+    'parentBudgetId',
+  );
+  @override
+  late final GeneratedColumn<String> parentBudgetId = GeneratedColumn<String>(
+    'parent_budget_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _amountMeta = const VerificationMeta('amount');
   @override
   late final GeneratedColumn<double> amount = GeneratedColumn<double>(
@@ -3856,6 +3867,7 @@ class $BudgetsTableTable extends BudgetsTable
     id,
     categoryId,
     categoryName,
+    parentBudgetId,
     amount,
     periodType,
     startDate,
@@ -3901,6 +3913,15 @@ class $BudgetsTableTable extends BudgetsTable
       );
     } else if (isInserting) {
       context.missing(_categoryNameMeta);
+    }
+    if (data.containsKey('parent_budget_id')) {
+      context.handle(
+        _parentBudgetIdMeta,
+        parentBudgetId.isAcceptableOrUnknown(
+          data['parent_budget_id']!,
+          _parentBudgetIdMeta,
+        ),
+      );
     }
     if (data.containsKey('amount')) {
       context.handle(
@@ -3984,6 +4005,10 @@ class $BudgetsTableTable extends BudgetsTable
         DriftSqlType.string,
         data['${effectivePrefix}category_name'],
       )!,
+      parentBudgetId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}parent_budget_id'],
+      ),
       amount: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}amount'],
@@ -4035,10 +4060,15 @@ class BudgetsTableData extends DataClass
   final String id;
 
   /// ID de la catégorie associée (FK logique vers CategoriesTable)
+  /// Pour le budget global: 'global'
   final String categoryId;
 
   /// Nom de la catégorie (dénormalisé pour l'historique)
+  /// Pour le budget global: 'Budget Mensuel'
   final String categoryName;
+
+  /// ID du budget parent (null = budget de catégorie ou budget global, non-null = sous-budget)
+  final String? parentBudgetId;
 
   /// Montant du budget
   final double amount;
@@ -4070,6 +4100,7 @@ class BudgetsTableData extends DataClass
     required this.id,
     required this.categoryId,
     required this.categoryName,
+    this.parentBudgetId,
     required this.amount,
     required this.periodType,
     required this.startDate,
@@ -4086,6 +4117,9 @@ class BudgetsTableData extends DataClass
     map['id'] = Variable<String>(id);
     map['category_id'] = Variable<String>(categoryId);
     map['category_name'] = Variable<String>(categoryName);
+    if (!nullToAbsent || parentBudgetId != null) {
+      map['parent_budget_id'] = Variable<String>(parentBudgetId);
+    }
     map['amount'] = Variable<double>(amount);
     map['period_type'] = Variable<String>(periodType);
     map['start_date'] = Variable<DateTime>(startDate);
@@ -4105,6 +4139,9 @@ class BudgetsTableData extends DataClass
       id: Value(id),
       categoryId: Value(categoryId),
       categoryName: Value(categoryName),
+      parentBudgetId: parentBudgetId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(parentBudgetId),
       amount: Value(amount),
       periodType: Value(periodType),
       startDate: Value(startDate),
@@ -4128,6 +4165,7 @@ class BudgetsTableData extends DataClass
       id: serializer.fromJson<String>(json['id']),
       categoryId: serializer.fromJson<String>(json['categoryId']),
       categoryName: serializer.fromJson<String>(json['categoryName']),
+      parentBudgetId: serializer.fromJson<String?>(json['parentBudgetId']),
       amount: serializer.fromJson<double>(json['amount']),
       periodType: serializer.fromJson<String>(json['periodType']),
       startDate: serializer.fromJson<DateTime>(json['startDate']),
@@ -4146,6 +4184,7 @@ class BudgetsTableData extends DataClass
       'id': serializer.toJson<String>(id),
       'categoryId': serializer.toJson<String>(categoryId),
       'categoryName': serializer.toJson<String>(categoryName),
+      'parentBudgetId': serializer.toJson<String?>(parentBudgetId),
       'amount': serializer.toJson<double>(amount),
       'periodType': serializer.toJson<String>(periodType),
       'startDate': serializer.toJson<DateTime>(startDate),
@@ -4162,6 +4201,7 @@ class BudgetsTableData extends DataClass
     String? id,
     String? categoryId,
     String? categoryName,
+    Value<String?> parentBudgetId = const Value.absent(),
     double? amount,
     String? periodType,
     DateTime? startDate,
@@ -4175,6 +4215,9 @@ class BudgetsTableData extends DataClass
     id: id ?? this.id,
     categoryId: categoryId ?? this.categoryId,
     categoryName: categoryName ?? this.categoryName,
+    parentBudgetId: parentBudgetId.present
+        ? parentBudgetId.value
+        : this.parentBudgetId,
     amount: amount ?? this.amount,
     periodType: periodType ?? this.periodType,
     startDate: startDate ?? this.startDate,
@@ -4194,6 +4237,9 @@ class BudgetsTableData extends DataClass
       categoryName: data.categoryName.present
           ? data.categoryName.value
           : this.categoryName,
+      parentBudgetId: data.parentBudgetId.present
+          ? data.parentBudgetId.value
+          : this.parentBudgetId,
       amount: data.amount.present ? data.amount.value : this.amount,
       periodType: data.periodType.present
           ? data.periodType.value
@@ -4218,6 +4264,7 @@ class BudgetsTableData extends DataClass
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
           ..write('categoryName: $categoryName, ')
+          ..write('parentBudgetId: $parentBudgetId, ')
           ..write('amount: $amount, ')
           ..write('periodType: $periodType, ')
           ..write('startDate: $startDate, ')
@@ -4236,6 +4283,7 @@ class BudgetsTableData extends DataClass
     id,
     categoryId,
     categoryName,
+    parentBudgetId,
     amount,
     periodType,
     startDate,
@@ -4253,6 +4301,7 @@ class BudgetsTableData extends DataClass
           other.id == this.id &&
           other.categoryId == this.categoryId &&
           other.categoryName == this.categoryName &&
+          other.parentBudgetId == this.parentBudgetId &&
           other.amount == this.amount &&
           other.periodType == this.periodType &&
           other.startDate == this.startDate &&
@@ -4268,6 +4317,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
   final Value<String> id;
   final Value<String> categoryId;
   final Value<String> categoryName;
+  final Value<String?> parentBudgetId;
   final Value<double> amount;
   final Value<String> periodType;
   final Value<DateTime> startDate;
@@ -4282,6 +4332,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.categoryName = const Value.absent(),
+    this.parentBudgetId = const Value.absent(),
     this.amount = const Value.absent(),
     this.periodType = const Value.absent(),
     this.startDate = const Value.absent(),
@@ -4297,6 +4348,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
     required String id,
     required String categoryId,
     required String categoryName,
+    this.parentBudgetId = const Value.absent(),
     required double amount,
     this.periodType = const Value.absent(),
     required DateTime startDate,
@@ -4316,6 +4368,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
     Expression<String>? id,
     Expression<String>? categoryId,
     Expression<String>? categoryName,
+    Expression<String>? parentBudgetId,
     Expression<double>? amount,
     Expression<String>? periodType,
     Expression<DateTime>? startDate,
@@ -4331,6 +4384,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
       if (id != null) 'id': id,
       if (categoryId != null) 'category_id': categoryId,
       if (categoryName != null) 'category_name': categoryName,
+      if (parentBudgetId != null) 'parent_budget_id': parentBudgetId,
       if (amount != null) 'amount': amount,
       if (periodType != null) 'period_type': periodType,
       if (startDate != null) 'start_date': startDate,
@@ -4348,6 +4402,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
     Value<String>? id,
     Value<String>? categoryId,
     Value<String>? categoryName,
+    Value<String?>? parentBudgetId,
     Value<double>? amount,
     Value<String>? periodType,
     Value<DateTime>? startDate,
@@ -4363,6 +4418,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
       categoryName: categoryName ?? this.categoryName,
+      parentBudgetId: parentBudgetId ?? this.parentBudgetId,
       amount: amount ?? this.amount,
       periodType: periodType ?? this.periodType,
       startDate: startDate ?? this.startDate,
@@ -4387,6 +4443,9 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
     }
     if (categoryName.present) {
       map['category_name'] = Variable<String>(categoryName.value);
+    }
+    if (parentBudgetId.present) {
+      map['parent_budget_id'] = Variable<String>(parentBudgetId.value);
     }
     if (amount.present) {
       map['amount'] = Variable<double>(amount.value);
@@ -4427,6 +4486,7 @@ class BudgetsTableCompanion extends UpdateCompanion<BudgetsTableData> {
           ..write('id: $id, ')
           ..write('categoryId: $categoryId, ')
           ..write('categoryName: $categoryName, ')
+          ..write('parentBudgetId: $parentBudgetId, ')
           ..write('amount: $amount, ')
           ..write('periodType: $periodType, ')
           ..write('startDate: $startDate, ')
@@ -6222,6 +6282,7 @@ typedef $$BudgetsTableTableCreateCompanionBuilder =
       required String id,
       required String categoryId,
       required String categoryName,
+      Value<String?> parentBudgetId,
       required double amount,
       Value<String> periodType,
       required DateTime startDate,
@@ -6238,6 +6299,7 @@ typedef $$BudgetsTableTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> categoryId,
       Value<String> categoryName,
+      Value<String?> parentBudgetId,
       Value<double> amount,
       Value<String> periodType,
       Value<DateTime> startDate,
@@ -6271,6 +6333,11 @@ class $$BudgetsTableTableFilterComposer
 
   ColumnFilters<String> get categoryName => $composableBuilder(
     column: $table.categoryName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get parentBudgetId => $composableBuilder(
+    column: $table.parentBudgetId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6344,6 +6411,11 @@ class $$BudgetsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get parentBudgetId => $composableBuilder(
+    column: $table.parentBudgetId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get amount => $composableBuilder(
     column: $table.amount,
     builder: (column) => ColumnOrderings(column),
@@ -6409,6 +6481,11 @@ class $$BudgetsTableTableAnnotationComposer
 
   GeneratedColumn<String> get categoryName => $composableBuilder(
     column: $table.categoryName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get parentBudgetId => $composableBuilder(
+    column: $table.parentBudgetId,
     builder: (column) => column,
   );
 
@@ -6480,6 +6557,7 @@ class $$BudgetsTableTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> categoryId = const Value.absent(),
                 Value<String> categoryName = const Value.absent(),
+                Value<String?> parentBudgetId = const Value.absent(),
                 Value<double> amount = const Value.absent(),
                 Value<String> periodType = const Value.absent(),
                 Value<DateTime> startDate = const Value.absent(),
@@ -6494,6 +6572,7 @@ class $$BudgetsTableTableTableManager
                 id: id,
                 categoryId: categoryId,
                 categoryName: categoryName,
+                parentBudgetId: parentBudgetId,
                 amount: amount,
                 periodType: periodType,
                 startDate: startDate,
@@ -6510,6 +6589,7 @@ class $$BudgetsTableTableTableManager
                 required String id,
                 required String categoryId,
                 required String categoryName,
+                Value<String?> parentBudgetId = const Value.absent(),
                 required double amount,
                 Value<String> periodType = const Value.absent(),
                 required DateTime startDate,
@@ -6524,6 +6604,7 @@ class $$BudgetsTableTableTableManager
                 id: id,
                 categoryId: categoryId,
                 categoryName: categoryName,
+                parentBudgetId: parentBudgetId,
                 amount: amount,
                 periodType: periodType,
                 startDate: startDate,

@@ -138,35 +138,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       // Déjà vérifié ce mois-ci
       if (lastCheck == currentMonthKey) return;
 
-      // Mois précédent
-      final prevMonth = now.month == 1 ? 12 : now.month - 1;
-      final prevYear = now.month == 1 ? now.year - 1 : now.year;
-
-      // Récupérer les catégories avec budget
+      // Vérifier le budget global actif
       final budgetRepo = ref.read(budgetRepositoryProvider);
-      final categoriesWithBudget = await budgetRepo.getCategoriesWithBudgets();
+      final globalBudget = await budgetRepo.getGlobalBudgetWithDetails();
 
-      int respected = 0;
-      for (final cat in categoriesWithBudget) {
-        if (cat.budgetLimit == null || cat.budgetLimit! <= 0) continue;
-        final spent = await budgetRepo.getSpentForCategoryInMonth(
-          cat.id,
-          prevYear,
-          prevMonth,
-        );
-        if (spent <= cat.budgetLimit!) {
-          respected++;
+      if (globalBudget != null) {
+        // Budget global respecté
+        if (!globalBudget.isOverBudget) {
           await xpService.awardXP(ActionType.respectBudget);
+        }
+
+        // Sous-budgets respectés
+        for (final sub in globalBudget.subBudgets) {
+          if (!sub.isOverBudget) {
+            await xpService.awardXP(ActionType.respectBudget);
+          }
         }
       }
 
       // Marquer comme vérifié
       await settings.setLastBudgetCheckMonth(currentMonthKey);
-
-      if (respected > 0) {
-      }
     } catch (e) {
-    /* ignore */ }
+      /* ignore */
+    }
   }
 
   @override
