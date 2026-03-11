@@ -6,6 +6,7 @@ class SettingsService {
   static const String _keyAutoSave = 'auto_save_enabled';
   static const String _keyNotificationsEnabled = 'notifications_enabled';
   static const String _keyLastSyncDate = 'last_sync_date';
+  static const String _keyHealthScore = 'last_health_score';
 
   SharedPreferences? _prefs;
   bool _isInitialized = false;
@@ -70,6 +71,20 @@ class SettingsService {
     // Synchroniser avec NotificationPreferences (master switch)
     final notifPrefs = NotificationPreferences();
     await notifPrefs.setEnabled(enabled);
+  }
+
+  // ==================== HEALTH SCORE CACHE ====================
+
+  Future<int> getHealthScore() async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return 0;
+    return prefs.getInt(_keyHealthScore) ?? 0;
+  }
+
+  Future<void> setHealthScore(int score) async {
+    final prefs = await _getPrefs();
+    if (prefs == null) return;
+    await prefs.setInt(_keyHealthScore, score.clamp(0, 100));
   }
 
   // ==================== SYNC TRACKING ====================

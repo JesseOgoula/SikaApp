@@ -22,11 +22,10 @@ class XPService {
   Future<void> _syncToCloud(int totalXP) async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) {
-        print('[XP_SYNC] No user logged in, skipping sync');
-        return;
-      }
-      print('[XP_SYNC] Syncing $totalXP XP for user ${user.id}');
+      if (user == null) return;
+
+      await _ensureInit();
+      final healthScore = await _settings.getHealthScore();
 
       final metadata = user.userMetadata ?? {};
       final displayName =
@@ -38,8 +37,8 @@ class XPService {
         totalXP: totalXP,
         displayName: displayName,
         avatarUrl: avatarUrl,
+        healthScore: healthScore,
       );
-      print('[XP_SYNC] Sync SUCCESS for $totalXP XP');
     } catch (e) {
       print('[XP_SYNC] Sync FAILED: $e');
     }

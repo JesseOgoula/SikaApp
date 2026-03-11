@@ -29,11 +29,7 @@ class RankService {
     final rank = RankDefinitions.getRankForXP(totalXP);
 
     try {
-      // health_score a un CHECK constraint 0-100 dans Supabase
-      final safeHealthScore = (healthScore ?? totalXP).clamp(0, 100);
-      print(
-        '[RANK_SYNC] Upserting: user=${user.id}, xp=$totalXP, healthScore=$safeHealthScore, rank=${rank.name}',
-      );
+      final safeHealthScore = (healthScore ?? 0).clamp(0, 100);
       await _supabase.from('user_ranks').upsert({
         'user_id': user.id,
         'total_xp': totalXP,
@@ -44,7 +40,6 @@ class RankService {
         'avatar_url': avatarUrl,
         'updated_at': DateTime.now().toIso8601String(),
       });
-      print('[RANK_SYNC] Upsert SUCCESS');
     } catch (e) {
       print('[RANK_SYNC] Upsert FAILED: $e');
     }

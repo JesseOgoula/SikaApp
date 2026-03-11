@@ -64,6 +64,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final settings = SettingsService();
     await settings.init();
 
+    // Sauvegarder le health score pour que chaque sync Supabase l'ait
+    await settings.setHealthScore(healthScore);
+
     // XP: check daily login + bonus santé
     final xpService = XPService();
     await xpService.checkDailyLogin();
