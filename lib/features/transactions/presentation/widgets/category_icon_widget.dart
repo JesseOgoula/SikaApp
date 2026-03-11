@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 
-/// Widget d'icône de catégorie minimaliste
+/// Widget d'icone de categorie minimaliste
 ///
-/// Style par défaut : Cercle gris clair, icône grise
-/// État sélectionné : Cercle bleu nuit, icône blanche
+/// Style par defaut : Cercle gris clair, icone grise
+/// Etat selectionne : Cercle bleu nuit, icone blanche
 class CategoryIconWidget extends StatelessWidget {
   final String? iconKey;
   final bool isSelected;
@@ -29,7 +29,7 @@ class CategoryIconWidget extends StatelessWidget {
       ),
       child: Center(
         child: FaIcon(
-          _getCategoryIcon(iconKey),
+          getCategoryIcon(iconKey),
           color: isSelected ? Colors.white : Colors.grey[700],
           size: size * 0.4,
         ),
@@ -37,31 +37,42 @@ class CategoryIconWidget extends StatelessWidget {
     );
   }
 
-  IconData _getCategoryIcon(String? iconKey) {
+  /// Map des icones disponibles pour les categories
+  /// Utilise aussi par le picker d'icones lors de la creation de categorie
+  static const Map<String, IconData> availableIcons = {
+    'utensils': FontAwesomeIcons.utensils,
+    'taxi': FontAwesomeIcons.taxi,
+    'bolt': FontAwesomeIcons.bolt,
+    'heartPulse': FontAwesomeIcons.heartPulse,
+    'exchangeAlt': FontAwesomeIcons.rightLeft,
+    'gamepad': FontAwesomeIcons.gamepad,
+    'shoppingCart': FontAwesomeIcons.cartShopping,
+    'home': FontAwesomeIcons.house,
+    'graduation': FontAwesomeIcons.graduationCap,
+    'plane': FontAwesomeIcons.plane,
+    'briefcase': FontAwesomeIcons.briefcase,
+    'gift': FontAwesomeIcons.gift,
+    'music': FontAwesomeIcons.music,
+    'palette': FontAwesomeIcons.palette,
+    'dumbbell': FontAwesomeIcons.dumbbell,
+    'paw': FontAwesomeIcons.paw,
+    'baby': FontAwesomeIcons.baby,
+    'scissors': FontAwesomeIcons.scissors,
+    'wrench': FontAwesomeIcons.wrench,
+    'book': FontAwesomeIcons.book,
+    'phone': FontAwesomeIcons.phone,
+    'wifi': FontAwesomeIcons.wifi,
+    'shirt': FontAwesomeIcons.shirt,
+    'church': FontAwesomeIcons.church,
+    'handHoldingHeart': FontAwesomeIcons.handHoldingHeart,
+    'piggyBank': FontAwesomeIcons.piggyBank,
+    'receipt': FontAwesomeIcons.receipt,
+    'tag': FontAwesomeIcons.tag,
+  };
+
+  /// Resoud la cle d'icone vers un IconData
+  static IconData getCategoryIcon(String? iconKey) {
     if (iconKey == null) return FontAwesomeIcons.question;
-    switch (iconKey) {
-      case 'utensils':
-        return FontAwesomeIcons.utensils;
-      case 'taxi':
-        return FontAwesomeIcons.taxi;
-      case 'bolt':
-        return FontAwesomeIcons.bolt;
-      case 'heartPulse':
-        return FontAwesomeIcons.heartPulse;
-      case 'exchangeAlt':
-        return FontAwesomeIcons.rightLeft;
-      case 'gamepad':
-        return FontAwesomeIcons.gamepad;
-      case 'shoppingCart':
-        return FontAwesomeIcons.cartShopping;
-      case 'home':
-        return FontAwesomeIcons.house;
-      case 'graduation':
-        return FontAwesomeIcons.graduationCap;
-      case 'plane':
-        return FontAwesomeIcons.plane;
-      default:
-        return FontAwesomeIcons.tag;
-    }
+    return availableIcons[iconKey] ?? FontAwesomeIcons.tag;
   }
 }

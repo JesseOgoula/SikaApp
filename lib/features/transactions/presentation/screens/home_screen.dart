@@ -32,6 +32,7 @@ import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/features/budgets/data/repositories/budget_repository.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+import 'package:sika_app/core/services/notification_service.dart';
 
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
@@ -94,6 +95,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         totalXP: totalXP,
         displayName: displayName,
         avatarUrl: avatarUrl,
+        healthScore: healthScore,
       );
     }
 
@@ -120,11 +122,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     }
 
-    // Check budget respect pour le mois précédent
+    // Check budget respect pour le mois precedent (peut attribuer des XP)
     await _checkBudgetRespect(xpService, settings);
+
+    // Rafraichir _totalXP apres tous les awards (budget, login, sante)
+    final updatedXP = await xpService.getTotalXP();
+    if (mounted && updatedXP != totalXP) {
+      setState(() => _totalXP = updatedXP);
+      // Re-sync vers Supabase avec le total final
+      if (user != null) {
+        final metadata = user.userMetadata ?? {};
+        final displayName =
+            (metadata['full_name'] ?? metadata['name'] ?? 'Utilisateur')
+                as String;
+        final avatarUrl = metadata['avatar_url'] as String?;
+        RankService().syncRank(
+          totalXP: updatedXP,
+          displayName: displayName,
+          avatarUrl: avatarUrl,
+          healthScore: healthScore,
+        );
+      }
+    }
   }
 
-  /// Vérifie les budgets du mois précédent et attribue +25 XP par budget respecté
+  /// Verifie les budgets du mois precedent et attribue +25 XP par budget respecte
+  /// + envoie les notifications de depassement (une seule fois par mois)
   Future<void> _checkBudgetRespect(
     XPService xpService,
     SettingsService settings,
@@ -135,28 +158,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           '${now.year}-${now.month.toString().padLeft(2, '0')}';
       final lastCheck = await settings.getLastBudgetCheckMonth();
 
-      // Déjà vérifié ce mois-ci
+      // Deja verifie ce mois-ci
       if (lastCheck == currentMonthKey) return;
 
-      // Vérifier le budget global actif
+      // Verifier le budget global actif
       final budgetRepo = ref.read(budgetRepositoryProvider);
       final globalBudget = await budgetRepo.getGlobalBudgetWithDetails();
 
       if (globalBudget != null) {
-        // Budget global respecté
+        final notifService = NotificationService();
+
+        // Budget global respecte -> XP, sinon notification
         if (!globalBudget.isOverBudget) {
           await xpService.awardXP(ActionType.respectBudget);
+        } else {
+          await notifService.showGlobalBudgetExceededNotification(
+            budgetLimit: globalBudget.amount,
+            currentSpent: globalBudget.totalSpent,
+          );
         }
 
-        // Sous-budgets respectés
+        // Sous-budgets
         for (final sub in globalBudget.subBudgets) {
           if (!sub.isOverBudget) {
             await xpService.awardXP(ActionType.respectBudget);
+          } else {
+            await notifService.showBudgetExceededNotification(
+              categoryName: sub.categoryName,
+              budgetLimit: sub.amount,
+              currentSpent: sub.currentSpent,
+            );
           }
         }
       }
 
-      // Marquer comme vérifié
+      // Marquer comme verifie
       await settings.setLastBudgetCheckMonth(currentMonthKey);
     } catch (e) {
       /* ignore */

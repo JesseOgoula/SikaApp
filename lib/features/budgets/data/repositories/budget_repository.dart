@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:sika_app/core/database/app_database.dart';
-import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart' show databaseProvider, autoSyncService;
 import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
@@ -266,28 +265,6 @@ class BudgetRepository {
       subBudgets: subBudgets,
       totalSpent: totalSpent,
     );
-
-    // === Notifications de dépassement ===
-    final notifService = NotificationService();
-
-    // Budget global dépassé
-    if (result.isOverBudget) {
-      notifService.showGlobalBudgetExceededNotification(
-        budgetLimit: result.amount,
-        currentSpent: result.totalSpent,
-      );
-    }
-
-    // Sous-budgets dépassés
-    for (final sub in subBudgets) {
-      if (sub.isOverBudget) {
-        notifService.showBudgetExceededNotification(
-          categoryName: sub.categoryName,
-          budgetLimit: sub.amount,
-          currentSpent: sub.currentSpent,
-        );
-      }
-    }
 
     return result;
   }

@@ -27,7 +27,9 @@ class NotificationPreferences {
   static const String _keySummaryEnabled = 'notif_summary_enabled';
   static const String _keySummaryDay = 'notif_summary_day';
   static const String _keySummaryHour = 'notif_summary_hour';
-
+  static const String _keyBudgetEnabled = 'notif_budget_enabled';
+  static const String _keyLastBudgetNotifMonth =
+      'notif_last_budget_notif_month';
   // ==================== INIT ====================
 
   Future<void> init() async {
@@ -179,6 +181,36 @@ class NotificationPreferences {
   Future<void> setWeeklySummaryHour(int hour) async {
     final prefs = await _getPrefs();
     await prefs.setInt(_keySummaryHour, hour);
+  }
+
+  // ==================== BUDGET ALERTS ====================
+
+  Future<bool> get budgetAlertsEnabled async {
+    final prefs = await _getPrefs();
+    return prefs.getBool(_keyBudgetEnabled) ?? true;
+  }
+
+  Future<void> setBudgetAlertsEnabled(bool value) async {
+    final prefs = await _getPrefs();
+    await prefs.setBool(_keyBudgetEnabled, value);
+  }
+
+  /// Mois du dernier envoi de notification budget (format "YYYY-MM")
+  /// Utilise pour eviter de re-envoyer la meme notification
+  Future<String?> get lastBudgetNotifMonth async {
+    final prefs = await _getPrefs();
+    return prefs.getString(_keyLastBudgetNotifMonth);
+  }
+
+  Future<void> setLastBudgetNotifMonth(String monthKey) async {
+    final prefs = await _getPrefs();
+    await prefs.setString(_keyLastBudgetNotifMonth, monthKey);
+  }
+
+  /// Remet a zero le flag de notification budget (pour le mois suivant)
+  Future<void> clearLastBudgetNotifMonth() async {
+    final prefs = await _getPrefs();
+    await prefs.remove(_keyLastBudgetNotifMonth);
   }
 
   // ==================== HELPERS ====================

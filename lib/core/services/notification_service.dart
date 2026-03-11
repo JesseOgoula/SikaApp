@@ -446,17 +446,31 @@ class NotificationService {
     required double budgetLimit,
     required double currentSpent,
   }) async {
+    if (!_isInitialized) await init();
+
+    final prefs = NotificationPreferences();
+    final masterEnabled = await prefs.isEnabled;
+    final budgetEnabled = await prefs.budgetAlertsEnabled;
+    if (!masterEnabled || !budgetEnabled) return;
+
+    // Dedup mensuel : ne pas re-notifier si deja fait ce mois
+    final now = DateTime.now();
+    final monthKey =
+        'cat_${categoryName}_${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final lastNotif = await prefs.lastBudgetNotifMonth;
+    if (lastNotif != null && lastNotif.contains(monthKey)) return;
+
     final exceeded = currentSpent - budgetLimit;
 
     await _notificationsPlugin.show(
       _idBudgetExceeded + categoryName.hashCode.abs() % 1000,
-      'Budget dépassé — $categoryName',
-      'Vous avez dépassé votre limite de ${exceeded.toStringAsFixed(0)} FCFA sur cette catégorie.',
+      'Budget depasse — $categoryName',
+      'Vous avez depasse votre limite de ${exceeded.toStringAsFixed(0)} FCFA sur cette categorie.',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channelBalance,
           'Alertes Budget',
-          channelDescription: 'Alertes de dépassement de budget',
+          channelDescription: 'Alertes de depassement de budget',
           importance: Importance.high,
           priority: Priority.high,
           color: const Color(0xFFE53935),
@@ -466,6 +480,9 @@ class NotificationService {
       ),
       payload: 'budget_exceeded:$categoryName',
     );
+
+    // Marquer comme notifie
+    await prefs.setLastBudgetNotifMonth(monthKey);
   }
 
   /// Notification quand le budget global mensuel est dépassé
@@ -477,18 +494,30 @@ class NotificationService {
   }) async {
     if (!_isInitialized) await init();
 
+    final prefs = NotificationPreferences();
+    final masterEnabled = await prefs.isEnabled;
+    final budgetEnabled = await prefs.budgetAlertsEnabled;
+    if (!masterEnabled || !budgetEnabled) return;
+
+    // Dedup mensuel
+    final now = DateTime.now();
+    final monthKey =
+        'global_${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final lastNotif = await prefs.lastBudgetNotifMonth;
+    if (lastNotif != null && lastNotif.contains(monthKey)) return;
+
     final exceeded = currentSpent - budgetLimit;
     final formattedExceeded = _formatAmount(exceeded);
 
     await _notificationsPlugin.show(
       _idGlobalBudgetExceeded,
-      '⚠️ Budget mensuel dépassé',
-      'Vous avez dépassé votre budget global de $formattedExceeded FCFA. Réduisez vos dépenses !',
+      'Budget mensuel depasse',
+      'Vous avez depasse votre budget global de $formattedExceeded FCFA.',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _channelBalance,
           'Alertes Budget',
-          channelDescription: 'Alertes de dépassement de budget',
+          channelDescription: 'Alertes de depassement de budget',
           importance: Importance.high,
           priority: Priority.high,
           color: const Color(0xFFE53935),
@@ -498,5 +527,8 @@ class NotificationService {
       ),
       payload: 'global_budget_exceeded',
     );
+
+    // Marquer comme notifie
+    await prefs.setLastBudgetNotifMonth(monthKey);
   }
 }

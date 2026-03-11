@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' show Value;
@@ -14,6 +15,8 @@ import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dar
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/services/analytics_service.dart';
+import 'package:sika_app/main.dart' show databaseProvider;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 /// Écran d'ajout manuel - Design Neo-Bank avec Keypad personnalisé
 class AddTransactionScreen extends ConsumerStatefulWidget {
@@ -388,7 +391,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Catégorie',
+          'Categorie',
           style: TextStyle(
             color: AppTheme.textSecondary,
             fontSize: 14,
@@ -401,9 +404,13 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             height: 80,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
+              itemCount: categories.length + 1, // +1 for the add button
               separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (context, index) {
+                if (index == categories.length) {
+                  // Bouton '+' pour creer une categorie
+                  return _buildAddCategoryButton();
+                }
                 final cat = categories[index];
                 return _buildCategoryItem(cat);
               },
@@ -413,6 +420,70 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           error: (e, _) => Text('Erreur: $e'),
         ),
       ],
+    );
+  }
+
+  Widget _buildAddCategoryButton() {
+    return GestureDetector(
+      onTap: () => _showCreateCategorySheet(),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                width: 1.5,
+                strokeAlign: BorderSide.strokeAlignInside,
+              ),
+            ),
+            child: Center(
+              child: Icon(Icons.add, color: AppTheme.primaryColor, size: 24),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Ajouter',
+            style: TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCreateCategorySheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CreateCategoryBottomSheet(
+        onCreated: (String name, String iconKey) async {
+          final db = ref.read(databaseProvider);
+          final id = const Uuid().v4();
+          await db
+              .into(db.categoriesTable)
+              .insert(
+                CategoriesTableCompanion.insert(
+                  id: id,
+                  name: name,
+                  iconKey: Value(iconKey),
+                  isSystem: Value(false),
+                  syncStatus: Value(0),
+                  sortOrder: Value(99),
+                ),
+              );
+          ref.invalidate(categoriesProvider);
+          setState(() => _selectedCategoryId = id);
+          if (mounted) Navigator.pop(ctx);
+        },
+      ),
     );
   }
 
@@ -1074,5 +1145,218 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+}
+
+/// Bottom Sheet pour creer une nouvelle categorie
+/// Utilise le TextPad personnalise au lieu du clavier systeme
+class _CreateCategoryBottomSheet extends StatefulWidget {
+  final Future<void> Function(String name, String iconKey) onCreated;
+
+  const _CreateCategoryBottomSheet({required this.onCreated});
+
+  @override
+  State<_CreateCategoryBottomSheet> createState() =>
+      _CreateCategoryBottomSheetState();
+}
+
+class _CreateCategoryBottomSheetState
+    extends State<_CreateCategoryBottomSheet> {
+  String _nameText = '';
+  String _selectedIcon = 'tag';
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconEntries = CategoryIconWidget.availableIcons.entries.toList();
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.92,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // Header
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 16, 24, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Nouvelle categorie',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Name display area
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.primaryColor, width: 2),
+              ),
+              child: Text(
+                _nameText.isEmpty ? 'Nom de la categorie' : _nameText,
+                style: TextStyle(
+                  color: _nameText.isEmpty
+                      ? Colors.grey.shade400
+                      : AppTheme.textPrimary,
+                  fontSize: 16,
+                  fontWeight: _nameText.isEmpty
+                      ? FontWeight.w400
+                      : FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Icon picker label
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Choisir une icone',
+                style: TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Scrollable icon grid
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: GridView.builder(
+                shrinkWrap: true,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 5,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                ),
+                itemCount: iconEntries.length,
+                itemBuilder: (context, index) {
+                  final entry = iconEntries[index];
+                  final isSelected = _selectedIcon == entry.key;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedIcon = entry.key),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: FaIcon(
+                          entry.value,
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.grey.shade700,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Create button
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 4),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (_nameText.trim().isEmpty || _isLoading)
+                    ? null
+                    : () async {
+                        setState(() => _isLoading = true);
+                        await widget.onCreated(_nameText.trim(), _selectedIcon);
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Creer la categorie',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ),
+          ),
+
+          // Custom TextPad
+          TextPad(
+            onKeyPressed: (key) {
+              setState(() => _nameText += key);
+            },
+            onBackspace: () {
+              if (_nameText.isNotEmpty) {
+                setState(() {
+                  _nameText = _nameText.substring(0, _nameText.length - 1);
+                });
+              }
+            },
+            onDone: () {
+              // Same as create button
+              if (_nameText.trim().isNotEmpty && !_isLoading) {
+                setState(() => _isLoading = true);
+                widget.onCreated(_nameText.trim(), _selectedIcon);
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

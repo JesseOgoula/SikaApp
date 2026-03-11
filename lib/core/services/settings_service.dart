@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sika_app/core/services/notification_preferences.dart';
 
-/// Service de gestion des préférences utilisateur
+/// Service de gestion des preferences utilisateur
 class SettingsService {
   static const String _keyAutoSave = 'auto_save_enabled';
   static const String _keyNotificationsEnabled = 'notifications_enabled';
@@ -9,7 +10,7 @@ class SettingsService {
   SharedPreferences? _prefs;
   bool _isInitialized = false;
 
-  /// Initialise le service (doit être appelé au démarrage)
+  /// Initialise le service (doit etre appele au demarrage)
   Future<void> init() async {
     if (_isInitialized) return;
     try {
@@ -21,35 +22,31 @@ class SettingsService {
     }
   }
 
-  /// Vérifie si le service est initialisé
+  /// Verifie si le service est initialise
   bool get isInitialized => _isInitialized && _prefs != null;
 
-  /// Assure que les prefs sont chargées (DÉFENSIF - pas de !)
+  /// Assure que les prefs sont chargees
   Future<SharedPreferences?> _getPrefs() async {
     if (_prefs == null) {
       await init();
     }
-    return _prefs; // Retourne nullable, pas de !
+    return _prefs;
   }
 
   // ==================== AUTO-SAVE SETTING ====================
 
-  /// Indique si l'enregistrement automatique est activé
-  /// Retourne false par défaut si les prefs ne sont pas disponibles
   Future<bool> isAutoSaveEnabled() async {
     final prefs = await _getPrefs();
     if (prefs == null) return false;
     return prefs.getBool(_keyAutoSave) ?? false;
   }
 
-  /// Active ou désactive l'enregistrement automatique
   Future<void> setAutoSaveEnabled(bool enabled) async {
     final prefs = await _getPrefs();
     if (prefs == null) return;
     await prefs.setBool(_keyAutoSave, enabled);
   }
 
-  /// Bascule le mode auto-save
   Future<bool> toggleAutoSave() async {
     final current = await isAutoSaveEnabled();
     await setAutoSaveEnabled(!current);
@@ -58,18 +55,21 @@ class SettingsService {
 
   // ==================== NOTIFICATIONS SETTING ====================
 
-  /// Indique si les notifications sont activées
   Future<bool> areNotificationsEnabled() async {
     final prefs = await _getPrefs();
     if (prefs == null) return true;
     return prefs.getBool(_keyNotificationsEnabled) ?? true;
   }
 
-  /// Active ou désactive les notifications
+  /// Active ou desactive les notifications
+  /// Synchronise aussi avec NotificationPreferences pour coherence
   Future<void> setNotificationsEnabled(bool enabled) async {
     final prefs = await _getPrefs();
     if (prefs == null) return;
     await prefs.setBool(_keyNotificationsEnabled, enabled);
+    // Synchroniser avec NotificationPreferences (master switch)
+    final notifPrefs = NotificationPreferences();
+    await notifPrefs.setEnabled(enabled);
   }
 
   // ==================== SYNC TRACKING ====================

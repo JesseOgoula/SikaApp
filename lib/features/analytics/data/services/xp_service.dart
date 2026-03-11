@@ -18,11 +18,15 @@ class XPService {
     }
   }
 
-  /// Synchronise automatiquement les XP vers Supabase (fire-and-forget)
-  void _syncToCloud(int totalXP) {
+  /// Synchronise les XP vers Supabase
+  Future<void> _syncToCloud(int totalXP) async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        print('[XP_SYNC] No user logged in, skipping sync');
+        return;
+      }
+      print('[XP_SYNC] Syncing $totalXP XP for user ${user.id}');
 
       final metadata = user.userMetadata ?? {};
       final displayName =
@@ -30,21 +34,19 @@ class XPService {
               as String;
       final avatarUrl = metadata['avatar_url'] as String?;
 
-      // Fire-and-forget : on ne bloque pas l'UX
-      RankService()
-          .syncRank(
-            totalXP: totalXP,
-            displayName: displayName,
-            avatarUrl: avatarUrl,
-          )
-          .catchError((e) {
-          });
+      await RankService().syncRank(
+        totalXP: totalXP,
+        displayName: displayName,
+        avatarUrl: avatarUrl,
+      );
+      print('[XP_SYNC] Sync SUCCESS for $totalXP XP');
     } catch (e) {
-    /* ignore */ }
+      print('[XP_SYNC] Sync FAILED: $e');
+    }
   }
 
-  /// Attribue des XP pour une action donnée
-  /// Retourne le nombre de points effectivement attribués (0 si limite atteinte)
+  /// Attribue des XP pour une action donnee
+  /// Retourne le nombre de points effectivement attribues
   Future<int> awardXP(ActionType action) async {
     await _ensureInit();
     final points = ActionPoints.getPoints(action);
@@ -54,13 +56,13 @@ class XPService {
     final newXP = (currentXP + points).clamp(0, 10000);
     await _settings.setTotalXP(newXP);
 
-    // Sync automatique vers Supabase
-    _syncToCloud(newXP);
+    // Sync vers Supabase (await pour garantir la coherence)
+    await _syncToCloud(newXP);
 
     return points;
   }
 
-  /// Attribue des XP personnalisés (pour le bonus santé financière)
+  /// Attribue des XP personnalises (pour le bonus sante financiere)
   Future<int> awardCustomXP(int points, String reason) async {
     await _ensureInit();
     if (points <= 0) return 0;
@@ -69,8 +71,8 @@ class XPService {
     final newXP = (currentXP + points).clamp(0, 10000);
     await _settings.setTotalXP(newXP);
 
-    // Sync automatique vers Supabase
-    _syncToCloud(newXP);
+    // Sync vers Supabase (await pour garantir la coherence)
+    await _syncToCloud(newXP);
 
     return points;
   }

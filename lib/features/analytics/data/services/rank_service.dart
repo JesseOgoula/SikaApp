@@ -18,25 +18,36 @@ class RankService {
     required int totalXP,
     required String displayName,
     String? avatarUrl,
+    int? healthScore,
   }) async {
     final user = _supabase.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      print('[RANK_SYNC] No user, skipping');
+      return;
+    }
 
     final rank = RankDefinitions.getRankForXP(totalXP);
 
     try {
+      // health_score a un CHECK constraint 0-100 dans Supabase
+      final safeHealthScore = (healthScore ?? totalXP).clamp(0, 100);
+      print(
+        '[RANK_SYNC] Upserting: user=${user.id}, xp=$totalXP, healthScore=$safeHealthScore, rank=${rank.name}',
+      );
       await _supabase.from('user_ranks').upsert({
         'user_id': user.id,
         'total_xp': totalXP,
-        'health_score': totalXP, // backward compat
+        'health_score': safeHealthScore,
         'rank_level': rank.level,
         'rank_name': rank.name,
         'display_name': displayName,
         'avatar_url': avatarUrl,
         'updated_at': DateTime.now().toIso8601String(),
       });
+      print('[RANK_SYNC] Upsert SUCCESS');
     } catch (e) {
-    /* ignore */ }
+      print('[RANK_SYNC] Upsert FAILED: $e');
+    }
   }
 
   /// Récupère le classement (top 50) trié par XP décroissant

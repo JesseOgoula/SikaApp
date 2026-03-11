@@ -31,6 +31,7 @@ class _NotificationSettingsScreenState
   bool _summaryEnabled = true;
   int _summaryDay = 7;
   int _summaryHour = 18;
+  bool _budgetEnabled = true;
 
   @override
   void initState() {
@@ -52,6 +53,7 @@ class _NotificationSettingsScreenState
     _summaryEnabled = await _prefs.weeklySummaryEnabled;
     _summaryDay = await _prefs.weeklySummaryDay;
     _summaryHour = await _prefs.weeklySummaryHour;
+    _budgetEnabled = await _prefs.budgetAlertsEnabled;
 
     if (mounted) setState(() => _isLoading = false);
   }
@@ -68,7 +70,8 @@ class _NotificationSettingsScreenState
         }
       }
     } catch (e) {
-    /* ignore */ }
+      /* ignore */
+    }
   }
 
   @override
@@ -114,6 +117,8 @@ class _NotificationSettingsScreenState
                           _buildDebtSection(),
                           const SizedBox(height: 12),
                           _buildLowBalanceSection(),
+                          const SizedBox(height: 12),
+                          _buildBudgetSection(),
                           const SizedBox(height: 12),
                           _buildGoalSection(),
                           const SizedBox(height: 12),
@@ -340,6 +345,31 @@ class _NotificationSettingsScreenState
           ),
         ],
       ),
+    );
+  }
+
+  // ==================== BUDGET ALERTS ====================
+
+  Widget _buildBudgetSection() {
+    return _buildCard(
+      children: [
+        _buildSwitchTile(
+          icon: Icons.pie_chart_rounded,
+          title: 'Alertes Budget',
+          subtitle: 'Notification si un budget est depasse',
+          value: _budgetEnabled,
+          onChanged: (val) async {
+            setState(() => _budgetEnabled = val);
+            await _prefs.setBudgetAlertsEnabled(val);
+            if (!val) {
+              // Annuler les notifications budget existantes
+              final service = NotificationService();
+              await service.cancel(8000); // _idBudgetExceeded
+              await service.cancel(9000); // _idGlobalBudgetExceeded
+            }
+          },
+        ),
+      ],
     );
   }
 
