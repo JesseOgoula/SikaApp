@@ -358,6 +358,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     if (!_rankChecked) {
       _rankChecked = true;
       _checkRankTransition(healthScore, rank);
+    } else {
+      // Toujours rafraichir les XP affiches (meme si rank deja checke)
+      XPService().getTotalXP().then((xp) {
+        if (mounted && xp != _totalXP) {
+          setState(() => _totalXP = xp);
+        }
+      });
     }
 
     // Layout sans scroll vertical
