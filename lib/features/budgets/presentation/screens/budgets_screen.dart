@@ -9,7 +9,7 @@ import 'package:sika_app/features/budgets/data/repositories/budget_repository.da
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 
-/// Ã‰cran de gestion du budget mensuel global
+/// Ecran de gestion du budget mensuel global
 class BudgetsScreen extends ConsumerStatefulWidget {
   const BudgetsScreen({super.key});
 
@@ -85,7 +85,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ),
           const SizedBox(height: 16),
           const Text(
-            'Aucun budget dÃ©fini',
+            'Aucun budget defini',
             style: TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 18,
@@ -94,7 +94,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'DÃ©finissez un budget mensuel global\npour contrÃ´ler vos dÃ©penses',
+            'Definissez un budget mensuel global\npour controler vos depenses',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),
@@ -102,7 +102,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ElevatedButton.icon(
             onPressed: () => _showGlobalBudgetSheet(null, categoriesAsync),
             icon: const Icon(Icons.add),
-            label: const Text('CrÃ©er un budget'),
+            label: const Text('Creer un budget'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -127,7 +127,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // â”€â”€â”€ Carte principale du budget global â”€â”€â”€
+        // --- Carte principale du budget global ---
         GestureDetector(
           onTap: () => _showGlobalBudgetSheet(globalBudget, categoriesAsync),
           child: Container(
@@ -137,7 +137,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                   ? LinearGradient(
                       colors: [
                         AppTheme.error,
-                        AppTheme.error.withOpacity(0.85),
+                        AppTheme.error.withValues(alpha: 0.85),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -146,7 +146,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
+                  color: Colors.black.withValues(alpha: 0.08),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -168,7 +168,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     ),
                     Icon(
                       Icons.edit_outlined,
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       size: 20,
                     ),
                   ],
@@ -187,7 +187,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
                     value: (percentUsed / 100).clamp(0.0, 1.0),
-                    backgroundColor: Colors.white.withOpacity(0.3),
+                    backgroundColor: Colors.white.withValues(alpha: 0.3),
                     color: Colors.white,
                     minHeight: 8,
                   ),
@@ -197,7 +197,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${percentUsed.toStringAsFixed(0)}% utilisÃ©',
+                      '${percentUsed.toStringAsFixed(0)}% utilise',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -207,7 +207,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                     Text(
                       globalBudget.remaining >= 0
                           ? 'Reste: ${_currencyFormat.format(globalBudget.remaining)} F'
-                          : 'DÃ©passÃ© de: ${_currencyFormat.format(-globalBudget.remaining)} F',
+                          : 'Depasse de: ${_currencyFormat.format(-globalBudget.remaining)} F',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 12,
@@ -221,11 +221,11 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ),
         ),
 
-        // â”€â”€â”€ Sous-budgets â”€â”€â”€
+        // --- Sous-budgets ---
         if (globalBudget.subBudgets.isNotEmpty) ...[
           const SizedBox(height: 24),
           const Text(
-            'RÃ©partition par catÃ©gorie',
+            'Repartition par categorie',
             style: TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 16,
@@ -236,14 +236,14 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
           ...globalBudget.subBudgets.map((sub) => _buildSubBudgetCard(sub)),
         ],
 
-        // â”€â”€â”€ Info non allouÃ© â”€â”€â”€
+        // --- Info non alloue ---
         if (globalBudget.unallocatedAmount > 0 &&
             globalBudget.subBudgets.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.06),
+              color: AppTheme.primaryColor.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -256,7 +256,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Non allouÃ©: ${_currencyFormat.format(globalBudget.unallocatedAmount)} F',
+                    'Non alloue: ${_currencyFormat.format(globalBudget.unallocatedAmount)} F',
                     style: TextStyle(
                       color: AppTheme.primaryColor,
                       fontSize: 13,
@@ -285,12 +285,9 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: sub.isOverBudget
-            ? Border.all(color: AppTheme.error.withOpacity(0.4), width: 1.5)
-            : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -304,7 +301,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
@@ -338,11 +335,11 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.error.withOpacity(0.1),
+                              color: AppTheme.error.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
-                              'DÃ©passÃ©!',
+                              'Depasse!',
                               style: TextStyle(
                                 color: AppTheme.error,
                                 fontSize: 9,
@@ -390,7 +387,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
               Text(
                 sub.remaining >= 0
                     ? 'Reste: ${_currencyFormat.format(sub.remaining)} F'
-                    : 'DÃ©passÃ© de: ${_currencyFormat.format(-sub.remaining)} F',
+                    : 'Depasse de: ${_currencyFormat.format(-sub.remaining)} F',
                 style: TextStyle(
                   color: sub.remaining >= 0 ? AppTheme.success : AppTheme.error,
                   fontSize: 11,
@@ -422,7 +419,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 
             final globalId = await repo.createOrUpdateGlobalBudget(totalAmount);
 
-            // Supprimer les sous-budgets qui ne sont plus sÃ©lectionnÃ©s
+            // Supprimer les sous-budgets qui ne sont plus selectionnes
             if (existing != null) {
               for (final oldSub in existing.subBudgets) {
                 if (!subBudgets.containsKey(oldSub.categoryId)) {
@@ -431,7 +428,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
               }
             }
 
-            // Ajouter/mettre Ã  jour les sous-budgets
+            // Ajouter/mettre a jour les sous-budgets
             for (final entry in subBudgets.entries) {
               final cat = categories.firstWhere((c) => c.id == entry.key);
               await repo.addOrUpdateSubBudget(
@@ -481,7 +478,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
 }
 
 /// Bottom Sheet pour configurer le budget mensuel global
-/// Layout: Header fixe â†’ Contenu scrollable â†’ Montant sÃ©lectionnÃ© + NumberPad fixe en bas
+/// Layout: Header fixe -> Contenu scrollable -> Montant selectionne + NumberPad fixe en bas
 class _GlobalBudgetBottomSheet extends StatefulWidget {
   final GlobalBudget? existing;
   final List<CategoriesTableData> categories;
@@ -562,7 +559,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
     return total;
   }
 
-  /// RÃ©cupÃ¨re le controller actif (total ou sous-catÃ©gorie)
+  /// Controller actif (total ou sous-categorie)
   TextEditingController get _activeController {
     if (_editingTotal) return _totalController;
     if (_editingSubCategoryId != null) {
@@ -574,14 +571,14 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
     return _totalController;
   }
 
-  /// Label du champ en cours d'Ã©dition
+  /// Label du champ en cours
   String get _activeLabel {
     if (_editingTotal) return 'Budget total mensuel';
     if (_editingSubCategoryId != null) {
       final cat = widget.categories
           .where((c) => c.id == _editingSubCategoryId)
           .firstOrNull;
-      return cat?.name ?? 'CatÃ©gorie';
+      return cat?.name ?? 'Categorie';
     }
     return '';
   }
@@ -608,7 +605,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // â”€â”€â”€ Handle â”€â”€â”€
+          // Handle
           Padding(
             padding: const EdgeInsets.only(top: 12),
             child: Container(
@@ -621,7 +618,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
             ),
           ),
 
-          // â”€â”€â”€ Header â”€â”€â”€
+          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
             child: Row(
@@ -654,13 +651,13 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
             ),
           ),
 
-          // â”€â”€â”€ Contenu scrollable (catÃ©gories) â”€â”€â”€
+          // Contenu scrollable (categories)
           Flexible(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
               shrinkWrap: true,
               children: [
-                // Chip du budget total (tap pour Ã©diter)
+                // Budget total (tap pour editer)
                 GestureDetector(
                   onTap: () => setState(() {
                     _editingTotal = true;
@@ -673,7 +670,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                     ),
                     decoration: BoxDecoration(
                       color: _editingTotal
-                          ? AppTheme.primaryColor.withOpacity(0.08)
+                          ? AppTheme.primaryColor.withValues(alpha: 0.08)
                           : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
@@ -709,7 +706,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                   ),
                 ),
 
-                // Section rÃ©partition (visible quand total > 0)
+                // Section repartition (visible quand total > 0)
                 if (_totalAmount > 0 && !_editingTotal) ...[
                   const SizedBox(height: 16),
 
@@ -721,8 +718,8 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                     ),
                     decoration: BoxDecoration(
                       color: remaining >= 0
-                          ? AppTheme.primaryColor.withOpacity(0.06)
-                          : AppTheme.error.withOpacity(0.06),
+                          ? AppTheme.primaryColor.withValues(alpha: 0.06)
+                          : AppTheme.error.withValues(alpha: 0.06),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -739,8 +736,8 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                         const SizedBox(width: 8),
                         Text(
                           remaining >= 0
-                              ? 'Non allouÃ©: ${_currencyFormat.format(remaining)} F'
-                              : 'DÃ©passement: ${_currencyFormat.format(-remaining)} F',
+                              ? 'Non alloue: ${_currencyFormat.format(remaining)} F'
+                              : 'Depassement: ${_currencyFormat.format(-remaining)} F',
                           style: TextStyle(
                             color: remaining >= 0
                                 ? AppTheme.primaryColor
@@ -755,7 +752,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                   const SizedBox(height: 12),
 
                   const Text(
-                    'RÃ©partition par catÃ©gorie',
+                    'Repartition par categorie',
                     style: TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 14,
@@ -794,19 +791,15 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                         ),
                         decoration: BoxDecoration(
                           color: isEditing
-                              ? AppTheme.primaryColor.withOpacity(0.08)
-                              : isSelected
-                              ? Colors.grey.shade50
+                              ? AppTheme.primaryColor.withValues(alpha: 0.08)
                               : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isEditing
-                                ? AppTheme.primaryColor
-                                : isSelected
-                                ? AppTheme.primaryColor.withOpacity(0.25)
-                                : Colors.grey.shade200,
-                            width: isEditing ? 2 : 1,
-                          ),
+                          border: isEditing
+                              ? Border.all(
+                                  color: AppTheme.primaryColor,
+                                  width: 2,
+                                )
+                              : null,
                         ),
                         child: Row(
                           children: [
@@ -855,7 +848,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                               Text(
                                 subAmount > 0
                                     ? '${_currencyFormat.format(subAmount)} F'
-                                    : 'â€”',
+                                    : '\u2014',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w700,
@@ -863,7 +856,9 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                                       ? AppTheme.primaryColor
                                       : subAmount > 0
                                       ? AppTheme.textPrimary
-                                      : AppTheme.textSecondary.withOpacity(0.4),
+                                      : AppTheme.textSecondary.withValues(
+                                          alpha: 0.4,
+                                        ),
                                 ),
                               ),
                           ],
@@ -876,11 +871,11 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
             ),
           ),
 
-          // â”€â”€â”€ Zone fixe en bas : Montant actif + NumberPad + Bouton â”€â”€â”€
+          // Zone fixe en bas : Montant actif + NumberPad + Bouton
           if (showNumberPad) ...[
             const Divider(height: 1),
 
-            // Affichage du montant en cours
+            // Montant en cours
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
@@ -948,7 +943,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                           ),
                         ),
                         child: const Text(
-                          'RÃ©partir le budget â†’',
+                          'Repartir le budget',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       )
@@ -975,8 +970,8 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                               )
                             : Text(
                                 widget.existing != null
-                                    ? 'Mettre Ã  jour'
-                                    : 'DÃ©finir le budget',
+                                    ? 'Mettre a jour'
+                                    : 'Definir le budget',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -985,7 +980,7 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
               ),
             ),
           ] else ...[
-            // Pas de NumberPad visible : juste le bouton sauvegarder
+            // Pas de NumberPad : juste le bouton sauvegarder
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               child: SizedBox(
@@ -1013,8 +1008,8 @@ class _GlobalBudgetBottomSheetState extends State<_GlobalBudgetBottomSheet> {
                         )
                       : Text(
                           widget.existing != null
-                              ? 'Mettre Ã  jour'
-                              : 'DÃ©finir le budget',
+                              ? 'Mettre a jour'
+                              : 'Definir le budget',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                 ),
