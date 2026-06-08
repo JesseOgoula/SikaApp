@@ -52,7 +52,7 @@ dependencies:
   stack_trace: ^1.12.1
   url_launcher: ^6.3.2
   web: ^1.1.1
-  font_awesome_flutter: ^10.7.0
+  font_awesome_flutter: ^11.0.0
   fl_chart: ^0.69.2
   flutter_svg: ^2.0.10
   google_generative_ai: ^0.4.6

@@ -591,7 +591,7 @@ class _DebtsList extends ConsumerWidget {
     );
   }
 
-  IconData _getIconForType(DebtType type) {
+  FaIconData _getIconForType(DebtType type) {
     switch (type) {
       case DebtType.bill:
         return FontAwesomeIcons.fileInvoiceDollar;

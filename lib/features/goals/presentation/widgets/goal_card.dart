@@ -233,7 +233,7 @@ class GoalCard extends StatelessWidget {
     );
   }
 
-  IconData _getGoalIcon(String? iconKey) {
+  FaIconData _getGoalIcon(String? iconKey) {
     if (iconKey == null) return FontAwesomeIcons.bullseye;
     switch (iconKey) {
       case 'laptop':

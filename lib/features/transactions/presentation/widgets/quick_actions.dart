@@ -48,7 +48,7 @@ class QuickActions extends StatelessWidget {
 
   Widget _buildActionButton({
     IconData? icon,
-    IconData? faIcon,
+    FaIconData? faIcon,
     required String label,
     required VoidCallback onTap,
     bool isPrimary = false,

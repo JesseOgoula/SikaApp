@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.sika.sika_app"
+    namespace = "com.sikaapp.sika_app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.sika.sika_app"
+        applicationId = "com.sikaapp.sika_app"
         minSdk = flutter.minSdkVersion  // Minimum pour notifications et SMS
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

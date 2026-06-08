@@ -455,7 +455,7 @@ class _BudgetsScreenState extends ConsumerState<BudgetsScreen> {
     });
   }
 
-  IconData _getCategoryIcon(String? iconKey) {
+  FaIconData _getCategoryIcon(String? iconKey) {
     switch (iconKey) {
       case 'restaurant':
         return FontAwesomeIcons.utensils;

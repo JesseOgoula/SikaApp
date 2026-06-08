@@ -696,7 +696,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     required double amount,
     required double trend,
     required Color color,
-    required IconData icon,
+    required FaIconData icon,
     bool invertTrendColor = false,
   }) {
     final showTrend = trend.abs() > 0.1;
@@ -1366,7 +1366,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  IconData _getCategoryIcon(String? iconKey) {
+  FaIconData _getCategoryIcon(String? iconKey) {
     if (iconKey == null) return FontAwesomeIcons.receipt;
     switch (iconKey) {
       case 'utensils':

@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     
+    <!-- Permission reseau requise pour Google Sign-In, Supabase et Sentry/PostHog -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
     <!-- Permissions Notifications -->
     <uses-permission android:name="android.permission.VIBRATE"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

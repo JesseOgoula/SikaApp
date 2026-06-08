@@ -1,4 +1,4 @@
-package com.sika.sika_app
+package com.sikaapp.sika_app
 
 import io.flutter.embedding.android.FlutterActivity
 

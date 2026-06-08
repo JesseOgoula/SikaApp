@@ -1475,7 +1475,7 @@ class _RecentActivity {
   final double amount;
   final bool isPositive;
   final DateTime date;
-  final IconData icon;
+  final FaIconData icon;
   final Color iconColor;
 
   _RecentActivity({

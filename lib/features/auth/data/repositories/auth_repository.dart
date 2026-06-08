@@ -1,12 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:sika_app/core/constants/supabase_constants.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/main.dart' show autoSyncService, databaseProvider;
 import 'package:sika_app/core/services/analytics_service.dart';
+import 'package:sika_app/core/utils/logger.dart';
 
 /// Provider pour le AuthRepository
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
@@ -20,12 +23,9 @@ class AuthRepository {
   final _supabase = Supabase.instance.client;
 
   // Web Client ID from Google Cloud Console (configuré dans Supabase)
-  static const String _webClientId =
-      '545730155818-ho496bi3nj7gnedjeejvt57ee3m66iq4.apps.googleusercontent.com';
-
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    serverClientId: _webClientId, // Important pour obtenir idToken sur Android
+    serverClientId: SupabaseConstants.googleWebClientId,
   );
 
   AuthRepository(this._db);
@@ -45,58 +45,86 @@ class AuthRepository {
   /// 2. Récupère les tokens (idToken, accessToken)
   /// 3. Envoie les tokens à Supabase
   Future<AuthResponse> signInWithGoogle() async {
+    SikaLogger.info('Starting signInWithGoogle flow...', tag: 'AUTH_REPO');
     try {
       // 1. Déclenche le flow Google Sign-In
+      SikaLogger.info('Invoking _googleSignIn.signIn()...', tag: 'AUTH_REPO');
       final googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
+        SikaLogger.warn('Google Sign-In canceled by user (googleUser is null)', tag: 'AUTH_REPO');
         throw Exception('Connexion Google annulée par l\'utilisateur');
       }
 
+      SikaLogger.info('Google Sign-In user selected: ${googleUser.email}', tag: 'AUTH_REPO');
+
       // 2. Récupère les tokens d'authentification
+      SikaLogger.info('Retrieving googleAuth from googleUser...', tag: 'AUTH_REPO');
       final googleAuth = await googleUser.authentication;
 
       final idToken = googleAuth.idToken;
       final accessToken = googleAuth.accessToken;
 
+      SikaLogger.info('Tokens retrieved. idToken is null? ${idToken == null}, accessToken is null? ${accessToken == null}', tag: 'AUTH_REPO');
+
       if (idToken == null) {
+        SikaLogger.error('idToken is null! Cannot authenticate with Supabase', tag: 'AUTH_REPO');
         throw Exception(
           'Impossible de récupérer le token Google. Vérifiez la configuration.',
         );
       }
 
       // 3. Authentifie avec Supabase en utilisant les tokens Google
+      SikaLogger.info('Signing in to Supabase with ID token...', tag: 'AUTH_REPO');
       final response = await _supabase.auth.signInWithIdToken(
         provider: OAuthProvider.google,
         idToken: idToken,
         accessToken: accessToken,
       );
 
+      SikaLogger.info('Supabase sign in completed successfully. User ID: ${response.user?.id}', tag: 'AUTH_REPO');
+
       // 4. Démarre la synchronisation après connexion
       try {
+        SikaLogger.info('Starting autoSyncService...', tag: 'AUTH_REPO');
         autoSyncService?.startListening();
       } catch (e) {
-        /* ignore */
+        SikaLogger.error('Error starting autoSyncService: $e', tag: 'AUTH_REPO');
       }
 
       // 5. Tracking PostHog : auth_completed + identify
-      await AnalyticsService.logEvent('auth_completed');
-      if (response.user != null) {
-        await AnalyticsService.identifyUser(
-          response.user!.id,
-          email: response.user!.email,
-        );
+      try {
+        await AnalyticsService.logEvent('auth_completed');
+        if (response.user != null) {
+          await AnalyticsService.identifyUser(
+            response.user!.id,
+            email: response.user!.email,
+          );
+        }
+      } catch (e) {
+        SikaLogger.error('Error during analytics tracking: $e', tag: 'AUTH_REPO');
       }
 
       return response;
     } on AuthException catch (e) {
+      SikaLogger.error('Supabase AuthException: ${e.message}', tag: 'AUTH_REPO');
       throw Exception('Erreur Supabase: ${e.message}');
+    } on PlatformException catch (e) {
+      SikaLogger.error('Google PlatformException (code: ${e.code}): ${e.message}', tag: 'AUTH_REPO');
+      if (e.code == 'sign_in_failed') {
+        throw Exception(
+          'Connexion Google impossible. Verifiez que le client OAuth Android '
+          'est cree avec le package com.sikaapp.sika_app et la bonne empreinte SHA-1/SHA-256.',
+        );
+      }
+
+      throw Exception('Erreur Google: ${e.message ?? e.code}');
     } catch (e) {
+      SikaLogger.error('Unexpected error in signInWithGoogle: $e', tag: 'AUTH_REPO');
       throw Exception('Erreur de connexion: $e');
     }
   }
 
-  /// Déconnexion
   Future<void> signOut() async {
     try {
       // 1. Arrête AutoSync

@@ -232,7 +232,7 @@ class TransactionTile extends StatelessWidget {
     return GestureDetector(onTap: onEdit ?? onTap, child: tile);
   }
 
-  IconData _getCategoryIcon(String? iconKey) {
+  FaIconData _getCategoryIcon(String? iconKey) {
     if (iconKey == null) return FontAwesomeIcons.receipt;
     switch (iconKey) {
       case 'utensils':

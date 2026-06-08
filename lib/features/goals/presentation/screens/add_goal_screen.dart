@@ -509,7 +509,7 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
                 ),
                 child: Center(
                   child: FaIcon(
-                    item['icon'] as IconData,
+                    item['icon'] as FaIconData,
                     color: isSelected ? Colors.white : Colors.grey[700],
                     size: 20,
                   ),

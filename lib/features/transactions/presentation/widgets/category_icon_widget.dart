@@ -39,7 +39,7 @@ class CategoryIconWidget extends StatelessWidget {
 
   /// Map des icones disponibles pour les categories
   /// Utilise aussi par le picker d'icones lors de la creation de categorie
-  static const Map<String, IconData> availableIcons = {
+  static const Map<String, FaIconData> availableIcons = {
     'utensils': FontAwesomeIcons.utensils,
     'taxi': FontAwesomeIcons.taxi,
     'bolt': FontAwesomeIcons.bolt,
@@ -70,8 +70,8 @@ class CategoryIconWidget extends StatelessWidget {
     'tag': FontAwesomeIcons.tag,
   };
 
-  /// Resoud la cle d'icone vers un IconData
-  static IconData getCategoryIcon(String? iconKey) {
+  /// Resoud la cle d'icone vers une icone FontAwesome
+  static FaIconData getCategoryIcon(String? iconKey) {
     if (iconKey == null) return FontAwesomeIcons.question;
     return availableIcons[iconKey] ?? FontAwesomeIcons.tag;
   }
