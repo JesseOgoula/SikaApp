@@ -73,6 +73,15 @@ class $TransactionsTableTable extends TransactionsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _debtIdMeta = const VerificationMeta('debtId');
+  @override
+  late final GeneratedColumn<String> debtId = GeneratedColumn<String>(
+    'debt_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _dateMeta = const VerificationMeta('date');
   @override
   late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
@@ -164,6 +173,7 @@ class $TransactionsTableTable extends TransactionsTable
     merchantName,
     categoryId,
     accountId,
+    debtId,
     date,
     externalId,
     isAiCategorized,
@@ -224,6 +234,12 @@ class $TransactionsTableTable extends TransactionsTable
       context.handle(
         _accountIdMeta,
         accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
+    if (data.containsKey('debt_id')) {
+      context.handle(
+        _debtIdMeta,
+        debtId.isAcceptableOrUnknown(data['debt_id']!, _debtIdMeta),
       );
     }
     if (data.containsKey('date')) {
@@ -313,6 +329,10 @@ class $TransactionsTableTable extends TransactionsTable
         DriftSqlType.string,
         data['${effectivePrefix}account_id'],
       ),
+      debtId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}debt_id'],
+      ),
       date: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}date'],
@@ -370,6 +390,9 @@ class TransactionsTableData extends DataClass
   /// FK vers AccountsTable (UUID) - Compte source de la transaction
   final String? accountId;
 
+  /// FK vers DebtsTable (UUID) - Lien avec un revenu potentiel / créance / dette
+  final String? debtId;
+
   /// Date et heure de la transaction
   final DateTime date;
 
@@ -398,6 +421,7 @@ class TransactionsTableData extends DataClass
     this.merchantName,
     this.categoryId,
     this.accountId,
+    this.debtId,
     required this.date,
     this.externalId,
     required this.isAiCategorized,
@@ -420,6 +444,9 @@ class TransactionsTableData extends DataClass
     }
     if (!nullToAbsent || accountId != null) {
       map['account_id'] = Variable<String>(accountId);
+    }
+    if (!nullToAbsent || debtId != null) {
+      map['debt_id'] = Variable<String>(debtId);
     }
     map['date'] = Variable<DateTime>(date);
     if (!nullToAbsent || externalId != null) {
@@ -447,6 +474,9 @@ class TransactionsTableData extends DataClass
       accountId: accountId == null && nullToAbsent
           ? const Value.absent()
           : Value(accountId),
+      debtId: debtId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(debtId),
       date: Value(date),
       externalId: externalId == null && nullToAbsent
           ? const Value.absent()
@@ -471,6 +501,7 @@ class TransactionsTableData extends DataClass
       merchantName: serializer.fromJson<String?>(json['merchantName']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       accountId: serializer.fromJson<String?>(json['accountId']),
+      debtId: serializer.fromJson<String?>(json['debtId']),
       date: serializer.fromJson<DateTime>(json['date']),
       externalId: serializer.fromJson<String?>(json['externalId']),
       isAiCategorized: serializer.fromJson<bool>(json['isAiCategorized']),
@@ -490,6 +521,7 @@ class TransactionsTableData extends DataClass
       'merchantName': serializer.toJson<String?>(merchantName),
       'categoryId': serializer.toJson<String?>(categoryId),
       'accountId': serializer.toJson<String?>(accountId),
+      'debtId': serializer.toJson<String?>(debtId),
       'date': serializer.toJson<DateTime>(date),
       'externalId': serializer.toJson<String?>(externalId),
       'isAiCategorized': serializer.toJson<bool>(isAiCategorized),
@@ -507,6 +539,7 @@ class TransactionsTableData extends DataClass
     Value<String?> merchantName = const Value.absent(),
     Value<String?> categoryId = const Value.absent(),
     Value<String?> accountId = const Value.absent(),
+    Value<String?> debtId = const Value.absent(),
     DateTime? date,
     Value<String?> externalId = const Value.absent(),
     bool? isAiCategorized,
@@ -521,6 +554,7 @@ class TransactionsTableData extends DataClass
     merchantName: merchantName.present ? merchantName.value : this.merchantName,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     accountId: accountId.present ? accountId.value : this.accountId,
+    debtId: debtId.present ? debtId.value : this.debtId,
     date: date ?? this.date,
     externalId: externalId.present ? externalId.value : this.externalId,
     isAiCategorized: isAiCategorized ?? this.isAiCategorized,
@@ -541,6 +575,7 @@ class TransactionsTableData extends DataClass
           ? data.categoryId.value
           : this.categoryId,
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      debtId: data.debtId.present ? data.debtId.value : this.debtId,
       date: data.date.present ? data.date.value : this.date,
       externalId: data.externalId.present
           ? data.externalId.value
@@ -568,6 +603,7 @@ class TransactionsTableData extends DataClass
           ..write('merchantName: $merchantName, ')
           ..write('categoryId: $categoryId, ')
           ..write('accountId: $accountId, ')
+          ..write('debtId: $debtId, ')
           ..write('date: $date, ')
           ..write('externalId: $externalId, ')
           ..write('isAiCategorized: $isAiCategorized, ')
@@ -587,6 +623,7 @@ class TransactionsTableData extends DataClass
     merchantName,
     categoryId,
     accountId,
+    debtId,
     date,
     externalId,
     isAiCategorized,
@@ -605,6 +642,7 @@ class TransactionsTableData extends DataClass
           other.merchantName == this.merchantName &&
           other.categoryId == this.categoryId &&
           other.accountId == this.accountId &&
+          other.debtId == this.debtId &&
           other.date == this.date &&
           other.externalId == this.externalId &&
           other.isAiCategorized == this.isAiCategorized &&
@@ -622,6 +660,7 @@ class TransactionsTableCompanion
   final Value<String?> merchantName;
   final Value<String?> categoryId;
   final Value<String?> accountId;
+  final Value<String?> debtId;
   final Value<DateTime> date;
   final Value<String?> externalId;
   final Value<bool> isAiCategorized;
@@ -637,6 +676,7 @@ class TransactionsTableCompanion
     this.merchantName = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.accountId = const Value.absent(),
+    this.debtId = const Value.absent(),
     this.date = const Value.absent(),
     this.externalId = const Value.absent(),
     this.isAiCategorized = const Value.absent(),
@@ -653,6 +693,7 @@ class TransactionsTableCompanion
     this.merchantName = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.accountId = const Value.absent(),
+    this.debtId = const Value.absent(),
     required DateTime date,
     this.externalId = const Value.absent(),
     this.isAiCategorized = const Value.absent(),
@@ -672,6 +713,7 @@ class TransactionsTableCompanion
     Expression<String>? merchantName,
     Expression<String>? categoryId,
     Expression<String>? accountId,
+    Expression<String>? debtId,
     Expression<DateTime>? date,
     Expression<String>? externalId,
     Expression<bool>? isAiCategorized,
@@ -688,6 +730,7 @@ class TransactionsTableCompanion
       if (merchantName != null) 'merchant_name': merchantName,
       if (categoryId != null) 'category_id': categoryId,
       if (accountId != null) 'account_id': accountId,
+      if (debtId != null) 'debt_id': debtId,
       if (date != null) 'date': date,
       if (externalId != null) 'external_id': externalId,
       if (isAiCategorized != null) 'is_ai_categorized': isAiCategorized,
@@ -706,6 +749,7 @@ class TransactionsTableCompanion
     Value<String?>? merchantName,
     Value<String?>? categoryId,
     Value<String?>? accountId,
+    Value<String?>? debtId,
     Value<DateTime>? date,
     Value<String?>? externalId,
     Value<bool>? isAiCategorized,
@@ -722,6 +766,7 @@ class TransactionsTableCompanion
       merchantName: merchantName ?? this.merchantName,
       categoryId: categoryId ?? this.categoryId,
       accountId: accountId ?? this.accountId,
+      debtId: debtId ?? this.debtId,
       date: date ?? this.date,
       externalId: externalId ?? this.externalId,
       isAiCategorized: isAiCategorized ?? this.isAiCategorized,
@@ -753,6 +798,9 @@ class TransactionsTableCompanion
     }
     if (accountId.present) {
       map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (debtId.present) {
+      map['debt_id'] = Variable<String>(debtId.value);
     }
     if (date.present) {
       map['date'] = Variable<DateTime>(date.value);
@@ -790,6 +838,7 @@ class TransactionsTableCompanion
           ..write('merchantName: $merchantName, ')
           ..write('categoryId: $categoryId, ')
           ..write('accountId: $accountId, ')
+          ..write('debtId: $debtId, ')
           ..write('date: $date, ')
           ..write('externalId: $externalId, ')
           ..write('isAiCategorized: $isAiCategorized, ')
@@ -2894,6 +2943,18 @@ class $DebtsTableTable extends DebtsTable
     type: DriftSqlType.double,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _paidAmountMeta = const VerificationMeta(
+    'paidAmount',
+  );
+  @override
+  late final GeneratedColumn<double> paidAmount = GeneratedColumn<double>(
+    'paid_amount',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
   static const VerificationMeta _typeMeta = const VerificationMeta('type');
   @override
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
@@ -3023,6 +3084,7 @@ class $DebtsTableTable extends DebtsTable
     userId,
     name,
     amount,
+    paidAmount,
     type,
     dueDate,
     status,
@@ -3075,6 +3137,12 @@ class $DebtsTableTable extends DebtsTable
       );
     } else if (isInserting) {
       context.missing(_amountMeta);
+    }
+    if (data.containsKey('paid_amount')) {
+      context.handle(
+        _paidAmountMeta,
+        paidAmount.isAcceptableOrUnknown(data['paid_amount']!, _paidAmountMeta),
+      );
     }
     if (data.containsKey('type')) {
       context.handle(
@@ -3180,6 +3248,10 @@ class $DebtsTableTable extends DebtsTable
         DriftSqlType.double,
         data['${effectivePrefix}amount'],
       )!,
+      paidAmount: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}paid_amount'],
+      )!,
       type: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}type'],
@@ -3238,6 +3310,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
   final String userId;
   final String name;
   final double amount;
+  final double paidAmount;
   final String type;
   final DateTime dueDate;
   final String status;
@@ -3254,6 +3327,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     required this.userId,
     required this.name,
     required this.amount,
+    required this.paidAmount,
     required this.type,
     required this.dueDate,
     required this.status,
@@ -3273,6 +3347,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     map['user_id'] = Variable<String>(userId);
     map['name'] = Variable<String>(name);
     map['amount'] = Variable<double>(amount);
+    map['paid_amount'] = Variable<double>(paidAmount);
     map['type'] = Variable<String>(type);
     map['due_date'] = Variable<DateTime>(dueDate);
     map['status'] = Variable<String>(status);
@@ -3301,6 +3376,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       userId: Value(userId),
       name: Value(name),
       amount: Value(amount),
+      paidAmount: Value(paidAmount),
       type: Value(type),
       dueDate: Value(dueDate),
       status: Value(status),
@@ -3333,6 +3409,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       userId: serializer.fromJson<String>(json['userId']),
       name: serializer.fromJson<String>(json['name']),
       amount: serializer.fromJson<double>(json['amount']),
+      paidAmount: serializer.fromJson<double>(json['paidAmount']),
       type: serializer.fromJson<String>(json['type']),
       dueDate: serializer.fromJson<DateTime>(json['dueDate']),
       status: serializer.fromJson<String>(json['status']),
@@ -3354,6 +3431,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       'userId': serializer.toJson<String>(userId),
       'name': serializer.toJson<String>(name),
       'amount': serializer.toJson<double>(amount),
+      'paidAmount': serializer.toJson<double>(paidAmount),
       'type': serializer.toJson<String>(type),
       'dueDate': serializer.toJson<DateTime>(dueDate),
       'status': serializer.toJson<String>(status),
@@ -3373,6 +3451,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     String? userId,
     String? name,
     double? amount,
+    double? paidAmount,
     String? type,
     DateTime? dueDate,
     String? status,
@@ -3389,6 +3468,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     userId: userId ?? this.userId,
     name: name ?? this.name,
     amount: amount ?? this.amount,
+    paidAmount: paidAmount ?? this.paidAmount,
     type: type ?? this.type,
     dueDate: dueDate ?? this.dueDate,
     status: status ?? this.status,
@@ -3411,6 +3491,9 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
       userId: data.userId.present ? data.userId.value : this.userId,
       name: data.name.present ? data.name.value : this.name,
       amount: data.amount.present ? data.amount.value : this.amount,
+      paidAmount: data.paidAmount.present
+          ? data.paidAmount.value
+          : this.paidAmount,
       type: data.type.present ? data.type.value : this.type,
       dueDate: data.dueDate.present ? data.dueDate.value : this.dueDate,
       status: data.status.present ? data.status.value : this.status,
@@ -3442,6 +3525,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('amount: $amount, ')
+          ..write('paidAmount: $paidAmount, ')
           ..write('type: $type, ')
           ..write('dueDate: $dueDate, ')
           ..write('status: $status, ')
@@ -3463,6 +3547,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
     userId,
     name,
     amount,
+    paidAmount,
     type,
     dueDate,
     status,
@@ -3483,6 +3568,7 @@ class DebtsTableData extends DataClass implements Insertable<DebtsTableData> {
           other.userId == this.userId &&
           other.name == this.name &&
           other.amount == this.amount &&
+          other.paidAmount == this.paidAmount &&
           other.type == this.type &&
           other.dueDate == this.dueDate &&
           other.status == this.status &&
@@ -3501,6 +3587,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
   final Value<String> userId;
   final Value<String> name;
   final Value<double> amount;
+  final Value<double> paidAmount;
   final Value<String> type;
   final Value<DateTime> dueDate;
   final Value<String> status;
@@ -3518,6 +3605,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     this.userId = const Value.absent(),
     this.name = const Value.absent(),
     this.amount = const Value.absent(),
+    this.paidAmount = const Value.absent(),
     this.type = const Value.absent(),
     this.dueDate = const Value.absent(),
     this.status = const Value.absent(),
@@ -3536,6 +3624,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     required String userId,
     required String name,
     required double amount,
+    this.paidAmount = const Value.absent(),
     required String type,
     required DateTime dueDate,
     this.status = const Value.absent(),
@@ -3559,6 +3648,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Expression<String>? userId,
     Expression<String>? name,
     Expression<double>? amount,
+    Expression<double>? paidAmount,
     Expression<String>? type,
     Expression<DateTime>? dueDate,
     Expression<String>? status,
@@ -3577,6 +3667,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       if (userId != null) 'user_id': userId,
       if (name != null) 'name': name,
       if (amount != null) 'amount': amount,
+      if (paidAmount != null) 'paid_amount': paidAmount,
       if (type != null) 'type': type,
       if (dueDate != null) 'due_date': dueDate,
       if (status != null) 'status': status,
@@ -3597,6 +3688,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     Value<String>? userId,
     Value<String>? name,
     Value<double>? amount,
+    Value<double>? paidAmount,
     Value<String>? type,
     Value<DateTime>? dueDate,
     Value<String>? status,
@@ -3615,6 +3707,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
       userId: userId ?? this.userId,
       name: name ?? this.name,
       amount: amount ?? this.amount,
+      paidAmount: paidAmount ?? this.paidAmount,
       type: type ?? this.type,
       dueDate: dueDate ?? this.dueDate,
       status: status ?? this.status,
@@ -3644,6 +3737,9 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
     }
     if (amount.present) {
       map['amount'] = Variable<double>(amount.value);
+    }
+    if (paidAmount.present) {
+      map['paid_amount'] = Variable<double>(paidAmount.value);
     }
     if (type.present) {
       map['type'] = Variable<String>(type.value);
@@ -3691,6 +3787,7 @@ class DebtsTableCompanion extends UpdateCompanion<DebtsTableData> {
           ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('amount: $amount, ')
+          ..write('paidAmount: $paidAmount, ')
           ..write('type: $type, ')
           ..write('dueDate: $dueDate, ')
           ..write('status: $status, ')
@@ -4536,6 +4633,7 @@ typedef $$TransactionsTableTableCreateCompanionBuilder =
       Value<String?> merchantName,
       Value<String?> categoryId,
       Value<String?> accountId,
+      Value<String?> debtId,
       required DateTime date,
       Value<String?> externalId,
       Value<bool> isAiCategorized,
@@ -4553,6 +4651,7 @@ typedef $$TransactionsTableTableUpdateCompanionBuilder =
       Value<String?> merchantName,
       Value<String?> categoryId,
       Value<String?> accountId,
+      Value<String?> debtId,
       Value<DateTime> date,
       Value<String?> externalId,
       Value<bool> isAiCategorized,
@@ -4599,6 +4698,11 @@ class $$TransactionsTableTableFilterComposer
 
   ColumnFilters<String> get accountId => $composableBuilder(
     column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get debtId => $composableBuilder(
+    column: $table.debtId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4677,6 +4781,11 @@ class $$TransactionsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get debtId => $composableBuilder(
+    column: $table.debtId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get date => $composableBuilder(
     column: $table.date,
     builder: (column) => ColumnOrderings(column),
@@ -4743,6 +4852,9 @@ class $$TransactionsTableTableAnnotationComposer
 
   GeneratedColumn<String> get accountId =>
       $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get debtId =>
+      $composableBuilder(column: $table.debtId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get date =>
       $composableBuilder(column: $table.date, builder: (column) => column);
@@ -4820,6 +4932,7 @@ class $$TransactionsTableTableTableManager
                 Value<String?> merchantName = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
+                Value<String?> debtId = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
                 Value<String?> externalId = const Value.absent(),
                 Value<bool> isAiCategorized = const Value.absent(),
@@ -4835,6 +4948,7 @@ class $$TransactionsTableTableTableManager
                 merchantName: merchantName,
                 categoryId: categoryId,
                 accountId: accountId,
+                debtId: debtId,
                 date: date,
                 externalId: externalId,
                 isAiCategorized: isAiCategorized,
@@ -4852,6 +4966,7 @@ class $$TransactionsTableTableTableManager
                 Value<String?> merchantName = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
+                Value<String?> debtId = const Value.absent(),
                 required DateTime date,
                 Value<String?> externalId = const Value.absent(),
                 Value<bool> isAiCategorized = const Value.absent(),
@@ -4867,6 +4982,7 @@ class $$TransactionsTableTableTableManager
                 merchantName: merchantName,
                 categoryId: categoryId,
                 accountId: accountId,
+                debtId: debtId,
                 date: date,
                 externalId: externalId,
                 isAiCategorized: isAiCategorized,
@@ -5883,6 +5999,7 @@ typedef $$DebtsTableTableCreateCompanionBuilder =
       required String userId,
       required String name,
       required double amount,
+      Value<double> paidAmount,
       required String type,
       required DateTime dueDate,
       Value<String> status,
@@ -5902,6 +6019,7 @@ typedef $$DebtsTableTableUpdateCompanionBuilder =
       Value<String> userId,
       Value<String> name,
       Value<double> amount,
+      Value<double> paidAmount,
       Value<String> type,
       Value<DateTime> dueDate,
       Value<String> status,
@@ -5942,6 +6060,11 @@ class $$DebtsTableTableFilterComposer
 
   ColumnFilters<double> get amount => $composableBuilder(
     column: $table.amount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get paidAmount => $composableBuilder(
+    column: $table.paidAmount,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6030,6 +6153,11 @@ class $$DebtsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<double> get paidAmount => $composableBuilder(
+    column: $table.paidAmount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get type => $composableBuilder(
     column: $table.type,
     builder: (column) => ColumnOrderings(column),
@@ -6106,6 +6234,11 @@ class $$DebtsTableTableAnnotationComposer
 
   GeneratedColumn<double> get amount =>
       $composableBuilder(column: $table.amount, builder: (column) => column);
+
+  GeneratedColumn<double> get paidAmount => $composableBuilder(
+    column: $table.paidAmount,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
@@ -6186,6 +6319,7 @@ class $$DebtsTableTableTableManager
                 Value<String> userId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<double> amount = const Value.absent(),
+                Value<double> paidAmount = const Value.absent(),
                 Value<String> type = const Value.absent(),
                 Value<DateTime> dueDate = const Value.absent(),
                 Value<String> status = const Value.absent(),
@@ -6203,6 +6337,7 @@ class $$DebtsTableTableTableManager
                 userId: userId,
                 name: name,
                 amount: amount,
+                paidAmount: paidAmount,
                 type: type,
                 dueDate: dueDate,
                 status: status,
@@ -6222,6 +6357,7 @@ class $$DebtsTableTableTableManager
                 required String userId,
                 required String name,
                 required double amount,
+                Value<double> paidAmount = const Value.absent(),
                 required String type,
                 required DateTime dueDate,
                 Value<String> status = const Value.absent(),
@@ -6239,6 +6375,7 @@ class $$DebtsTableTableTableManager
                 userId: userId,
                 name: name,
                 amount: amount,
+                paidAmount: paidAmount,
                 type: type,
                 dueDate: dueDate,
                 status: status,

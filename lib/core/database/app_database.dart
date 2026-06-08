@@ -73,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 10;
 
   /// Migrations de la base de données
   ///
@@ -119,6 +119,22 @@ class AppDatabase extends _$AppDatabase {
           // v8: Colonnes smsSender et smsRawContent supprimées du schema Drift.
           // Les colonnes restent dans SQLite (pas de DROP COLUMN) mais sont
           // simplement ignorées par Drift. Aucune action requise.
+        }
+        if (from < 9) {
+          try {
+            await m.addColumn(transactionsTable, transactionsTable.debtId);
+          } catch (e) {
+            // ignore
+          }
+        }
+        if (from < 10) {
+          try {
+            await m.addColumn(debtsTable, debtsTable.paidAmount);
+          } catch (e) {
+            // ignore
+          }
+          // Fix existing debts that have a null paid_amount from earlier versions
+          await customStatement('UPDATE debts_table SET paid_amount = 0.0 WHERE paid_amount IS NULL');
         }
       },
       // Exécuté à chaque ouverture de la base

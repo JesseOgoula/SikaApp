@@ -31,4 +31,13 @@ abstract class DebtRepository {
 
   /// Récupère le montant total de toutes les dettes et factures en attente
   Future<double> getTotalPendingDebt();
+  Future<double> getTotalPendingIncome();
+
+  /// Enregistre un versement partiel pour un revenu potentiel ou une créance
+  Future<void> addPayment({
+    required Debt debt,
+    required double amount,
+    required String accountId,
+    String? categoryId,
+  });
 }

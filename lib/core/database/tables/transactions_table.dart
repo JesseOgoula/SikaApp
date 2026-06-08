@@ -41,6 +41,9 @@ class TransactionsTable extends Table {
   /// FK vers AccountsTable (UUID) - Compte source de la transaction
   TextColumn get accountId => text().nullable()();
 
+  /// FK vers DebtsTable (UUID) - Lien avec un revenu potentiel / créance / dette
+  TextColumn get debtId => text().nullable()();
+
   /// Date et heure de la transaction
   DateTimeColumn get date => dateTime()();
 

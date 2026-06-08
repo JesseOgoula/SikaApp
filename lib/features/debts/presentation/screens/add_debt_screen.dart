@@ -174,7 +174,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
                 onDone: () {
                   if (_focusedField == _FocusedField.name) {
                     setState(
-                      () => _focusedField = _selectedType == DebtType.debtOut
+                      () => _focusedField = (_selectedType == DebtType.debtOut || _selectedType == DebtType.debtIn)
                           ? _FocusedField.person
                           : _FocusedField.none,
                     );
@@ -393,6 +393,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
         children: [
           _buildTypeTab(DebtType.bill, 'Facture'),
           _buildTypeTab(DebtType.debtOut, 'Dette'),
+          _buildTypeTab(DebtType.debtIn, 'Revenu'),
         ],
       ),
     );
@@ -453,11 +454,11 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
                   : _FocusedField.name,
             ),
           ),
-          if (_selectedType == DebtType.debtOut) ...[
+          if (_selectedType == DebtType.debtOut || _selectedType == DebtType.debtIn) ...[
             const SizedBox(height: 20),
             _buildCustomInputField(
               value: _personText,
-              label: 'Bénéficiaire / Personne',
+              label: _selectedType == DebtType.debtIn ? 'Source / Client' : 'Bénéficiaire / Personne',
               hint: 'Nom de la personne',
               icon: Icons.person_outline,
               isFocused: _focusedField == _FocusedField.person,

@@ -55,6 +55,7 @@ class DebtRepositoryImpl implements DebtRepository {
             userId: debt.userId,
             name: debt.name,
             amount: debt.amount,
+            paidAmount: Value(debt.paidAmount),
             type: debt.type.name, // Enum to String
             dueDate: debt.dueDate,
             status: Value(debt.status.name),
@@ -92,6 +93,7 @@ class DebtRepositoryImpl implements DebtRepository {
       DebtsTableCompanion(
         name: Value(debt.name),
         amount: Value(debt.amount),
+        paidAmount: Value(debt.paidAmount),
         type: Value(debt.type.name),
         dueDate: Value(debt.dueDate),
         status: Value(debt.status.name),
@@ -213,10 +215,81 @@ class DebtRepositoryImpl implements DebtRepository {
   @override
   Future<double> getTotalPendingDebt() async {
     final query = _db.select(_db.debtsTable)
-      ..where((t) => t.status.isIn(['pending', 'overdue']));
+      ..where((t) => t.status.isIn(['pending', 'overdue']))
+      ..where((t) => t.type.isNotIn(['debt_in']));
 
     final results = await query.get();
-    return results.fold<double>(0.0, (sum, row) => sum + row.amount);
+    return results.fold<double>(0.0, (sum, row) => sum + (row.amount - (row.paidAmount ?? 0.0)));
+  }
+
+  @override
+  Future<double> getTotalPendingIncome() async {
+    final query = _db.select(_db.debtsTable)
+      ..where((t) => t.status.isIn(['pending', 'overdue']))
+      ..where((t) => t.type.equals('debt_in'));
+
+    final results = await query.get();
+    return results.fold<double>(0.0, (sum, row) => sum + (row.amount - (row.paidAmount ?? 0.0)));
+  }
+
+  @override
+  Future<void> addPayment({
+    required Debt debt,
+    required double amount,
+    required String accountId,
+    String? categoryId,
+  }) async {
+    final newPaidAmount = debt.paidAmount + amount;
+    final isFullyPaid = newPaidAmount >= debt.amount;
+
+    // 1. Mettre à jour la dette (créance)
+    final updatedDebt = debt.copyWith(
+      paidAmount: newPaidAmount,
+      status: isFullyPaid ? DebtStatus.paid : debt.status,
+      updatedAt: DateTime.now(),
+    );
+    await updateDebt(updatedDebt);
+
+    // 2. Créer une transaction de type revenu
+    await _db
+        .into(_db.transactionsTable)
+        .insert(
+          TransactionsTableCompanion.insert(
+            id: const Uuid().v4(),
+            amount: amount,
+            type: debt.type == DebtType.debtIn ? 'income' : 'expense',
+            merchantName: Value(debt.personName ?? debt.name),
+            categoryId: Value(categoryId),
+            accountId: Value(accountId),
+            debtId: Value(debt.id),
+            date: DateTime.now(),
+            syncStatus: const Value(0),
+            validationStatus: const Value(1),
+            createdAt: Value(DateTime.now()),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+
+    // 3. Mettre à jour le solde du compte
+    final account = await (_db.select(
+      _db.accountsTable,
+    )..where((t) => t.id.equals(accountId))).getSingle();
+
+    final newBalance = debt.type == DebtType.debtIn 
+        ? account.balance + amount 
+        : account.balance - amount;
+
+    await (_db.update(
+      _db.accountsTable,
+    )..where((t) => t.id.equals(accountId))).write(
+      AccountsTableCompanion(
+        balance: Value(newBalance),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+
+    // Award XP
+    XPService().awardXP(ActionType.payDebt); // On réutilise cette action
   }
 
   Debt _mapToEntity(DebtsTableData row) {
@@ -225,6 +298,7 @@ class DebtRepositoryImpl implements DebtRepository {
       userId: row.userId,
       name: row.name,
       amount: row.amount,
+      paidAmount: row.paidAmount,
       type: _parseType(row.type),
       dueDate: row.dueDate,
       status: _parseStatus(row.status),

@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 enum DebtType {
+  debtIn, // On me doit de l'argent (Créance / Revenu potentiel)
   debtOut, // Je dois de l'argent (Dette)
   bill, // Facture à payer
 }
@@ -16,6 +17,7 @@ class Debt extends Equatable {
   final String userId;
   final String name;
   final double amount;
+  final double paidAmount;
   final DebtType type;
   final DateTime dueDate;
   final DebtStatus status;
@@ -32,6 +34,7 @@ class Debt extends Equatable {
     required this.userId,
     required this.name,
     required this.amount,
+    this.paidAmount = 0.0,
     required this.type,
     required this.dueDate,
     this.status = DebtStatus.pending,
@@ -50,6 +53,7 @@ class Debt extends Equatable {
     userId,
     name,
     amount,
+    paidAmount,
     type,
     dueDate,
     status,
@@ -67,6 +71,7 @@ class Debt extends Equatable {
     String? userId,
     String? name,
     double? amount,
+    double? paidAmount,
     DebtType? type,
     DateTime? dueDate,
     DebtStatus? status,
@@ -83,6 +88,7 @@ class Debt extends Equatable {
       userId: userId ?? this.userId,
       name: name ?? this.name,
       amount: amount ?? this.amount,
+      paidAmount: paidAmount ?? this.paidAmount,
       type: type ?? this.type,
       dueDate: dueDate ?? this.dueDate,
       status: status ?? this.status,

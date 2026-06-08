@@ -43,6 +43,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   double _prevIncome = 0;
   double _prevExpense = 0;
   double _totalPendingDebt = 0;
+  double _totalPendingIncome = 0;
   int _healthScore = 0;
   final List<TransactionWithCategory> _topTransactions = [];
   Map<DateTime, List<TransactionWithCategory>> _groupedTransactions = {};
@@ -119,6 +120,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ),
         ]).get(),
         debtRepo.getTotalPendingDebt(),
+        debtRepo.getTotalPendingIncome(),
       ]);
 
       final allTxs = results[8] as List<TypedResult>;
@@ -161,6 +163,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       final expense = results[3] as double;
       final savings = results[4] as double;
       final pendingDebt = results[9] as double;
+      final pendingIncome = results[10] as double;
 
       // Récupère les données des comptes pour le score amélioré
       final totalAccountsBalance = ref.read(totalAccountsBalanceProvider);
@@ -231,6 +234,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           _prevIncome = results[5] as double;
           _prevExpense = results[6] as double;
           _totalPendingDebt = pendingDebt;
+          _totalPendingIncome = pendingIncome;
           _healthScore = totalScore;
           _groupedTransactions = grouped;
           _isLoading = false;
@@ -500,6 +504,20 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildMiniStatCard(
+                label: 'À percevoir',
+                amount: _totalPendingIncome,
+                trend: 0,
+                color: AppTheme.success,
+                icon: FontAwesomeIcons.handHoldingDollar,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMiniStatCard(
                 label: 'Dettes',
                 amount: _totalPendingDebt,
                 trend: 0,
@@ -507,6 +525,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 icon: FontAwesomeIcons.creditCard,
               ),
             ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox()),
           ],
         ),
         const SizedBox(height: 12),

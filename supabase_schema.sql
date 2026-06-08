@@ -85,6 +85,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     merchant_name TEXT,
     category_id TEXT REFERENCES public.categories(id) ON DELETE SET NULL,
     account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,
+    debt_id TEXT REFERENCES public.debts(id) ON DELETE SET NULL,
     date TIMESTAMPTZ NOT NULL,
     sms_sender TEXT,
     sms_raw_content TEXT,
@@ -350,6 +351,7 @@ CREATE TABLE IF NOT EXISTS public.debts (
     
     name TEXT NOT NULL CHECK (char_length(name) >= 1 AND char_length(name) <= 100),
     amount REAL NOT NULL,
+    paid_amount REAL DEFAULT 0,
     type TEXT NOT NULL, -- 'bill', 'debt_out', 'debt_in'
     due_date TIMESTAMPTZ NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue')),

@@ -19,23 +19,40 @@ class DebtsScreen extends ConsumerStatefulWidget {
 class _DebtsScreenState extends ConsumerState<DebtsScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.scaffoldBackground,
-      appBar: AppBar(
-        title: const Text('Engagements'),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
         backgroundColor: AppTheme.scaffoldBackground,
-        elevation: 0,
-      ),
-      body: const _DebtsList(typeFilter: [DebtType.bill, DebtType.debtOut]),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const AddDebtScreen()),
-          );
-        },
-        backgroundColor: AppTheme.primaryColor,
-        child: const Icon(Icons.add, color: Colors.white),
+        appBar: AppBar(
+          title: const Text('Créances & Dettes'),
+          backgroundColor: AppTheme.scaffoldBackground,
+          elevation: 0,
+          bottom: const TabBar(
+            labelColor: AppTheme.primaryColor,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: AppTheme.primaryColor,
+            tabs: [
+              Tab(text: 'À Payer'),
+              Tab(text: 'À Percevoir'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            _DebtsList(typeFilter: [DebtType.bill, DebtType.debtOut]),
+            _DebtsList(typeFilter: [DebtType.debtIn]),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AddDebtScreen()),
+            );
+          },
+          backgroundColor: AppTheme.primaryColor,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
     );
   }
@@ -99,7 +116,6 @@ class _DebtsList extends ConsumerWidget {
                   ),
                   child: Row(
                     children: [
-                      // Icône - Style unifié avec Transactions
                       Container(
                         width: 44,
                         height: 44,
@@ -117,7 +133,6 @@ class _DebtsList extends ConsumerWidget {
                       ),
                       const SizedBox(width: 14),
 
-                      // Infos
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +153,7 @@ class _DebtsList extends ConsumerWidget {
                               crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 Text(
-                                  isPaid ? 'Payé le' : 'Échéance :',
+                                  isPaid ? (debt.type == DebtType.debtIn ? 'Reçu le' : 'Payé le') : 'Échéance :',
                                   style: TextStyle(
                                     color: AppTheme.textSecondary,
                                     fontSize: 12,
@@ -158,15 +173,32 @@ class _DebtsList extends ConsumerWidget {
                                 ),
                               ],
                             ),
+                            if (debt.type == DebtType.debtIn && !isPaid) ...[
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: debt.amount > 0 ? debt.paidAmount / debt.amount : 0,
+                                backgroundColor: Colors.grey.shade200,
+                                color: AppTheme.primaryColor,
+                                minHeight: 6,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${currencyFormat.format(debt.paidAmount)} / ${currencyFormat.format(debt.amount)}',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
 
                       const SizedBox(width: 8),
 
-                      // Montant & Type
                       SizedBox(
-                        width: 100, // Largeur fixe pour éviter les décalages
+                        width: 100,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -184,7 +216,6 @@ class _DebtsList extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 2),
-                            // Indicateur de Type (Facture vs Dette)
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -192,17 +223,21 @@ class _DebtsList extends ConsumerWidget {
                                   width: 6,
                                   height: 6,
                                   decoration: BoxDecoration(
-                                    color: debt.type == DebtType.bill
-                                        ? Colors.orange.withOpacity(0.6)
-                                        : Colors.redAccent.withOpacity(0.6),
+                                    color: debt.type == DebtType.debtIn 
+                                        ? Colors.green.withOpacity(0.6) 
+                                        : debt.type == DebtType.bill
+                                            ? Colors.orange.withOpacity(0.6)
+                                            : Colors.redAccent.withOpacity(0.6),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  debt.type == DebtType.bill
-                                      ? 'Facture'
-                                      : 'Dette',
+                                  debt.type == DebtType.debtIn 
+                                      ? 'Revenu attendu'
+                                      : debt.type == DebtType.bill
+                                          ? 'Facture'
+                                          : 'Dette',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: AppTheme.textSecondary,
@@ -212,7 +247,6 @@ class _DebtsList extends ConsumerWidget {
                               ],
                             ),
                             const SizedBox(height: 2),
-                            // Badge de statut (Seulement si pertinent)
                             if (isPaid || isOverdue)
                               Text(
                                 _getStatusLabel(debt.status),
@@ -254,16 +288,13 @@ class _DebtsList extends ConsumerWidget {
   }
 
   void _showPaymentDialog(BuildContext context, WidgetRef ref, Debt debt) {
-    // Get accounts synchronously before showing dialog
     final accountsAsync = ref.read(activeAccountsProvider);
 
     accountsAsync.when(
       data: (accounts) {
-        // Now show dialog with the data we already have
         _showPaymentDialogWithAccounts(context, ref, debt, accounts);
       },
       loading: () {
-        // If loading, show a simple snackbar and retry
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Chargement des comptes...'),
@@ -289,6 +320,10 @@ class _DebtsList extends ConsumerWidget {
     List<AccountsTableData> accounts,
   ) {
     String? selectedAccountId;
+    final remainingAmount = debt.amount - debt.paidAmount;
+    final amountController = TextEditingController(
+      text: remainingAmount > 0 ? remainingAmount.toStringAsFixed(0) : debt.amount.toStringAsFixed(0),
+    );
 
     showDialog(
       context: context,
@@ -313,7 +348,6 @@ class _DebtsList extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Header avec icône simple
                     Container(
                       width: 56,
                       height: 56,
@@ -329,7 +363,6 @@ class _DebtsList extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // Titre
                     const Text(
                       'Confirmer le paiement',
                       style: TextStyle(
@@ -340,7 +373,6 @@ class _DebtsList extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
 
-                    // Nom de l'engagement
                     Text(
                       debt.name,
                       style: TextStyle(
@@ -351,18 +383,32 @@ class _DebtsList extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
 
-                    // Montant simple
-                    Text(
-                      currencyFormat.format(debt.amount),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
+                    // Saisie du montant
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: TextField(
+                        controller: amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          suffixText: 'FCFA',
+                          hintText: 'Montant',
+                        ),
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // Sélection du compte
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -468,9 +514,10 @@ class _DebtsList extends ConsumerWidget {
 
                     const SizedBox(height: 16),
 
-                    // Info box simple
                     Text(
-                      'Une dépense sera créée et le solde du compte sera mis à jour.',
+                      debt.type == DebtType.debtIn
+                          ? 'Un revenu sera créé et le solde du compte sera augmenté.'
+                          : 'Une dépense sera créée et le solde du compte sera diminué.',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade500,
@@ -480,7 +527,6 @@ class _DebtsList extends ConsumerWidget {
 
                     const SizedBox(height: 24),
 
-                    // Boutons
                     Row(
                       children: [
                         Expanded(
@@ -510,13 +556,16 @@ class _DebtsList extends ConsumerWidget {
                                 selectedAccountId == null || accounts.isEmpty
                                 ? null
                                 : () async {
+                                    final enteredAmount = double.tryParse(amountController.text) ?? 0.0;
+                                    if (enteredAmount <= 0) return;
+
                                     await ref
                                         .read(debtRepositoryProvider)
-                                        .markAsPaid(
-                                          debt,
-                                          createTransaction: true,
-                                          accountId: selectedAccountId,
-                                          categoryId: 'cat-factures',
+                                        .addPayment(
+                                          debt: debt,
+                                          amount: enteredAmount,
+                                          accountId: selectedAccountId!,
+                                          categoryId: debt.type == DebtType.debtIn ? 'cat-revenus' : 'cat-factures',
                                         );
                                     if (dialogContext.mounted) {
                                       Navigator.pop(dialogContext);
@@ -536,7 +585,7 @@ class _DebtsList extends ConsumerWidget {
                                               const SizedBox(width: 10),
                                               Expanded(
                                                 child: Text(
-                                                  '${debt.name} payé • Dépense enregistrée',
+                                                  '${debt.name} : Versement enregistré',
                                                 ),
                                               ),
                                             ],
@@ -593,10 +642,12 @@ class _DebtsList extends ConsumerWidget {
 
   FaIconData _getIconForType(DebtType type) {
     switch (type) {
-      case DebtType.bill:
-        return FontAwesomeIcons.fileInvoiceDollar;
+      case DebtType.debtIn:
+        return FontAwesomeIcons.arrowDown;
       case DebtType.debtOut:
-        return FontAwesomeIcons.handHoldingDollar;
+        return FontAwesomeIcons.arrowUp;
+      case DebtType.bill:
+        return FontAwesomeIcons.fileInvoice;
     }
   }
 
@@ -611,7 +662,7 @@ class _DebtsList extends ConsumerWidget {
             color: Colors.grey[300],
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'Aucun engagement',
             style: TextStyle(
               color: AppTheme.textSecondary,
@@ -620,7 +671,7 @@ class _DebtsList extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Planifiez vos prochaines factures ou dettes',
             style: TextStyle(color: AppTheme.textSecondary, fontSize: 14),
           ),

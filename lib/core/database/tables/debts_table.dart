@@ -14,6 +14,8 @@ class DebtsTable extends Table {
 
   // Montant
   RealColumn get amount => real()();
+  // Montant déjà payé (pour les versements)
+  RealColumn get paidAmount => real().withDefault(const Constant(0.0))();
 
   // Type: 'debt_in' (créance), 'debt_out' (dette), 'bill' (facture)
   TextColumn get type => text()();
