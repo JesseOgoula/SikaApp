@@ -6,8 +6,84 @@ import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import '../../data/providers/debt_providers.dart';
 import '../../domain/entities/debt.dart';
-import 'add_debt_screen.dart';
+import 'add_payable_screen.dart';
+import 'add_receivable_screen.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+
+void showAddDebtOptions(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Ajouter un engagement',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.arrow_upward, color: Colors.orange.shade700),
+              ),
+              title: const Text('À payer', style: TextStyle(fontWeight: FontWeight.w500)),
+              subtitle: const Text('Facture ou dette à rembourser', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddPayableScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.arrow_downward, color: Colors.green.shade600),
+              ),
+              title: const Text('À percevoir', style: TextStyle(fontWeight: FontWeight.w500)),
+              subtitle: const Text('Revenu attendu ou prêt à récupérer', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AddReceivableScreen()),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
 class DebtsScreen extends ConsumerStatefulWidget {
   const DebtsScreen({super.key});
@@ -44,12 +120,7 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddDebtScreen()),
-            );
-          },
+          onPressed: () => showAddDebtOptions(context),
           backgroundColor: AppTheme.primaryColor,
           child: const Icon(Icons.add, color: Colors.white),
         ),
@@ -94,10 +165,7 @@ class _DebtsList extends ConsumerWidget {
             return Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () {
-                  if (isPaid) return;
-                  _showPaymentDialog(context, ref, debt);
-                },
+                onTap: () => _showDebtDetails(context, ref, debt),
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -695,9 +763,173 @@ class _DebtsList extends ConsumerWidget {
   }
 
   void _addDebt(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddDebtScreen()),
+    showAddDebtOptions(context);
+  }
+
+  void _showDebtDetails(BuildContext context, WidgetRef ref, Debt debt) {
+    final currencyFormat = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: 'FCFA',
+      decimalDigits: 0,
+    );
+    final dateFormat = DateFormat('dd MMM yyyy', 'fr_FR');
+    final isPaid = debt.status == DebtStatus.paid;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                debt.name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Montant : ${currencyFormat.format(debt.amount)}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Échéance : ${dateFormat.format(debt.dueDate)}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (!isPaid)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showPaymentDialog(context, ref, debt);
+                    },
+                    icon: const Icon(Icons.payment),
+                    label: const Text('Enregistrer un versement'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (debt.type == DebtType.debtIn) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddReceivableScreen(existingDebt: debt),
+                            ),
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddPayableScreen(existingDebt: debt),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('Modifier'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _confirmDelete(context, ref, debt);
+                      },
+                      icon: const Icon(Icons.delete, size: 18),
+                      label: const Text('Supprimer'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.error,
+                        side: const BorderSide(color: AppTheme.error),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmDelete(BuildContext context, WidgetRef ref, Debt debt) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Supprimer l\'engagement ?'),
+        content: const Text('Êtes-vous sûr de vouloir supprimer cet engagement ? Cette action est irréversible.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(debtRepositoryProvider).deleteDebt(debt.id);
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Engagement supprimé avec succès')),
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: AppTheme.error),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
     );
   }
 }

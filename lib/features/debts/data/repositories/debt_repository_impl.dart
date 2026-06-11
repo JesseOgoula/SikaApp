@@ -56,7 +56,7 @@ class DebtRepositoryImpl implements DebtRepository {
             name: debt.name,
             amount: debt.amount,
             paidAmount: Value(debt.paidAmount),
-            type: debt.type.name, // Enum to String
+            type: _toDbType(debt.type),
             dueDate: debt.dueDate,
             status: Value(debt.status.name),
             personName: Value(debt.personName),
@@ -94,7 +94,7 @@ class DebtRepositoryImpl implements DebtRepository {
         name: Value(debt.name),
         amount: Value(debt.amount),
         paidAmount: Value(debt.paidAmount),
-        type: Value(debt.type.name),
+        type: Value(_toDbType(debt.type)),
         dueDate: Value(debt.dueDate),
         status: Value(debt.status.name),
         personName: Value(debt.personName),
@@ -216,7 +216,7 @@ class DebtRepositoryImpl implements DebtRepository {
   Future<double> getTotalPendingDebt() async {
     final query = _db.select(_db.debtsTable)
       ..where((t) => t.status.isIn(['pending', 'overdue']))
-      ..where((t) => t.type.isNotIn(['debt_in']));
+      ..where((t) => t.type.isNotIn(['debt_in', 'debtIn']));
 
     final results = await query.get();
     return results.fold<double>(0.0, (sum, row) => sum + (row.amount - (row.paidAmount ?? 0.0)));
@@ -226,7 +226,7 @@ class DebtRepositoryImpl implements DebtRepository {
   Future<double> getTotalPendingIncome() async {
     final query = _db.select(_db.debtsTable)
       ..where((t) => t.status.isIn(['pending', 'overdue']))
-      ..where((t) => t.type.equals('debt_in'));
+      ..where((t) => t.type.isIn(['debt_in', 'debtIn']));
 
     final results = await query.get();
     return results.fold<double>(0.0, (sum, row) => sum + (row.amount - (row.paidAmount ?? 0.0)));
@@ -313,10 +313,28 @@ class DebtRepositoryImpl implements DebtRepository {
   }
 
   DebtType _parseType(String value) {
-    return DebtType.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => DebtType.bill,
-    );
+    switch (value) {
+      case 'debt_in':
+      case 'debtIn':
+        return DebtType.debtIn;
+      case 'debt_out':
+      case 'debtOut':
+        return DebtType.debtOut;
+      case 'bill':
+      default:
+        return DebtType.bill;
+    }
+  }
+
+  String _toDbType(DebtType type) {
+    switch (type) {
+      case DebtType.debtIn:
+        return 'debt_in';
+      case DebtType.debtOut:
+        return 'debt_out';
+      case DebtType.bill:
+        return 'bill';
+    }
   }
 
   DebtStatus _parseStatus(String value) {

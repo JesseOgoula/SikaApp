@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/goals/data/repositories/goal_repository.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/core/services/analytics_service.dart';
 
 /// Écran d'ajout d'un objectif d'épargne avec claviers en bas
@@ -228,12 +229,7 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
   Widget _buildBottomNumberPad() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
         color: const Color(0xFFD1D5DB),
         boxShadow: [
@@ -247,85 +243,34 @@ class _AddGoalScreenState extends ConsumerState<AddGoalScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildNumRow(['1', '2', '3']),
-          const SizedBox(height: 8),
-          _buildNumRow(['4', '5', '6']),
-          const SizedBox(height: 8),
-          _buildNumRow(['7', '8', '9']),
-          const SizedBox(height: 8),
-          _buildNumRow(['.', '0', '⌫']),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton(
-              onPressed: _closeAllKeyboards,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          NumberPad(
+            onKeyPressed: _onNumberKeyPressed,
+            onBackspace: _onNumberBackspace,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: _closeAllKeyboards,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-              ),
-              child: const Text(
-                'OK',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                child: const Text(
+                  'OK',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildNumRow(List<String> keys) {
-    return Row(
-      children: keys.map((key) {
-        final isBackspace = key == '⌫';
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (isBackspace) {
-                _onNumberBackspace();
-              } else {
-                _onNumberKeyPressed(key);
-              }
-            },
-            child: Container(
-              height: 48,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 0,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: isBackspace
-                    ? Icon(
-                        Icons.backspace_outlined,
-                        color: AppTheme.primaryColor,
-                        size: 22,
-                      )
-                    : Text(
-                        key,
-                        style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
     );
   }
 

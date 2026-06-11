@@ -19,7 +19,6 @@ import 'package:sika_app/features/transactions/presentation/screens/add_transact
 import 'package:sika_app/features/transactions/presentation/screens/transactions_list_screen.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/quick_actions.dart';
 import 'package:sika_app/features/debts/presentation/screens/debts_screen.dart';
-import 'package:sika_app/features/debts/presentation/screens/add_debt_screen.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
 import 'package:sika_app/features/analytics/presentation/widgets/rank_badge_widget.dart';
@@ -1239,10 +1238,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onAddDebtPressed() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AddDebtScreen()),
-    );
+    showAddDebtOptions(context);
   }
 
   // ==================== ACTIVITÉS RÉCENTES ====================

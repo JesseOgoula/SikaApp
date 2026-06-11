@@ -4,40 +4,54 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/auth/data/repositories/auth_repository.dart';
-import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import '../../domain/entities/debt.dart';
 import '../../data/providers/debt_providers.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 
-enum _FocusedField { none, amount, name, person, notes }
+class AddPayableScreen extends ConsumerStatefulWidget {
+  final Debt? existingDebt;
 
-class AddDebtScreen extends ConsumerStatefulWidget {
-  const AddDebtScreen({super.key});
+  const AddPayableScreen({super.key, this.existingDebt});
 
   @override
-  ConsumerState<AddDebtScreen> createState() => _AddDebtScreenState();
+  ConsumerState<AddPayableScreen> createState() => _AddPayableScreenState();
 }
 
-class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
+class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  String _nameText = '';
-  String _personText = '';
-  String _amountText = '';
-  String _notesText = '';
+  late String _nameText;
+  late String _personText;
+  late String _amountText;
 
-  DebtType _selectedType = DebtType.bill;
-  DateTime _dueDate = DateTime.now();
-  bool _isRecurring = false;
+  late DebtType _selectedType;
+  late DateTime _dueDate;
+  late bool _isRecurring;
 
-  _FocusedField _focusedField = _FocusedField.none;
+  bool _showNumberPad = false;
+  bool _showTextPad = false;
+  String _activeTextField = ''; // 'name' ou 'person'
 
   @override
-  void dispose() {
-    super.dispose();
+  void initState() {
+    super.initState();
+    final debt = widget.existingDebt;
+    _nameText = debt?.name ?? '';
+    _personText = debt?.personName ?? '';
+    _amountText = debt != null ? debt.amount.toStringAsFixed(0) : '';
+    _selectedType = debt?.type ?? DebtType.bill;
+    if (_selectedType == DebtType.debtIn) {
+      _selectedType =
+          DebtType.bill; // Force payable type if somehow debtIn is passed
+    }
+    _dueDate = debt?.dueDate ?? DateTime.now();
+    _isRecurring = debt?.isRecurring ?? false;
   }
 
   void _onNumberKeyPressed(String key) {
     setState(() {
+      if (_showTextPad) _showTextPad = false;
       if (_amountText.length < 12) {
         if (key == '.' && _amountText.contains('.')) return;
         _amountText += key;
@@ -53,45 +67,45 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
     });
   }
 
-  void _onTextKeyPressed(String key) {
+  void _onTextPadKeyPressed(String key) {
     setState(() {
-      if (_focusedField == _FocusedField.name) {
-        if (_nameText.length < 40) _nameText += key;
-      } else if (_focusedField == _FocusedField.person) {
-        if (_personText.length < 40) _personText += key;
-      } else if (_focusedField == _FocusedField.notes) {
-        if (_notesText.length < 100) _notesText += key;
+      if (_showNumberPad) _showNumberPad = false;
+      if (_activeTextField == 'name') {
+        _nameText += key;
+      } else if (_activeTextField == 'person') {
+        _personText += key;
       }
     });
   }
 
-  void _onTextBackspace() {
+  void _onTextPadBackspace() {
     setState(() {
-      if (_focusedField == _FocusedField.name && _nameText.isNotEmpty) {
+      if (_activeTextField == 'name' && _nameText.isNotEmpty) {
         _nameText = _nameText.substring(0, _nameText.length - 1);
-      } else if (_focusedField == _FocusedField.person &&
-          _personText.isNotEmpty) {
+      } else if (_activeTextField == 'person' && _personText.isNotEmpty) {
         _personText = _personText.substring(0, _personText.length - 1);
-      } else if (_focusedField == _FocusedField.notes &&
-          _notesText.isNotEmpty) {
-        _notesText = _notesText.substring(0, _notesText.length - 1);
       }
     });
   }
 
   void _closeKeyboard() {
     setState(() {
-      _focusedField = _FocusedField.none;
+      _showNumberPad = false;
+      _showTextPad = false;
+    });
+  }
+
+  void _openTextPad(String field) {
+    setState(() {
+      _activeTextField = field;
+      _showTextPad = true;
+      _showNumberPad = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final showNumberPad = _focusedField == _FocusedField.amount;
-    final showTextPad =
-        _focusedField == _FocusedField.name ||
-        _focusedField == _FocusedField.person ||
-        _focusedField == _FocusedField.notes;
+    final isEditing = widget.existingDebt != null;
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
@@ -103,9 +117,9 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
           icon: const Icon(Icons.close, color: AppTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Nouvel Engagement',
-          style: TextStyle(
+        title: Text(
+          isEditing ? 'Modifier à payer' : 'Nouveau à payer',
+          style: const TextStyle(
             color: AppTheme.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -125,73 +139,48 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
                       left: 24,
                       right: 24,
                       top: 20,
-                      bottom: (showNumberPad || showTextPad) ? 300 : 20,
+                      bottom: (_showNumberPad || _showTextPad) ? 300 : 20,
                     ),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         children: [
-                          // === MONTANT DISPLAY ===
                           _buildAmountDisplay(),
-
                           const SizedBox(height: 24),
-
-                          // === TYPE SELECTOR ===
                           _buildTypeSelector(),
-
                           const SizedBox(height: 24),
-
-                          // === DÉTAILS CARD ===
                           _buildDetailsCard(),
-
                           const SizedBox(height: 20),
-
-                          // === DATE & RÉCURRENCE ===
                           _buildOptionsCard(),
-
                           const SizedBox(height: 24),
                         ],
                       ),
                     ),
                   ),
                 ),
-
-                // === BOUTON ENREGISTRER ===
-                if (!showNumberPad && !showTextPad) _buildSubmitButton(),
+                if (!_showNumberPad && !_showTextPad) _buildSubmitButton(),
               ],
             ),
           ),
 
-          // === TEXT PAD ===
-          if (showTextPad)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: TextPad(
-                onKeyPressed: _onTextKeyPressed,
-                onBackspace: _onTextBackspace,
-                onDone: () {
-                  if (_focusedField == _FocusedField.name) {
-                    setState(
-                      () => _focusedField = (_selectedType == DebtType.debtOut || _selectedType == DebtType.debtIn)
-                          ? _FocusedField.person
-                          : _FocusedField.none,
-                    );
-                  } else {
-                    _closeKeyboard();
-                  }
-                },
-              ),
-            ),
-
-          // === NUMBER PAD ===
-          if (showNumberPad)
+          if (_showNumberPad)
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
               child: _buildBottomNumberPad(),
+            ),
+
+          if (_showTextPad)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: TextPad(
+                onKeyPressed: _onTextPadKeyPressed,
+                onBackspace: _onTextPadBackspace,
+                onDone: () => setState(() => _showTextPad = false),
+              ),
             ),
         ],
       ),
@@ -201,12 +190,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
   Widget _buildBottomNumberPad() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
-      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
         color: const Color(0xFFD1D5DB),
         boxShadow: [
@@ -220,31 +204,30 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildNumRow(['1', '2', '3']),
-          const SizedBox(height: 8),
-          _buildNumRow(['4', '5', '6']),
-          const SizedBox(height: 8),
-          _buildNumRow(['7', '8', '9']),
-          const SizedBox(height: 8),
-          _buildNumRow(['.', '0', '⌫']),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () =>
-                  setState(() => _focusedField = _FocusedField.name),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          NumberPad(
+            onKeyPressed: _onNumberKeyPressed,
+            onBackspace: _onNumberBackspace,
+            themeColor: Colors.orange.shade700,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () => setState(() => _showNumberPad = false),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-              child: const Text(
-                'Suivant',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                child: const Text(
+                  'Suivant',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ),
@@ -253,75 +236,25 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
     );
   }
 
-  Widget _buildNumRow(List<String> keys) {
-    return Row(
-      children: keys.map((key) {
-        final isBackspace = key == '⌫';
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              if (isBackspace) {
-                _onNumberBackspace();
-              } else {
-                _onNumberKeyPressed(key);
-              }
-            },
-            child: Container(
-              height: 52,
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 0,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: isBackspace
-                    ? Icon(
-                        Icons.backspace_outlined,
-                        color: AppTheme.primaryColor,
-                        size: 22,
-                      )
-                    : Text(
-                        key,
-                        style: const TextStyle(
-                          color: Colors.black87,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildAmountDisplay() {
     final displayAmount = _amountText.isEmpty ? '0' : _amountText;
-    final isFocused = _focusedField == _FocusedField.amount;
+    final isFocused = _showNumberPad;
+    final themeColor = Colors.orange.shade700;
 
     return GestureDetector(
-      onTap: () => setState(
-        () => _focusedField = isFocused
-            ? _FocusedField.none
-            : _FocusedField.amount,
-      ),
+      onTap: () {
+        setState(() {
+          _showNumberPad = !_showNumberPad;
+          if (_showNumberPad) _showTextPad = false;
+        });
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
         decoration: BoxDecoration(
-          color: isFocused
-              ? AppTheme.primaryColor.withOpacity(0.05)
-              : Colors.white,
+          color: isFocused ? themeColor.withOpacity(0.05) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isFocused ? AppTheme.primaryColor : Colors.grey.shade100,
+            color: isFocused ? themeColor : Colors.grey.shade100,
             width: isFocused ? 2 : 1,
           ),
           boxShadow: [
@@ -334,8 +267,8 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
         ),
         child: Column(
           children: [
-            Text(
-              'Montant de l\'engagement',
+            const Text(
+              'Montant à payer',
               style: TextStyle(
                 color: AppTheme.textSecondary,
                 fontSize: 13,
@@ -353,7 +286,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
                   style: TextStyle(
                     color: _amountText.isEmpty
                         ? const Color(0xFFD1D5DB)
-                        : AppTheme.primaryColor,
+                        : themeColor,
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
                   ),
@@ -391,16 +324,16 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
       ),
       child: Row(
         children: [
-          _buildTypeTab(DebtType.bill, 'Facture'),
-          _buildTypeTab(DebtType.debtOut, 'Dette'),
-          _buildTypeTab(DebtType.debtIn, 'Revenu'),
+          _buildTypeTab(DebtType.bill, 'Facture', Icons.receipt_outlined),
+          _buildTypeTab(DebtType.debtOut, 'Dette', Icons.money_off_outlined),
         ],
       ),
     );
   }
 
-  Widget _buildTypeTab(DebtType type, String label) {
+  Widget _buildTypeTab(DebtType type, String label, IconData icon) {
     final isSelected = _selectedType == type;
+    final activeColor = Colors.orange.shade700;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedType = type),
@@ -408,18 +341,27 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            color: isSelected ? activeColor : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
                 color: isSelected ? Colors.white : AppTheme.textSecondary,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
-            ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppTheme.textSecondary,
+                  fontSize: 14,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -427,6 +369,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
   }
 
   Widget _buildDetailsCard() {
+    final themeColor = Colors.orange.shade700;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -442,31 +385,23 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
       ),
       child: Column(
         children: [
-          _buildCustomInputField(
+          _buildTextPadField(
+            field: 'name',
             value: _nameText,
-            label: 'Objet de l\'engagement',
+            label: 'Objet',
             hint: 'Ex: Loyer, Electricité, Prêt...',
             icon: Icons.description_outlined,
-            isFocused: _focusedField == _FocusedField.name,
-            onTap: () => setState(
-              () => _focusedField = _focusedField == _FocusedField.name
-                  ? _FocusedField.none
-                  : _FocusedField.name,
-            ),
+            themeColor: themeColor,
           ),
-          if (_selectedType == DebtType.debtOut || _selectedType == DebtType.debtIn) ...[
+          if (_selectedType == DebtType.debtOut) ...[
             const SizedBox(height: 20),
-            _buildCustomInputField(
+            _buildTextPadField(
+              field: 'person',
               value: _personText,
-              label: _selectedType == DebtType.debtIn ? 'Source / Client' : 'Bénéficiaire / Personne',
-              hint: 'Nom de la personne',
+              label: 'Bénéficiaire / Créancier',
+              hint: 'Nom de la personne à rembourser',
               icon: Icons.person_outline,
-              isFocused: _focusedField == _FocusedField.person,
-              onTap: () => setState(
-                () => _focusedField = _focusedField == _FocusedField.person
-                    ? _FocusedField.none
-                    : _FocusedField.person,
-              ),
+              themeColor: themeColor,
             ),
           ],
         ],
@@ -474,22 +409,24 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
     );
   }
 
-  Widget _buildCustomInputField({
+  Widget _buildTextPadField({
+    required String field,
     required String value,
     required String label,
     required String hint,
     required IconData icon,
-    required bool isFocused,
-    required VoidCallback onTap,
+    required Color themeColor,
   }) {
+    final isFocused = _showTextPad && _activeTextField == field;
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _openTextPad(field),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -501,29 +438,21 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
             decoration: BoxDecoration(
               border: Border(
                 bottom: BorderSide(
-                  color: isFocused
-                      ? AppTheme.primaryColor
-                      : Colors.grey.shade100,
+                  color: isFocused ? themeColor : Colors.grey.shade200,
                   width: isFocused ? 2 : 1,
                 ),
               ),
             ),
             child: Row(
               children: [
-                Icon(
-                  icon,
-                  color: isFocused
-                      ? AppTheme.primaryColor
-                      : Colors.grey.shade400,
-                  size: 20,
-                ),
+                Icon(icon, color: Colors.grey.shade400, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     value.isEmpty ? hint : value,
                     style: TextStyle(
                       color: value.isEmpty
-                          ? Colors.grey.shade300
+                          ? Colors.grey.shade400
                           : AppTheme.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
@@ -532,14 +461,6 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (isFocused)
-                  const SizedBox(
-                    height: 18,
-                    width: 2,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(color: AppTheme.primaryColor),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -549,6 +470,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
   }
 
   Widget _buildOptionsCard() {
+    final themeColor = Colors.orange.shade700;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -565,11 +487,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
         children: [
           ListTile(
             onTap: _pickDate,
-            leading: const Icon(
-              Icons.calendar_today,
-              color: AppTheme.primaryColor,
-              size: 20,
-            ),
+            leading: Icon(Icons.calendar_today, color: themeColor, size: 20),
             title: const Text(
               'Date d\'échéance',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
@@ -592,16 +510,13 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
           SwitchListTile(
             value: _isRecurring,
             onChanged: (v) => setState(() => _isRecurring = v),
-            secondary: const Icon(
-              Icons.repeat,
-              color: AppTheme.primaryColor,
-              size: 20,
-            ),
+            secondary: Icon(Icons.repeat, color: themeColor, size: 20),
             title: const Text(
               'Répéter mensuellement',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
-            activeThumbColor: AppTheme.primaryColor,
+            activeThumbColor: themeColor,
+            activeTrackColor: themeColor.withOpacity(0.5),
           ),
         ],
       ),
@@ -618,16 +533,18 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
           child: ElevatedButton(
             onPressed: _saveDebt,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
+              backgroundColor: Colors.orange.shade700,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
-            child: const Text(
-              'Enregistrer l\'engagement',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            child: Text(
+              widget.existingDebt != null
+                  ? 'Enregistrer les modifications'
+                  : 'Ajouter à payer',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
           ),
         ),
@@ -645,9 +562,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.primaryColor,
-            ),
+            colorScheme: ColorScheme.light(primary: Colors.orange.shade700),
           ),
           child: child!,
         );
@@ -657,7 +572,7 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
   }
 
   void _saveDebt() {
-    if (_amountText.isEmpty || _nameText.isEmpty) {
+    if (_amountText.isEmpty || _nameText.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Veuillez remplir le montant et l\'objet'),
@@ -669,22 +584,31 @@ class _AddDebtScreenState extends ConsumerState<AddDebtScreen> {
     final userId = ref.read(authRepositoryProvider).currentUser?.id;
     if (userId == null) return;
 
+    final isEditing = widget.existingDebt != null;
+
     final debt = Debt(
-      id: const Uuid().v4(),
+      id: isEditing ? widget.existingDebt!.id : const Uuid().v4(),
       userId: userId,
-      name: _nameText,
+      name: _nameText.trim(),
       amount: double.tryParse(_amountText) ?? 0.0,
+      paidAmount: isEditing ? widget.existingDebt!.paidAmount : 0.0,
       type: _selectedType,
       dueDate: _dueDate,
-      personName: _personText.isEmpty ? null : _personText,
-      notes: _notesText.isEmpty ? null : _notesText,
+      status: isEditing ? widget.existingDebt!.status : DebtStatus.pending,
+      personName: _personText.trim().isEmpty ? null : _personText.trim(),
+      notes: null,
       isRecurring: _isRecurring,
       recurrenceRule: _isRecurring ? 'monthly' : null,
-      createdAt: DateTime.now(),
+      createdAt: isEditing ? widget.existingDebt!.createdAt : DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
-    ref.read(debtRepositoryProvider).addDebt(debt);
+    if (isEditing) {
+      ref.read(debtRepositoryProvider).updateDebt(debt);
+    } else {
+      ref.read(debtRepositoryProvider).addDebt(debt);
+    }
+
     Navigator.pop(context);
   }
 }

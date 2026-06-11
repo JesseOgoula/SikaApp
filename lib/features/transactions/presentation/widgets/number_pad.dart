@@ -5,11 +5,13 @@ import 'package:sika_app/core/theme/app_theme.dart';
 class NumberPad extends StatelessWidget {
   final Function(String) onKeyPressed;
   final VoidCallback onBackspace;
+  final Color? themeColor;
 
   const NumberPad({
     super.key,
     required this.onKeyPressed,
     required this.onBackspace,
+    this.themeColor,
   });
 
   @override
@@ -60,15 +62,15 @@ class NumberPad extends StatelessWidget {
             child: isBackspace
                 ? Icon(
                     Icons.backspace_outlined,
-                    color: AppTheme.primaryColor,
+                    color: themeColor ?? AppTheme.primaryColor,
                     size: 24,
                   )
                 : Text(
                     key,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.primaryColor,
+                      color: themeColor ?? AppTheme.primaryColor,
                     ),
                   ),
           ),

@@ -4,6 +4,7 @@ import 'package:sika_app/core/theme/app_theme.dart';
 
 /// Clavier texte personnalisé style Neo-Bank (AZERTY) - Pleine largeur
 /// Supporte les accents via appui long sur les voyelles et certaines consonnes
+/// AMELIORATION: Touches plus grandes, InkWell pour le retour visuel immédiat, HapticFeedback.
 class TextPad extends StatefulWidget {
   final Function(String) onKeyPressed;
   final VoidCallback onBackspace;
@@ -93,7 +94,7 @@ class _TextPadState extends State<TextPad> {
 
   Widget _buildRow(List<String> keys) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: keys.map((key) => _buildKey(key)).toList(),
@@ -151,42 +152,45 @@ class _TextPadState extends State<TextPad> {
 
     return Expanded(
       flex: flex,
-      child: GestureDetector(
-        onTap: () => _handleKeyPress(key),
-        onLongPress: hasAccent ? () => _showAccentPopup(key) : null,
-        child: Container(
-          height: 42,
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 0,
-                offset: const Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              _buildKeyContent(key, textColor),
-              // Petit indicateur d'accent disponible
-              if (hasAccent)
-                Positioned(
-                  top: 2,
-                  right: 4,
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.4),
-                      shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Material(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          elevation: 1,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _handleKeyPress(key);
+            },
+            onLongPress: hasAccent ? () => _showAccentPopup(key) : null,
+            borderRadius: BorderRadius.circular(8),
+            splashColor: AppTheme.primaryColor.withOpacity(0.1),
+            highlightColor: Colors.black.withOpacity(0.1),
+            child: Container(
+              height: 54, // Augmenté de 42 à 54 pour une meilleure ergonomie
+              alignment: Alignment.center,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  _buildKeyContent(key, textColor),
+                  // Petit indicateur d'accent disponible
+                  if (hasAccent)
+                    Positioned(
+                      top: 4,
+                      right: 6,
+                      child: Container(
+                        width: 5,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -209,6 +213,7 @@ class _TextPadState extends State<TextPad> {
         options: allOptions,
         onSelected: (selected) {
           Navigator.pop(ctx);
+          HapticFeedback.lightImpact();
           widget.onKeyPressed(selected);
           // Si pas caps lock, repasse en minuscules
           if (_isUpperCase && !_isCapsLock && !_showNumbers) {
@@ -221,7 +226,7 @@ class _TextPadState extends State<TextPad> {
 
   Widget _buildKeyContent(String key, Color color) {
     if (key == '⌫') {
-      return Icon(Icons.backspace_outlined, color: color, size: 20);
+      return Icon(Icons.backspace_outlined, color: color, size: 24); // Augmenté de 20 à 24
     }
     if (key == '⇧') {
       IconData icon;
@@ -232,15 +237,15 @@ class _TextPadState extends State<TextPad> {
       } else {
         icon = Icons.keyboard_arrow_up;
       }
-      return Icon(icon, color: color, size: 20);
+      return Icon(icon, color: color, size: 24); // Augmenté de 20 à 24
     }
     if (key == '✓') {
       return const Text(
         'OK',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontSize: 18, // Augmenté de 14 à 18
+          fontWeight: FontWeight.w700,
         ),
       );
     }
@@ -249,8 +254,8 @@ class _TextPadState extends State<TextPad> {
         'espace',
         style: TextStyle(
           color: Colors.grey[600],
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
+          fontSize: 16, // Augmenté de 13 à 16
+          fontWeight: FontWeight.w600,
         ),
       );
     }
@@ -259,7 +264,7 @@ class _TextPadState extends State<TextPad> {
       key,
       style: TextStyle(
         color: color,
-        fontSize: key.length > 2 ? 12 : 18,
+        fontSize: key.length > 2 ? 14 : 24, // Augmenté de 18 à 24
         fontWeight: FontWeight.w500,
       ),
     );
@@ -316,7 +321,7 @@ class _AccentPicker extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -331,23 +336,25 @@ class _AccentPicker extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: options.map((char) {
-              return GestureDetector(
-                onTap: () => onSelected(char),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      char,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Material(
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: () => onSelected(char),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      alignment: Alignment.center,
+                      child: Text(
+                        char,
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                   ),
