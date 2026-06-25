@@ -48,6 +48,24 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Build artifacts & CMake/NDK cache
+/build/
+build_old/
+build_old_2/
+/android/.cxx/
+/android/app/.cxx/
+**/.cxx/
+**/build/intermediates/
+**/build/outputs/
+**/build/tmp/
+*.ninja
+*.ninja_deps
+*.ninja_log
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
 # Debug and log files
 *.txt
 !README.txt
