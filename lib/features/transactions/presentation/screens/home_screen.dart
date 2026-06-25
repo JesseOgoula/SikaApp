@@ -33,6 +33,8 @@ import 'package:sika_app/features/budgets/data/repositories/budget_repository.da
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 
+
+
 /// Écran d'accueil principal - Design Neo-Bank Pro
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -607,7 +609,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(accountIcon, color: Colors.white, size: 14),
+                    acc.iconKey.startsWith('assets/') || acc.iconKey.endsWith('.png')
+                        ? Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
+                              acc.iconKey,
+                              width: 14,
+                              height: 14,
+                              fit: BoxFit.contain,
+                            ),
+                          )
+                        : Icon(accountIcon, color: Colors.white, size: 14),
                     const SizedBox(width: 6),
                     Text(
                       _getAccountTypeLabel(acc.type),
@@ -1097,8 +1113,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   );
                 },
                 child: Container(
-                  width: 48,
-                  height: 48,
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     shape: BoxShape.circle,
@@ -1111,8 +1127,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: avatarUrl != null && avatarUrl.isNotEmpty
                         ? Image.network(
                             avatarUrl,
-                            width: 48,
-                            height: 48,
+                            width: 42,
+                            height: 42,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.person,

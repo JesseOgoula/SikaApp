@@ -44,10 +44,10 @@ void showAddDebtOptions(BuildContext context) {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
+                  color: AppTheme.primaryColor.withOpacity(0.08),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.arrow_upward, color: Colors.orange.shade700),
+                child: const Icon(Icons.arrow_upward, color: AppTheme.primaryColor),
               ),
               title: const Text('À payer', style: TextStyle(fontWeight: FontWeight.w500)),
               subtitle: const Text('Facture ou dette à rembourser', style: TextStyle(fontSize: 12)),
@@ -63,10 +63,10 @@ void showAddDebtOptions(BuildContext context) {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: const Color(0xFFC59B27).withOpacity(0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.arrow_downward, color: Colors.green.shade600),
+                child: const Icon(Icons.arrow_downward, color: Color(0xFFC59B27)),
               ),
               title: const Text('À percevoir', style: TextStyle(fontWeight: FontWeight.w500)),
               subtitle: const Text('Revenu attendu ou prêt à récupérer', style: TextStyle(fontSize: 12)),
@@ -292,10 +292,10 @@ class _DebtsList extends ConsumerWidget {
                                   height: 6,
                                   decoration: BoxDecoration(
                                     color: debt.type == DebtType.debtIn 
-                                        ? Colors.green.withOpacity(0.6) 
+                                        ? const Color(0xFFC59B27).withOpacity(0.8) 
                                         : debt.type == DebtType.bill
-                                            ? Colors.orange.withOpacity(0.6)
-                                            : Colors.redAccent.withOpacity(0.6),
+                                            ? AppTheme.primaryColor.withOpacity(0.8)
+                                            : AppTheme.error.withOpacity(0.8),
                                     shape: BoxShape.circle,
                                   ),
                                 ),

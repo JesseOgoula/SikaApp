@@ -55,7 +55,6 @@ dependencies:
   font_awesome_flutter: ^11.0.0
   fl_chart: ^0.69.2
   flutter_svg: ^2.0.10
-  google_generative_ai: ^0.4.6
 
   # ===== OCR / AI Receipt Scanner =====
   image_picker: ^1.1.2
@@ -74,6 +73,7 @@ dependencies:
   equatable: any
   sentry_flutter: ^9.14.0
   posthog_flutter: ^5.18.0
+  telephony: ^0.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

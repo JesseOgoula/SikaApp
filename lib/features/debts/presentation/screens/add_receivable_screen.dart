@@ -100,7 +100,7 @@ class _AddReceivableScreenState extends ConsumerState<AddReceivableScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingDebt != null;
-    final themeColor = Colors.green.shade600;
+    final themeColor = const Color(0xFFC59B27);
 
     return Scaffold(
       backgroundColor: AppTheme.scaffoldBackground,
@@ -483,7 +483,7 @@ class _AddReceivableScreenState extends ConsumerState<AddReceivableScreen> {
 
   Future<void> _pickDate() async {
     _closeKeyboard();
-    final themeColor = Colors.green.shade600;
+    final themeColor = const Color(0xFFC59B27);
     final date = await showDatePicker(
       context: context,
       initialDate: _dueDate,

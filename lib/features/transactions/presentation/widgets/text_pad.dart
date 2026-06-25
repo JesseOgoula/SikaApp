@@ -94,7 +94,7 @@ class _TextPadState extends State<TextPad> {
 
   Widget _buildRow(List<String> keys) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: keys.map((key) => _buildKey(key)).toList(),
@@ -168,7 +168,7 @@ class _TextPadState extends State<TextPad> {
             splashColor: AppTheme.primaryColor.withOpacity(0.1),
             highlightColor: Colors.black.withOpacity(0.1),
             child: Container(
-              height: 54, // Augmenté de 42 à 54 pour une meilleure ergonomie
+              height: 44, // Ajusté pour un clavier compact
               alignment: Alignment.center,
               child: Stack(
                 alignment: Alignment.center,

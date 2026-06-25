@@ -3,6 +3,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/core/services/notification_preferences.dart';
 import 'package:sika_app/core/services/auto_sync_service.dart';
+import 'package:sika_app/features/notification_sync/data/services/notification_sync_service.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/utils/logger.dart';
@@ -92,6 +93,9 @@ void main() async {
     await NotificationService().init();
     await NotificationService().requestPermissions();
     await NotificationService().scheduleWeeklySummary();
+    
+    // Auto-detection sync service
+    await NotificationSyncService().init(database);
   } catch (e) {
     /* ignore */
   }

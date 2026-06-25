@@ -207,7 +207,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
           NumberPad(
             onKeyPressed: _onNumberKeyPressed,
             onBackspace: _onNumberBackspace,
-            themeColor: Colors.orange.shade700,
+            themeColor: AppTheme.primaryColor,
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -217,7 +217,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
               child: ElevatedButton(
                 onPressed: () => setState(() => _showNumberPad = false),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange.shade700,
+                  backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -239,7 +239,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
   Widget _buildAmountDisplay() {
     final displayAmount = _amountText.isEmpty ? '0' : _amountText;
     final isFocused = _showNumberPad;
-    final themeColor = Colors.orange.shade700;
+    final themeColor = AppTheme.primaryColor;
 
     return GestureDetector(
       onTap: () {
@@ -333,7 +333,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
 
   Widget _buildTypeTab(DebtType type, String label, IconData icon) {
     final isSelected = _selectedType == type;
-    final activeColor = Colors.orange.shade700;
+    final activeColor = AppTheme.primaryColor;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedType = type),
@@ -369,7 +369,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
   }
 
   Widget _buildDetailsCard() {
-    final themeColor = Colors.orange.shade700;
+    final themeColor = AppTheme.primaryColor;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -470,7 +470,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
   }
 
   Widget _buildOptionsCard() {
-    final themeColor = Colors.orange.shade700;
+    final themeColor = AppTheme.primaryColor;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -533,7 +533,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
           child: ElevatedButton(
             onPressed: _saveDebt,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange.shade700,
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -562,7 +562,7 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
       builder: (context, child) {
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(primary: Colors.orange.shade700),
+            colorScheme: const ColorScheme.light(primary: AppTheme.primaryColor),
           ),
           child: child!,
         );

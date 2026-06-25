@@ -414,6 +414,7 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                 ),
                 hint: const Text('Sélectionner un compte'),
                 items: accounts.map((acc) {
+                  final isAsset = acc.iconKey.startsWith('assets/') || acc.iconKey.endsWith('.png');
                   final iconData = _getAccountIcon(acc.iconKey);
                   final color = Color(
                     int.parse(acc.color.replaceFirst('#', '0xFF')),
@@ -425,10 +426,18 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.1),
+                            color: isAsset ? Colors.white : color.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
+                            border: isAsset ? Border.all(color: Colors.grey.shade200, width: 1) : null,
                           ),
-                          child: Icon(iconData, color: color, size: 20),
+                          child: isAsset
+                              ? Image.asset(
+                                  acc.iconKey,
+                                  width: 20,
+                                  height: 20,
+                                  fit: BoxFit.contain,
+                                )
+                              : Icon(iconData, color: color, size: 20),
                         ),
                         const SizedBox(width: 12),
                         Text(acc.name),

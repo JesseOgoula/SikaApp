@@ -284,6 +284,7 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
                 color: AppTheme.primaryColor.withOpacity(0.6),
               ),
               items: accounts.map((acc) {
+                final isAsset = acc.account.iconKey.startsWith('assets/') || acc.account.iconKey.endsWith('.png');
                 final iconData = _getAccountIcon(acc.account.iconKey);
                 final color = Color(
                   int.parse(acc.account.color.replaceFirst('#', '0xFF')),
@@ -295,10 +296,18 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: isAsset ? Colors.white : color.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
+                          border: isAsset ? Border.all(color: Colors.grey.shade200, width: 1) : null,
                         ),
-                        child: Icon(iconData, color: color, size: 18),
+                        child: isAsset
+                            ? Image.asset(
+                                acc.account.iconKey,
+                                width: 18,
+                                height: 18,
+                                fit: BoxFit.contain,
+                              )
+                            : Icon(iconData, color: color, size: 18),
                       ),
                       const SizedBox(width: 10),
                       Expanded(

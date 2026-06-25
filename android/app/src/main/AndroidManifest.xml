@@ -11,7 +11,9 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     
-    
+    <!-- Permissions SMS (parsing des transactions Mobile Money) -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <uses-permission android:name="android.permission.READ_SMS"/>
 
     <application
         android:label="SIKA"
@@ -41,7 +43,17 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <!-- PostHog Analytics — clé chargée depuis .env via Dart -->
+
+        <!-- Service d'écoute des notifications d'autres applications -->
+        <!-- L'utilisateur doit activer ce service manuellement dans les paramètres -->
+        <service
+            android:name=".SikaNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
     </application>
     
@@ -52,4 +64,3 @@
         </intent>
     </queries>
 </manifest>
-
