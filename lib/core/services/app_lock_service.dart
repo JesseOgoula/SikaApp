@@ -43,7 +43,7 @@ class AppLockService {
     assert(pin.length == 4, 'Le PIN doit contenir exactement 4 chiffres');
     final hash = _hashValue(pin);
     await _storage.write(key: _keyPinHash, value: hash);
-    await _setLockEnabled(true);
+    await setLockEnabled(true);
     await _setSecuritySetupDone(true);
     SikaLogger.info('PIN défini avec succès', tag: 'APP_LOCK');
   }
@@ -153,7 +153,7 @@ class AppLockService {
   }
 
   /// Active/désactive le verrou
-  Future<void> _setLockEnabled(bool enabled) async {
+  Future<void> setLockEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyLockEnabled, enabled);
   }

@@ -11,6 +11,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:sika_app/features/notification_sync/presentation/widgets/edit_pending_transaction_bottom_sheet.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
+import 'package:sika_app/core/theme/app_theme.dart';
 
 /// Écran listant les transactions détectées en attente de validation
 class PendingTransactionsScreen extends ConsumerWidget {
@@ -21,20 +22,20 @@ class PendingTransactionsScreen extends ConsumerWidget {
     final pendingAsync = ref.watch(pendingTransactionsProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: AppTheme.scaffoldBackground,
       appBar: AppBar(
-        title: const Text(
+        title: Text(
           'Détections Automatiques',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF111827),
+            color: AppTheme.textPrimary,
           ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Color(0xFF111827)),
+        iconTheme: IconThemeData(color: AppTheme.textPrimary),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -78,7 +79,7 @@ class PendingTransactionsScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
-          child: Text('Erreur: $err', style: const TextStyle(color: Colors.red)),
+          child: Text('Erreur: $err', style: TextStyle(color: AppTheme.error)),
         ),
       ),
     );
@@ -101,10 +102,10 @@ class PendingTransactionsScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => _handleRejectAll(context, ref),
-            child: const Text(
+            child: Text(
               'Tout ignorer',
               style: TextStyle(
-                color: Color(0xFFDC2626),
+                color: AppTheme.error,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -143,9 +144,9 @@ class PendingTransactionsScreen extends ConsumerWidget {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Transaction enregistrée avec succès'),
-            backgroundColor: Color(0xFF16A34A),
+          SnackBar(
+            content: const Text('Transaction enregistrée avec succès'),
+            backgroundColor: AppTheme.success,
           ),
         );
       }
@@ -154,7 +155,7 @@ class PendingTransactionsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur lors de l\'enregistrement : $e'),
-            backgroundColor: const Color(0xFFDC2626),
+            backgroundColor: AppTheme.error,
           ),
         );
       }

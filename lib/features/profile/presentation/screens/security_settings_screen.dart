@@ -16,6 +16,22 @@ class SecuritySettingsScreen extends StatefulWidget {
 
 class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
   final _appLock = AppLockService();
+  bool _isLockEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final lockEnabled = await _appLock.isLockEnabled();
+    if (mounted) {
+      setState(() {
+        _isLockEnabled = lockEnabled;
+      });
+    }
+  }
 
   void _showChangePinDialog() {
     final oldPinControllers = List.generate(4, (_) => TextEditingController());
@@ -309,6 +325,60 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
                   ),
                 ),
               ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Toggle Auto-Lock
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.grey.shade100),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: SwitchListTile(
+              secondary: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.lock_clock_outlined,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+              title: const Text(
+                'Verrouillage automatique',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+              subtitle: Text(
+                'Demander le code PIN à l\'ouverture',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              activeColor: AppTheme.primaryColor,
+              value: _isLockEnabled,
+              onChanged: (value) async {
+                await _appLock.setLockEnabled(value);
+                setState(() {
+                  _isLockEnabled = value;
+                });
+                _showSnackBar(
+                  value ? 'Verrouillage activé' : 'Verrouillage désactivé',
+                  isSuccess: true,
+                );
+              },
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             ),
           ),
 

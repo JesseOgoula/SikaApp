@@ -7,6 +7,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.telephony.SmsMessage
+import android.util.Log
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
@@ -174,8 +175,11 @@ class SikaNotificationPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         if (smsReceiver != null) return
         val ctx = context ?: return
 
+        Log.d("SIKA_SMS", "Registering SMS BroadcastReceiver...")
+
         smsReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
+                Log.d("SIKA_SMS", "BroadcastReceiver.onReceive called! action=${intent?.action}")
                 if (intent?.action != "android.provider.Telephony.SMS_RECEIVED") return
 
                 val bundle = intent.extras ?: return
@@ -189,12 +193,20 @@ class SikaNotificationPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
                     val sender = smsMessage.displayOriginatingAddress ?: ""
                     val body = smsMessage.displayMessageBody ?: ""
 
+                    Log.d("SIKA_SMS", "SMS from: '$sender', body length: ${body.length}")
+                    Log.d("SIKA_SMS", "SMS body preview: ${body.take(100)}")
+
                     if (body.isNotBlank()) {
                         val data = mapOf(
                             "sender" to sender,
                             "body" to body,
                         )
-                        smsChannel.invokeMethod("onSmsReceived", data)
+                        try {
+                            smsChannel.invokeMethod("onSmsReceived", data)
+                            Log.d("SIKA_SMS", "Successfully sent SMS to Flutter channel")
+                        } catch (e: Exception) {
+                            Log.e("SIKA_SMS", "Failed to send SMS to Flutter: ${e.message}")
+                        }
                     }
                 }
             }
@@ -203,10 +215,11 @@ class SikaNotificationPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
         val filter = IntentFilter("android.provider.Telephony.SMS_RECEIVED")
         filter.priority = IntentFilter.SYSTEM_HIGH_PRIORITY
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ctx.registerReceiver(smsReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            ctx.registerReceiver(smsReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             ctx.registerReceiver(smsReceiver, filter)
         }
+        Log.d("SIKA_SMS", "SMS BroadcastReceiver registered successfully")
     }
 
     private fun unregisterSmsReceiver() {

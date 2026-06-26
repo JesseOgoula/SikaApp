@@ -6,9 +6,9 @@ import 'package:sika_app/core/utils/logger.dart';
 import 'package:sika_app/features/notification_sync/data/parsers/notification_parser.dart';
 import 'package:sika_app/features/notification_sync/data/services/pending_transaction_queue.dart';
 import 'package:sika_app/features/notification_sync/domain/models/parsed_transaction.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 /// Service d'écoute des SMS financiers (Android uniquement)
-///
 /// Utilise un MethodChannel pour recevoir les SMS via un BroadcastReceiver natif.
 /// Fonctionne en complément du NotificationListenerService pour les opérateurs
 /// mobile money (Airtel Money, Moov Money) qui communiquent principalement par SMS.
@@ -39,6 +39,7 @@ class SmsListenerService {
     try {
       // Écouter les SMS entrants via le MethodChannel natif
       _channel.setMethodCallHandler(_handleMethodCall);
+      await _channel.invokeMethod('startSmsListening');
       _isListening = true;
       SikaLogger.info('SMS listener started', tag: _tag);
     } catch (e) {
@@ -73,10 +74,16 @@ class SmsListenerService {
     required String sender,
     required String body,
   }) async {
-    SikaLogger.info('SMS received from: $sender', tag: _tag);
+    SikaLogger.info('=== SMS RECEIVED ===', tag: _tag);
+    SikaLogger.info('Sender: "$sender"', tag: _tag);
+    SikaLogger.info('Body (${body.length} chars): "${body.substring(0, body.length > 100 ? 100 : body.length)}"', tag: _tag);
 
     // Vérifie rapidement si c'est un expéditeur financier connu
-    if (!NotificationParser.isKnownFinancialSender(sender)) {
+    final isKnown = NotificationParser.isKnownFinancialSender(sender);
+    SikaLogger.info('Is known financial sender: $isKnown', tag: _tag);
+    
+    if (!isKnown) {
+      SikaLogger.info('SMS ignored — sender not recognized', tag: _tag);
       return;
     }
 
@@ -89,7 +96,7 @@ class SmsListenerService {
     );
 
     if (parsed == null) {
-      SikaLogger.info('SMS from $sender not recognized as financial', tag: _tag);
+      SikaLogger.info('SMS from $sender parsed but NO transaction pattern matched', tag: _tag);
       return;
     }
 
@@ -97,10 +104,13 @@ class SmsListenerService {
     final added = await _queue.push(parsed);
     if (added != null) {
       SikaLogger.info(
-        'SMS transaction detected: ${parsed.operatorLabel} '
+        '✅ SMS transaction detected: ${parsed.operatorLabel} '
         '${parsed.type} ${parsed.amount} FCFA',
         tag: _tag,
       );
+      
+      // Déclenche la notification locale directement
+      await _showLocalNotification(parsed);
     } else {
       SikaLogger.info('SMS transaction duplicate, ignored', tag: _tag);
     }
@@ -129,4 +139,44 @@ class SmsListenerService {
   }
 
   bool get isListening => _isListening;
+
+  // ---- Notification locale ----
+  
+  static const String _channelId = 'sika_auto_detect_high';
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
+  /// Affiche une notification locale quand une transaction SMS est détectée
+  Future<void> _showLocalNotification(ParsedTransaction tx) async {
+    try {
+      final sign = tx.isIncome ? '+' : '-';
+      final formattedAmount = tx.amount
+          .toString()
+          .replaceAllMapped(
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            (m) => '${m[1]} ',
+          );
+
+      await _localNotifications.show(
+        10000 + DateTime.now().millisecondsSinceEpoch % 1000,
+        'Transaction détectée — ${tx.operatorLabel}',
+        '$sign $formattedAmount FCFA · ${tx.description}',
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            'Détection automatique',
+            channelDescription:
+                'Notifications quand une transaction est détectée automatiquement',
+            importance: Importance.high,
+            priority: Priority.high,
+            playSound: true,
+            icon: '@drawable/ic_stat_notification',
+          ),
+        ),
+      );
+      SikaLogger.info('Local notification shown for SMS transaction', tag: _tag);
+    } catch (e) {
+      SikaLogger.error('Failed to show local notification: $e', tag: _tag);
+    }
+  }
 }

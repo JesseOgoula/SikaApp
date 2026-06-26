@@ -70,7 +70,7 @@ class _NotificationSyncOnboardingScreenState
     
     // 1. Demander la permission SMS en premier
     // Le SmsListenerService demandera la permission au système
-    // await service.requestSmsPermission(); // TODO: Add if needed through orchestrator
+    await service.requestSmsPermission();
 
     // 2. Ouvrir les paramètres de Notification Listener
     await service.openNotificationListenerSettings();
@@ -117,16 +117,17 @@ class _NotificationSyncOnboardingScreenState
               // ── Illustration / Icône ──
               Center(
                 child: Container(
-                  width: 120,
-                  height: 120,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF16A34A).withOpacity(0.1),
+                    color: Colors.white,
                     shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey.shade200, width: 1),
                   ),
                   child: const Icon(
                     Icons.auto_awesome,
-                    size: 60,
-                    color: Color(0xFF16A34A),
+                    size: 40,
+                    color: Color(0xFF1A237E), // AppTheme.primaryColor
                   ),
                 ),
               ),
@@ -186,18 +187,19 @@ class _NotificationSyncOnboardingScreenState
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF16A34A).withOpacity(0.1),
+                    color: Colors.white,
+                    border: Border.all(color: const Color(0xFF10B981), width: 1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: const [
-                      Icon(Icons.check_circle, color: Color(0xFF16A34A)),
+                      Icon(Icons.check_circle, color: Color(0xFF10B981)),
                       SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Service activé avec succès !',
+                          'Service activé avec succès',
                           style: TextStyle(
-                            color: Color(0xFF16A34A),
+                            color: Color(0xFF10B981),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -210,10 +212,12 @@ class _NotificationSyncOnboardingScreenState
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1A237E),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 0,
                   ),
                   child: const Text(
                     'Continuer',
@@ -235,11 +239,13 @@ class _NotificationSyncOnboardingScreenState
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleActivate,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: const Color(0xFF1A237E),
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
+                    elevation: 0,
                   ),
                   child: _isLoading
                       ? const SizedBox(
@@ -248,7 +254,7 @@ class _NotificationSyncOnboardingScreenState
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
                       : const Text(
-                          'Autoriser l\'accès',
+                          'Activer l\'accès',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                 ),

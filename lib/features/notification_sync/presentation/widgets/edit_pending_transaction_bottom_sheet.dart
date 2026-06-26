@@ -34,6 +34,7 @@ class _EditPendingTransactionBottomSheetState
   late String _type;
   String? _selectedCategoryId;
   Debt? _selectedDebt;
+  bool _linkToDebt = false;
   String? _selectedAccountId;
 
   @override
@@ -245,33 +246,69 @@ class _EditPendingTransactionBottomSheetState
 
                 if (relevantDebts.isEmpty) return const SizedBox.shrink();
 
-                return DropdownButtonFormField<Debt?>(
-                  value: _selectedDebt,
-                  decoration: InputDecoration(
-                    labelText: _type == 'income' 
-                      ? 'Lier à une Créance (Remboursement)' 
-                      : 'Lier à une Dette/Facture',
-                    prefixIcon: const Icon(Icons.link),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: SwitchListTile(
+                        title: Text(
+                          _type == 'income'
+                              ? 'Remboursement d\'une créance ?'
+                              : 'Paiement d\'une facture/dette ?',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        value: _linkToDebt,
+                        activeColor: AppTheme.primaryColor,
+                        onChanged: (val) {
+                          setState(() {
+                            _linkToDebt = val;
+                            if (!val) {
+                              _selectedDebt = null;
+                            }
+                          });
+                        },
+                      ),
                     ),
-                  ),
-                  items: [
-                    const DropdownMenuItem<Debt?>(
-                      value: null,
-                      child: Text('Aucune', style: TextStyle(fontStyle: FontStyle.italic)),
-                    ),
-                    ...relevantDebts.map((d) {
-                      final formatAmount = NumberFormat('#,###', 'fr_FR').format(d.amount - d.paidAmount);
-                      return DropdownMenuItem<Debt?>(
-                        value: d,
-                        child: Text('${d.name} ($formatAmount F restants)'),
-                      );
-                    }).toList(),
+                    if (_linkToDebt) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<Debt?>(
+                        value: _selectedDebt,
+                        decoration: InputDecoration(
+                          labelText: _type == 'income' 
+                            ? 'Sélectionner la créance' 
+                            : 'Sélectionner la dette/facture',
+                          prefixIcon: const Icon(Icons.link),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: [
+                          const DropdownMenuItem<Debt?>(
+                            value: null,
+                            child: Text('Aucune', style: TextStyle(fontStyle: FontStyle.italic)),
+                          ),
+                          ...relevantDebts.map((d) {
+                            final formatAmount = NumberFormat('#,###', 'fr_FR').format(d.amount - d.paidAmount);
+                            return DropdownMenuItem<Debt?>(
+                              value: d,
+                              child: Text('${d.name} ($formatAmount F restants)'),
+                            );
+                          }).toList(),
+                        ],
+                        onChanged: (val) {
+                          setState(() => _selectedDebt = val);
+                        },
+                      ),
+                    ],
                   ],
-                  onChanged: (val) {
-                    setState(() => _selectedDebt = val);
-                  },
                 );
               },
               loading: () => const SizedBox.shrink(),
@@ -280,12 +317,10 @@ class _EditPendingTransactionBottomSheetState
             const SizedBox(height: 16),
 
             // Catégorie (Affiché uniquement si non lié à une dette)
-            if (_selectedDebt == null)
+            if (!_linkToDebt)
               categoriesAsync.when(
                 data: (categories) {
-                  final relevantCategories = categories
-                      .where((c) => c.type == _type)
-                      .toList();
+                  final relevantCategories = categories.toList();
 
                   // Assurer que la catégorie sélectionnée est du bon type
                   if (_selectedCategoryId != null &&
@@ -309,7 +344,7 @@ class _EditPendingTransactionBottomSheetState
                         value: c.id,
                         child: Row(
                           children: [
-                            Text(c.icon),
+                            const Icon(Icons.label_outline, size: 16),
                             const SizedBox(width: 8),
                             Text(c.name),
                           ],
@@ -331,17 +366,10 @@ class _EditPendingTransactionBottomSheetState
               child: ElevatedButton(
                 onPressed: () {
                   final amount = double.tryParse(_amountController.text) ?? widget.transaction.amount.toDouble();
-                  final updatedTx = ParsedTransaction(
-                    id: widget.transaction.id,
-                    receivedAt: widget.transaction.receivedAt,
-                    operatorName: widget.transaction.operatorName,
+                  final updatedTx = widget.transaction.copyWith(
                     amount: amount.toInt(),
                     type: _type,
-                    description: widget.transaction.description,
-                    externalId: widget.transaction.externalId,
-                    detectedBalance: widget.transaction.detectedBalance,
                     suggestedCategory: _selectedCategoryId,
-                    source: widget.transaction.source,
                   );
 
                   widget.onSave(updatedTx, _selectedDebt, _selectedAccountId);

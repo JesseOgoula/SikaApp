@@ -32,6 +32,8 @@ import 'package:sika_app/core/services/settings_service.dart';
 import 'package:sika_app/features/budgets/data/repositories/budget_repository.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/services/notification_service.dart';
+import 'package:sika_app/features/notification_sync/data/providers/pending_transaction_providers.dart';
+import 'package:sika_app/features/notification_sync/presentation/screens/pending_transactions_screen.dart';
 
 
 
@@ -378,6 +380,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Header
         _buildHeader(),
 
+        // Banner transactions en attente
+        _buildPendingTransactionsBanner(),
+
         // PageView des cartes de compte dynamiques
         _buildDynamicAccountCards(healthScore, soldeDisponible),
 
@@ -412,6 +417,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Liste des 3 dernières activités
         Expanded(child: _buildRecentActivities(transactions)),
       ],
+    );
+  }
+
+  /// Construit la bannière des transactions en attente
+  Widget _buildPendingTransactionsBanner() {
+    final pendingAsync = ref.watch(pendingTransactionsProvider);
+    return pendingAsync.when(
+      data: (pending) {
+        if (pending.isEmpty) return const SizedBox.shrink();
+        
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const PendingTransactionsScreen(),
+                  ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.history_toggle_off, color: AppTheme.primaryColor, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '${pending.length} transaction${pending.length > 1 ? 's' : ''} en attente',
+                        style: const TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    const Text(
+                      'Revoir',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, color: AppTheme.primaryColor, size: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 

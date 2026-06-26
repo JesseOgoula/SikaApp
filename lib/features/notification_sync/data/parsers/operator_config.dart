@@ -96,6 +96,15 @@ final _airtelMoney = OperatorConfig(
   senderPatterns: [
     RegExp(r'airtel', caseSensitive: false),
     RegExp(r'airtelga', caseSensitive: false),
+    RegExp(r'airtelmoney', caseSensitive: false),
+    // Numéro spécifique Airtel observé
+    RegExp(r'24783566639', caseSensitive: false),
+    // Variantes du numéro de test
+    RegExp(r'077617569', caseSensitive: false),
+    RegExp(r'\+24177617569', caseSensitive: false),
+    RegExp(r'24177617569', caseSensitive: false),
+    RegExp(r'077-617-569', caseSensitive: false),
+    RegExp(r'77617569', caseSensitive: false),
   ],
   transactionPatterns: [
     // Réception d'argent (Standard)
@@ -104,6 +113,20 @@ final _airtelMoney = OperatorConfig(
       label: 'Réception',
       regex: RegExp(
         r'vous avez re[çc]u\s+(\d[\d\s]*)\s*(?:FCFA|XAF|F)\s+(?:de|du)\s+(.+?)(?:\s+le\s+|\s*Nouveau|\s*\.\s*|Solde|$)',
+        caseSensitive: false,
+      ),
+      extract: (m) => ExtractedData(
+        amount: parseAmount(m.group(1)!),
+        description: 'Reçu de ${m.group(2)?.trim() ?? "inconnu"}',
+      ),
+      suggestedCategory: 'cat-transferts',
+    ),
+    // Réception d'argent (Courte sans "vous avez")
+    TransactionPattern(
+      type: 'income',
+      label: 'Réception',
+      regex: RegExp(
+        r're[çc]u\s+(\d[\d\s]*)\s*(?:FCFA|XAF|F)\s+(?:du|de)\s+(.+?)(?:\.|\s+Nouveau|\s+Solde|$)',
         caseSensitive: false,
       ),
       extract: (m) => ExtractedData(

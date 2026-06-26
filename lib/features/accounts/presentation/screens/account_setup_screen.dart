@@ -21,9 +21,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
   List<_AccountConfig> _accounts = [];
 
   bool _isLoading = true;
-  int? _focusedIndex;
   final _scrollController = ScrollController();
-  final Map<int, GlobalKey> _cardKeys = {};
 
   @override
   void initState() {
@@ -36,20 +34,6 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _scrollToFocusedCard(int index) {
-    final key = _cardKeys[index];
-    if (key?.currentContext != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Scrollable.ensureVisible(
-          key!.currentContext!,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-        );
-      });
-    }
   }
 
   Future<void> _loadAvailableAccounts() async {
@@ -127,7 +111,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sélectionnez les comptes que vous utilisez et entrez vos soldes actuels.',
+                      'Sélectionnez les comptes que vous utilisez.',
                       style: TextStyle(
                         fontSize: 14,
                         color: AppTheme.textSecondary,
@@ -141,9 +125,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                     ..._accounts.asMap().entries.map((entry) {
                       final index = entry.key;
                       final account = entry.value;
-                      _cardKeys.putIfAbsent(index, () => GlobalKey());
                       return Padding(
-                        key: _cardKeys[index],
                         padding: const EdgeInsets.only(bottom: 12),
                         child: _buildAccountCard(account, index),
                       );
@@ -168,42 +150,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_focusedIndex != null) ...[
-                    // Barre de validation pour le pavé numérique
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey.shade100),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _focusedIndex = null;
-                              });
-                            },
-                            icon: const Icon(Icons.check_circle_outline),
-                            label: const Text('OK'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.primaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Pavé numérique
-                    NumberPad(
-                      onKeyPressed: _onKeyPressed,
-                      onBackspace: _onBackspace,
-                    ),
-                  ] else ...[
+                  
                     // Bouton Continuer
                     Padding(
                       padding: const EdgeInsets.all(20),
@@ -242,7 +189,6 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                         ),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),
@@ -254,16 +200,14 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
 
   Widget _buildAccountCard(_AccountConfig account, int index) {
     final isEnabled = account.enabled;
-    final isFocused = _focusedIndex == index;
+    
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.cardBackground,
         borderRadius: BorderRadius.circular(20),
-        border: isFocused
-            ? Border.all(color: AppTheme.primaryColor, width: 1.5)
-            : null,
+        
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,19 +264,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                 value: isEnabled,
                 onChanged: (value) {
                   HapticFeedback.selectionClick();
-                  setState(() {
-                    account.enabled = value;
-                    if (!value) {
-                      account.balanceController.clear();
-                      if (_focusedIndex == index) {
-                        _focusedIndex = null;
-                      }
-                    } else {
-                      // Focus automatically on enable
-                      _focusedIndex = index;
-                      _scrollToFocusedCard(index);
-                    }
-                  });
+                  setState(() { account.enabled = value; });
                 },
                 activeColor: AppTheme.primaryColor,
               ),
@@ -357,9 +289,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
                 decoration: BoxDecoration(
                   color: AppTheme.scaffoldBackground,
                   borderRadius: BorderRadius.circular(12),
-                  border: isFocused
-                      ? Border.all(color: AppTheme.primaryColor, width: 1.5)
-                      : null,
+                  
                 ),
                 child: Row(
                   children: [
@@ -394,32 +324,6 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
     );
   }
 
-  void _onKeyPressed(String value) {
-    if (_focusedIndex == null) return;
-
-    final controller = _accounts[_focusedIndex!].balanceController;
-    final currentText = controller.text;
-
-    if (value == '.' && currentText.contains('.')) return;
-    if (currentText == '0' && value != '.') {
-      controller.text = value;
-    } else {
-      controller.text = currentText + value;
-    }
-    setState(() {}); // Rebuild to update UI
-  }
-
-  void _onBackspace() {
-    if (_focusedIndex == null) return;
-
-    final controller = _accounts[_focusedIndex!].balanceController;
-    final currentText = controller.text;
-    if (currentText.isNotEmpty) {
-      controller.text = currentText.substring(0, currentText.length - 1);
-      setState(() {});
-    }
-  }
-
   String _getTypeLabel(String type) {
     switch (type) {
       case 'mobileMoney':
@@ -446,10 +350,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
       // Crée les comptes activés
       for (final account in _accounts) {
         if (account.enabled) {
-          final balanceText = account.balanceController.text
-              .replaceAll(' ', '')
-              .replaceAll(',', '.');
-          final balance = double.tryParse(balanceText) ?? 0.0;
+          final balance = 0.0;
 
           await repo.createAccount(
             name: account.name,
@@ -499,7 +400,7 @@ class _AccountConfig {
   final String? iconPath;
   final String color;
   bool enabled;
-  final TextEditingController balanceController = TextEditingController();
+  
 
   _AccountConfig({
     required this.name,
@@ -509,3 +410,4 @@ class _AccountConfig {
     this.enabled = false,
   });
 }
+

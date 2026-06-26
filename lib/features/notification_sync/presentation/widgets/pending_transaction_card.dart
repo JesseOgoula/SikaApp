@@ -59,7 +59,7 @@ class PendingTransactionCard extends StatelessWidget {
                         vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: tx.operatorColor.withOpacity(0.12),
+                        color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -76,10 +76,10 @@ class PendingTransactionCard extends StatelessWidget {
                           const SizedBox(width: 6),
                           Text(
                             tx.operatorLabel,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: tx.operatorColor,
+                              color: Color(0xFF1A1A2E), // AppTheme.textPrimary
                             ),
                           ),
                         ],
@@ -138,13 +138,19 @@ class PendingTransactionCard extends StatelessWidget {
                 color: Color(0xFF374151),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '📁 ${tx.patternLabel}',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade500,
-              ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Icon(Icons.label_outline, size: 14, color: Colors.grey.shade500),
+                const SizedBox(width: 4),
+                Text(
+                  tx.patternLabel,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
             ),
 
             // ── Solde détecté (si disponible) ──
@@ -192,7 +198,7 @@ class PendingTransactionCard extends StatelessWidget {
                   child: _ActionButton(
                     label: 'Enregistrer',
                     onTap: onConfirm,
-                    backgroundColor: const Color(0xFF16A34A),
+                    backgroundColor: const Color(0xFF1A237E), // AppTheme.primaryColor
                     textColor: Colors.white,
                     isBold: true,
                   ),

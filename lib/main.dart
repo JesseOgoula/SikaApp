@@ -93,11 +93,15 @@ void main() async {
     await NotificationService().init();
     await NotificationService().requestPermissions();
     await NotificationService().scheduleWeeklySummary();
-    
-    // Auto-detection sync service
+  } catch (e) {
+    SikaLogger.error('Failed to init basic notifications: $e', tag: 'MAIN');
+  }
+
+  // Auto-detection sync service (indépendant pour ne pas être bloqué)
+  try {
     await NotificationSyncService().init(database);
   } catch (e) {
-    /* ignore */
+    SikaLogger.error('Failed to init NotificationSyncService: $e', tag: 'MAIN');
   }
 
   // Init PostHog Analytics (clé chargée depuis .env, plus dans les manifests natifs)
@@ -213,11 +217,13 @@ class _AuthGateState extends ConsumerState<_AuthGate>
   /// Re-verrouille l'app quand elle revient au premier plan
   /// (fermeture, mise en veille, verrouillage du téléphone)
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
       // Quand l'app revient au premier plan, on re-verrouille
-      // seulement si la sécurité a été configurée et l'utilisateur est authentifié
-      if (_securitySetupDone && _isLocallyAuthenticated) {
+      // seulement si la sécurité a été configurée, l'utilisateur est authentifié,
+      // et que le verrouillage n'a pas été désactivé dans les paramètres
+      final lockEnabled = await _appLock.isLockEnabled();
+      if (_securitySetupDone && _isLocallyAuthenticated && lockEnabled) {
         setState(() => _isLocallyAuthenticated = false);
       }
     }

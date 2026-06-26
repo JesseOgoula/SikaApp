@@ -57,25 +57,36 @@ class NotificationSyncService {
     final prefs = await SharedPreferences.getInstance();
     _isEnabled = prefs.getBool(_prefKey) ?? false;
 
-    if (!_isEnabled) {
-      SikaLogger.info('Notification sync disabled by user', tag: _tag);
-      _isInitialized = true;
-      return;
-    }
+    // Initialiser le plugin de notification (essentiel pour l'affichage)
+    const initSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@drawable/ic_stat_notification'),
+    );
+    await _localNotifications.initialize(initSettings);
 
     // Créer le channel de notification locale pour les alertes de détection
     await _createNotificationChannel();
 
     if (Platform.isAndroid) {
-      // 1. Écouter les notifications d'autres apps
-      await _startNotificationListener();
-
-      // 2. Écouter les SMS
+      // Demande la permission de lire les SMS au lancement
+      await requestSmsPermission();
+      
+      // Toujours démarrer l'écoute SMS (indépendant du NotificationListener)
+      SikaLogger.info('Starting SMS listener...', tag: _tag);
       await _smsListener.startListening();
+
+      if (_isEnabled) {
+        // Écouter aussi les notifications d'autres apps (si activé)
+        await _startNotificationListener();
+      } else {
+        SikaLogger.info(
+          'Notification listener disabled by user (SMS still active)',
+          tag: _tag,
+        );
+      }
     }
 
     _isInitialized = true;
-    SikaLogger.info('NotificationSyncService initialized', tag: _tag);
+    SikaLogger.info('NotificationSyncService initialized (enabled=$_isEnabled)', tag: _tag);
   }
 
   /// Active ou désactive la détection automatique
@@ -107,6 +118,11 @@ class NotificationSyncService {
       SikaLogger.error('Failed to check listener status: $e', tag: _tag);
       return false;
     }
+  }
+
+  /// Demande la permission de lire les SMS (Android)
+  Future<bool> requestSmsPermission() async {
+    return await _smsListener.requestSmsPermission();
   }
 
   /// Ouvre les paramètres Android pour activer le NotificationListenerService
@@ -172,12 +188,12 @@ class NotificationSyncService {
       );
 
       // Afficher une notification locale discrète
-      await _showDetectionNotification(parsed);
+      await showDetectionNotification(parsed);
     }
   }
 
   /// Affiche une notification locale quand une transaction est détectée
-  Future<void> _showDetectionNotification(ParsedTransaction tx) async {
+  Future<void> showDetectionNotification(ParsedTransaction tx) async {
     final emoji = tx.isIncome ? '📥' : '📤';
     final sign = tx.isIncome ? '+' : '-';
     final formattedAmount = _formatAmount(tx.amount);

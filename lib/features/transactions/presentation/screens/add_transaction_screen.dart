@@ -10,6 +10,7 @@ import 'package:sika_app/features/transactions/data/providers/transaction_provid
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/category_icon_widget.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/blinking_cursor.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/services/analytics_service.dart';
 import 'package:sika_app/main.dart' show databaseProvider;
@@ -295,6 +296,12 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (_showKeypad)
+                  const BlinkingCursor(
+                    height: 48,
+                    width: 3,
+                    color: AppTheme.primaryColor,
+                  ),
                 const SizedBox(width: 8),
                 const Text(
                   'FCFA',
@@ -688,16 +695,28 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                _noteText.isEmpty ? 'Ajouter une note...' : _noteText,
-                style: TextStyle(
-                  color: _noteText.isEmpty
-                      ? Colors.grey[400]
-                      : AppTheme.textPrimary,
-                  fontSize: 15,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      _noteText.isEmpty ? 'Ajouter une note...' : _noteText,
+                      style: TextStyle(
+                        color: _noteText.isEmpty
+                            ? Colors.grey[400]
+                            : AppTheme.textPrimary,
+                        fontSize: 15,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (_showTextPad)
+                    const BlinkingCursor(
+                      height: 18,
+                      width: 2,
+                      color: AppTheme.primaryColor,
+                    ),
+                ],
               ),
             ),
             Icon(

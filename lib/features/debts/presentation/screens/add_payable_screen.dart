@@ -8,6 +8,7 @@ import '../../domain/entities/debt.dart';
 import '../../data/providers/debt_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/text_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
+import 'package:sika_app/features/transactions/presentation/widgets/blinking_cursor.dart';
 
 class AddPayableScreen extends ConsumerStatefulWidget {
   final Debt? existingDebt;
@@ -291,6 +292,12 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (isFocused)
+                  BlinkingCursor(
+                    height: 40,
+                    width: 3,
+                    color: themeColor,
+                  ),
                 const SizedBox(width: 8),
                 const Text(
                   'FCFA',
@@ -448,17 +455,29 @@ class _AddPayableScreenState extends ConsumerState<AddPayableScreen> {
                 Icon(icon, color: Colors.grey.shade400, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    value.isEmpty ? hint : value,
-                    style: TextStyle(
-                      color: value.isEmpty
-                          ? Colors.grey.shade400
-                          : AppTheme.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          value.isEmpty ? hint : value,
+                          style: TextStyle(
+                            color: value.isEmpty
+                                ? Colors.grey.shade400
+                                : AppTheme.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isFocused)
+                        BlinkingCursor(
+                          height: 18,
+                          width: 2,
+                          color: themeColor,
+                        ),
+                    ],
                   ),
                 ),
               ],
