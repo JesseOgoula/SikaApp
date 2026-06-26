@@ -145,7 +145,7 @@ final _airtelMoney = OperatorConfig(
       type: 'expense',
       label: 'Paiement',
       regex: RegExp(
-        r'paiement\s+de\s+(\d[\d\s]*)\s*(?:FCFA|XAF|F)\s+(.+?)\s+pour\s+ref\s+(.+?)(?:\s+a\s+ete|le\s+|\s*\.\s*|Solde|$)',
+        r'paiement\s+de\s+(\d[\d\s]*)\s*(?:FCFA|XAF|F)\s+(.+?)\s+pour\s+ref\s+(.+?)(?:\s+(?:a\s+ete|effectue)|le\s+|\s*\.\s*|Solde|$)',
         caseSensitive: false,
       ),
       extract: (m) => ExtractedData(

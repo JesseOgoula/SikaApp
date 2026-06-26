@@ -1,0 +1,371 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+
+import 'package:sika_app/features/notification_sync/domain/models/parsed_transaction.dart';
+import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
+import 'package:sika_app/features/debts/domain/entities/debt.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
+import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
+import 'package:sika_app/core/theme/app_theme.dart';
+
+class EditPendingTransactionBottomSheet extends ConsumerStatefulWidget {
+  final ParsedTransaction transaction;
+  final Function(
+    ParsedTransaction updatedTx,
+    Debt? linkedDebt,
+    String? accountId,
+  ) onSave;
+
+  const EditPendingTransactionBottomSheet({
+    super.key,
+    required this.transaction,
+    required this.onSave,
+  });
+
+  @override
+  ConsumerState<EditPendingTransactionBottomSheet> createState() =>
+      _EditPendingTransactionBottomSheetState();
+}
+
+class _EditPendingTransactionBottomSheetState
+    extends ConsumerState<EditPendingTransactionBottomSheet> {
+  late TextEditingController _amountController;
+  late String _type;
+  String? _selectedCategoryId;
+  Debt? _selectedDebt;
+  String? _selectedAccountId;
+
+  @override
+  void initState() {
+    super.initState();
+    _amountController = TextEditingController(
+      text: widget.transaction.amount.toString(),
+    );
+    _type = widget.transaction.type;
+    _selectedCategoryId = widget.transaction.suggestedCategory;
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final activeAccountsAsync = ref.watch(activeAccountsProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final allDebtsAsync = ref.watch(allDebtsProvider);
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Modifier la transaction',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Type Segmented Control
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _type = 'expense';
+                        _selectedDebt = null; // Réinitialise la dette si on change de type
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _type == 'expense'
+                              ? Colors.white
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: _type == 'expense'
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                  )
+                                ]
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Dépense',
+                          style: TextStyle(
+                            color: _type == 'expense'
+                                ? AppTheme.error
+                                : Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _type = 'income';
+                        _selectedDebt = null;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _type == 'income'
+                              ? Colors.white
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: _type == 'income'
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                  )
+                                ]
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Revenu',
+                          style: TextStyle(
+                            color: _type == 'income'
+                                ? AppTheme.success
+                                : Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Montant
+            TextField(
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'Montant (FCFA)',
+                prefixIcon: const Icon(Icons.attach_money),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Sélection du compte
+            activeAccountsAsync.when(
+              data: (accounts) {
+                if (accounts.isEmpty) return const SizedBox.shrink();
+
+                // Pré-sélection du compte basé sur le nom de l'opérateur si possible
+                if (_selectedAccountId == null) {
+                  final match = accounts.where((a) => a.name.toLowerCase().contains(widget.transaction.operatorLabel.toLowerCase()));
+                  if (match.isNotEmpty) {
+                    _selectedAccountId = match.first.id;
+                  } else {
+                    _selectedAccountId = accounts.first.id;
+                  }
+                }
+
+                return DropdownButtonFormField<String>(
+                  value: _selectedAccountId,
+                  decoration: InputDecoration(
+                    labelText: 'Compte',
+                    prefixIcon: const Icon(Icons.account_balance_wallet),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: accounts.map((a) {
+                    return DropdownMenuItem(
+                      value: a.id,
+                      child: Text(a.name),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    setState(() => _selectedAccountId = val);
+                  },
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 16),
+
+            // Lien avec une créance/dette
+            allDebtsAsync.when(
+              data: (debts) {
+                // Filtrer les dettes actives
+                final activeDebts = debts.where((d) => d.status != DebtStatus.paid).toList();
+                
+                // Si type = revenu, on peut rembourser une "Créance à percevoir" (debtIn)
+                // Si type = dépense, on peut rembourser une "Dette à payer" ou "Facture" (debtOut, bill)
+                final relevantDebts = activeDebts.where((d) {
+                  if (_type == 'income') return d.type == DebtType.debtIn;
+                  return d.type == DebtType.debtOut || d.type == DebtType.bill;
+                }).toList();
+
+                if (relevantDebts.isEmpty) return const SizedBox.shrink();
+
+                return DropdownButtonFormField<Debt?>(
+                  value: _selectedDebt,
+                  decoration: InputDecoration(
+                    labelText: _type == 'income' 
+                      ? 'Lier à une Créance (Remboursement)' 
+                      : 'Lier à une Dette/Facture',
+                    prefixIcon: const Icon(Icons.link),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: [
+                    const DropdownMenuItem<Debt?>(
+                      value: null,
+                      child: Text('Aucune', style: TextStyle(fontStyle: FontStyle.italic)),
+                    ),
+                    ...relevantDebts.map((d) {
+                      final formatAmount = NumberFormat('#,###', 'fr_FR').format(d.amount - d.paidAmount);
+                      return DropdownMenuItem<Debt?>(
+                        value: d,
+                        child: Text('${d.name} ($formatAmount F restants)'),
+                      );
+                    }).toList(),
+                  ],
+                  onChanged: (val) {
+                    setState(() => _selectedDebt = val);
+                  },
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
+            const SizedBox(height: 16),
+
+            // Catégorie (Affiché uniquement si non lié à une dette)
+            if (_selectedDebt == null)
+              categoriesAsync.when(
+                data: (categories) {
+                  final relevantCategories = categories
+                      .where((c) => c.type == _type)
+                      .toList();
+
+                  // Assurer que la catégorie sélectionnée est du bon type
+                  if (_selectedCategoryId != null &&
+                      !relevantCategories.any((c) => c.id == _selectedCategoryId)) {
+                    _selectedCategoryId = relevantCategories.isNotEmpty
+                        ? relevantCategories.first.id
+                        : null;
+                  }
+
+                  return DropdownButtonFormField<String>(
+                    value: _selectedCategoryId,
+                    decoration: InputDecoration(
+                      labelText: 'Catégorie',
+                      prefixIcon: const Icon(Icons.category),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: relevantCategories.map((c) {
+                      return DropdownMenuItem(
+                        value: c.id,
+                        child: Row(
+                          children: [
+                            Text(c.icon),
+                            const SizedBox(width: 8),
+                            Text(c.name),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() => _selectedCategoryId = val);
+                    },
+                  );
+                },
+                loading: () => const LinearProgressIndicator(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  final amount = double.tryParse(_amountController.text) ?? widget.transaction.amount.toDouble();
+                  final updatedTx = ParsedTransaction(
+                    id: widget.transaction.id,
+                    receivedAt: widget.transaction.receivedAt,
+                    operatorName: widget.transaction.operatorName,
+                    amount: amount.toInt(),
+                    type: _type,
+                    description: widget.transaction.description,
+                    externalId: widget.transaction.externalId,
+                    detectedBalance: widget.transaction.detectedBalance,
+                    suggestedCategory: _selectedCategoryId,
+                    source: widget.transaction.source,
+                  );
+
+                  widget.onSave(updatedTx, _selectedDebt, _selectedAccountId);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Enregistrer',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

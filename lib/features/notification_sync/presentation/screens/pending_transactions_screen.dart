@@ -8,6 +8,9 @@ import 'package:sika_app/features/notification_sync/presentation/screens/notific
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/features/transactions/data/providers/transaction_providers.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:sika_app/features/notification_sync/presentation/widgets/edit_pending_transaction_bottom_sheet.dart';
+import 'package:sika_app/features/debts/domain/entities/debt.dart';
+import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 
 /// Écran listant les transactions détectées en attente de validation
 class PendingTransactionsScreen extends ConsumerWidget {
@@ -159,8 +162,65 @@ class PendingTransactionsScreen extends ConsumerWidget {
   }
 
   void _handleEdit(BuildContext context, WidgetRef ref, ParsedTransaction tx) {
-    // TODO: Ouvrir un bottom sheet de modification
-    // Identique à l'ajout manuel mais pré-rempli avec les données de `tx`
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => EditPendingTransactionBottomSheet(
+        transaction: tx,
+        onSave: (updatedTx, linkedDebt, accountId) async {
+          Navigator.pop(context);
+
+          final queue = ref.read(pendingTransactionQueueProvider);
+          final txRepo = ref.read(transactionRepositoryProvider);
+          final debtRepo = ref.read(debtRepositoryProvider);
+
+          try {
+            await queue.confirm(updatedTx.id);
+
+            if (linkedDebt != null && accountId != null) {
+              await debtRepo.addPayment(
+                debt: linkedDebt,
+                amount: updatedTx.amount.toDouble(),
+                accountId: accountId,
+                categoryId: updatedTx.suggestedCategory,
+              );
+            } else {
+              final companion = TransactionsTableCompanion(
+                amount: drift.Value(updatedTx.amount.toDouble()),
+                type: drift.Value(updatedTx.type),
+                merchantName: drift.Value(updatedTx.description),
+                categoryId: drift.Value(updatedTx.suggestedCategory),
+                accountId: accountId != null ? drift.Value(accountId) : const drift.Value.absent(),
+                date: drift.Value(DateTime.parse(updatedTx.receivedAt)),
+                externalId: drift.Value(updatedTx.externalId ?? 'auto_${updatedTx.id}'),
+                isAiCategorized: const drift.Value(true),
+              );
+
+              await txRepo.addManualTransaction(companion);
+            }
+
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Transaction modifiée et enregistrée avec succès'),
+                  backgroundColor: Color(0xFF16A34A),
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Erreur lors de l\'enregistrement : $e'),
+                  backgroundColor: const Color(0xFFDC2626),
+                ),
+              );
+            }
+          }
+        },
+      ),
+    );
   }
 
   Future<void> _handleReject(

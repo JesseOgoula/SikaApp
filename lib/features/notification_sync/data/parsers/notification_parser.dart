@@ -19,15 +19,15 @@ class NotificationParser {
   /// Patterns pour détecter le solde dans un message
   static final List<RegExp> _balancePatterns = [
     RegExp(
-      r'(?:nouveau\s+)?solde\s*(?:disponible)?\s*:?\s*(\d[\d\s]*)\s*(?:FCFA|XAF|F\b)',
+      r'(?:nouveau\s+)?solde\s*(?:disponible)?\s*:?\s*(\d[\d\s.,]*\d)\s*(?:FCFA|XAF|F\b)',
       caseSensitive: false,
     ),
     RegExp(
-      r'(?:balance|disponible)\s*:?\s*(\d[\d\s]*)\s*(?:FCFA|XAF|F\b)',
+      r'(?:balance|disponible)\s*:?\s*(\d[\d\s.,]*\d)\s*(?:FCFA|XAF|F\b)',
       caseSensitive: false,
     ),
     RegExp(
-      r'(?:reste|restant)\s*:?\s*(\d[\d\s]*)\s*(?:FCFA|XAF|F\b)',
+      r'(?:reste|restant)\s*:?\s*(\d[\d\s.,]*\d)\s*(?:FCFA|XAF|F\b)',
       caseSensitive: false,
     ),
   ];
