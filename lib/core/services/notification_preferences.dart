@@ -24,9 +24,6 @@ class NotificationPreferences {
   static const String _keyGoalEnabled = 'notif_goal_enabled';
   static const String _keyGoalDay = 'notif_goal_day';
   static const String _keyGoalHour = 'notif_goal_hour';
-  static const String _keySummaryEnabled = 'notif_summary_enabled';
-  static const String _keySummaryDay = 'notif_summary_day';
-  static const String _keySummaryHour = 'notif_summary_hour';
   static const String _keyBudgetEnabled = 'notif_budget_enabled';
   static const String _keyLastBudgetNotifMonth =
       'notif_last_budget_notif_month';
@@ -147,40 +144,6 @@ class NotificationPreferences {
   Future<void> setGoalReminderHour(int hour) async {
     final prefs = await _getPrefs();
     await prefs.setInt(_keyGoalHour, hour);
-  }
-
-  // ==================== WEEKLY SUMMARY ====================
-
-  Future<bool> get weeklySummaryEnabled async {
-    final prefs = await _getPrefs();
-    return prefs.getBool(_keySummaryEnabled) ?? true;
-  }
-
-  Future<void> setWeeklySummaryEnabled(bool value) async {
-    final prefs = await _getPrefs();
-    await prefs.setBool(_keySummaryEnabled, value);
-  }
-
-  /// Jour du résumé (1=lundi ... 7=dimanche)
-  Future<int> get weeklySummaryDay async {
-    final prefs = await _getPrefs();
-    return prefs.getInt(_keySummaryDay) ?? 7; // Dimanche par défaut
-  }
-
-  Future<void> setWeeklySummaryDay(int day) async {
-    final prefs = await _getPrefs();
-    await prefs.setInt(_keySummaryDay, day);
-  }
-
-  /// Heure du résumé (0-23)
-  Future<int> get weeklySummaryHour async {
-    final prefs = await _getPrefs();
-    return prefs.getInt(_keySummaryHour) ?? 18;
-  }
-
-  Future<void> setWeeklySummaryHour(int hour) async {
-    final prefs = await _getPrefs();
-    await prefs.setInt(_keySummaryHour, hour);
   }
 
   // ==================== BUDGET ALERTS ====================

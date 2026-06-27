@@ -216,9 +216,51 @@ class _EditPendingTransactionBottomSheetState
                     ),
                   ),
                   items: accounts.map((a) {
+                    final isAsset = a.iconKey.startsWith('assets/') || a.iconKey.endsWith('.png');
+                    Color accColor = Colors.grey;
+                    try {
+                      accColor = Color(int.parse(a.color.replaceFirst('#', '0xFF')));
+                    } catch (_) {}
+
+                    IconData fallbackIcon;
+                    switch (a.iconKey) {
+                      case 'phone_android':
+                        fallbackIcon = Icons.phone_android;
+                        break;
+                      case 'account_balance':
+                        fallbackIcon = Icons.account_balance;
+                        break;
+                      case 'payments':
+                        fallbackIcon = Icons.payments;
+                        break;
+                      default:
+                        fallbackIcon = Icons.account_balance_wallet;
+                    }
+
                     return DropdownMenuItem(
                       value: a.id,
-                      child: Text(a.name),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: isAsset ? Colors.white : accColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: isAsset ? Border.all(color: Colors.grey.shade200) : null,
+                            ),
+                            child: isAsset
+                                ? Image.asset(
+                                    a.iconKey,
+                                    width: 16,
+                                    height: 16,
+                                    fit: BoxFit.contain,
+                                  )
+                                : Icon(fallbackIcon, color: accColor, size: 16),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(a.name),
+                        ],
+                      ),
                     );
                   }).toList(),
                   onChanged: (val) {

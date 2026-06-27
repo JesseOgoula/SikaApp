@@ -21,6 +21,7 @@ class FeedGoalBottomSheet extends ConsumerStatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => FeedGoalBottomSheet(goal: goal),
     );
   }

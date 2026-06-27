@@ -392,6 +392,7 @@ class _DebtsList extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) {
         return AddPaymentBottomSheet(
           debt: debt,

@@ -286,22 +286,30 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  displayAmount,
-                  style: TextStyle(
-                    color: _amountText.isEmpty
-                        ? const Color(0xFFD1D5DB)
-                        : AppTheme.textPrimary,
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_showKeypad)
+                if (_showKeypad && _amountText.isEmpty)
                   const BlinkingCursor(
                     height: 48,
                     width: 3,
                     color: AppTheme.primaryColor,
+                  )
+                else ...[
+                  Text(
+                    displayAmount,
+                    style: TextStyle(
+                      color: _amountText.isEmpty
+                          ? const Color(0xFFD1D5DB)
+                          : AppTheme.textPrimary,
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  if (_showKeypad)
+                    const BlinkingCursor(
+                      height: 48,
+                      width: 3,
+                      color: AppTheme.primaryColor,
+                    ),
+                ],
                 const SizedBox(width: 8),
                 const Text(
                   'FCFA',
@@ -697,25 +705,33 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
             Expanded(
               child: Row(
                 children: [
-                  Flexible(
-                    child: Text(
-                      _noteText.isEmpty ? 'Ajouter une note...' : _noteText,
-                      style: TextStyle(
-                        color: _noteText.isEmpty
-                            ? Colors.grey[400]
-                            : AppTheme.textPrimary,
-                        fontSize: 15,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (_showTextPad)
+                  if (_showTextPad && _noteText.isEmpty)
                     const BlinkingCursor(
                       height: 18,
                       width: 2,
                       color: AppTheme.primaryColor,
+                    )
+                  else ...[
+                    Flexible(
+                      child: Text(
+                        _noteText.isEmpty ? 'Ajouter une note...' : _noteText,
+                        style: TextStyle(
+                          color: _noteText.isEmpty
+                              ? Colors.grey[400]
+                              : AppTheme.textPrimary,
+                          fontSize: 15,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    if (_showTextPad)
+                      const BlinkingCursor(
+                        height: 18,
+                        width: 2,
+                        color: AppTheme.primaryColor,
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -970,17 +986,32 @@ class _CreateCategoryBottomSheetState
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppTheme.primaryColor, width: 2),
               ),
-              child: Text(
-                _nameText.isEmpty ? 'Nom de la categorie' : _nameText,
-                style: TextStyle(
-                  color: _nameText.isEmpty
-                      ? Colors.grey.shade400
-                      : AppTheme.textPrimary,
-                  fontSize: 16,
-                  fontWeight: _nameText.isEmpty
-                      ? FontWeight.w400
-                      : FontWeight.w600,
-                ),
+              child: Row(
+                children: [
+                  if (_nameText.isEmpty)
+                    const BlinkingCursor(
+                      height: 20,
+                      width: 2,
+                      color: AppTheme.primaryColor,
+                    )
+                  else ...[
+                    Flexible(
+                      child: Text(
+                        _nameText,
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const BlinkingCursor(
+                      height: 20,
+                      width: 2,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ],
+                ],
               ),
             ),
           ),

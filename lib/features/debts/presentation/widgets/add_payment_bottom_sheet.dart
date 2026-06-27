@@ -231,22 +231,30 @@ class _AddPaymentBottomSheetState extends ConsumerState<AddPaymentBottomSheet> {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(
-                  displayAmount,
-                  style: TextStyle(
-                    color: _amountText.isEmpty
-                        ? const Color(0xFFD1D5DB)
-                        : themeColor,
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (_showKeypad)
+                if (_showKeypad && _amountText.isEmpty)
                   BlinkingCursor(
                     height: 40,
                     width: 3,
                     color: themeColor,
+                  )
+                else ...[
+                  Text(
+                    displayAmount,
+                    style: TextStyle(
+                      color: _amountText.isEmpty
+                          ? const Color(0xFFD1D5DB)
+                          : themeColor,
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  if (_showKeypad)
+                    BlinkingCursor(
+                      height: 40,
+                      width: 3,
+                      color: themeColor,
+                    ),
+                ],
                 const SizedBox(width: 8),
                 const Text(
                   'FCFA',
@@ -322,17 +330,41 @@ class _AddPaymentBottomSheetState extends ConsumerState<AddPaymentBottomSheet> {
             } catch (_) {
               accColor = Colors.grey;
             }
+            final isAsset = acc.iconKey.startsWith('assets/') || acc.iconKey.endsWith('.png');
+            IconData fallbackIcon;
+            switch (acc.iconKey) {
+              case 'phone_android':
+                fallbackIcon = Icons.phone_android;
+                break;
+              case 'account_balance':
+                fallbackIcon = Icons.account_balance;
+                break;
+              case 'payments':
+                fallbackIcon = Icons.payments;
+                break;
+              default:
+                fallbackIcon = Icons.account_balance_wallet;
+            }
+
             return DropdownMenuItem<String>(
               value: acc.id,
               child: Row(
                 children: [
                   Container(
-                    width: 10,
-                    height: 10,
+                    padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: accColor,
-                      shape: BoxShape.circle,
+                      color: isAsset ? Colors.white : accColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: isAsset ? Border.all(color: Colors.grey.shade200) : null,
                     ),
+                    child: isAsset
+                        ? Image.asset(
+                            acc.iconKey,
+                            width: 16,
+                            height: 16,
+                            fit: BoxFit.contain,
+                          )
+                        : Icon(fallbackIcon, color: accColor, size: 16),
                   ),
                   const SizedBox(width: 10),
                   Text(

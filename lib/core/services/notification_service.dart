@@ -11,7 +11,6 @@ import 'package:sika_app/core/services/notification_preferences.dart';
 /// - Rappels de dettes/factures (jour J, J-3, J-1)
 /// - Alertes solde faible
 /// - Rappels objectifs d'épargne
-/// - Résumés hebdomadaires
 /// - Célébrations d'objectifs atteints
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -29,7 +28,6 @@ class NotificationService {
   static const String _channelReminders = 'sika_reminders';
   static const String _channelBalance = 'sika_balance_alerts';
   static const String _channelGoals = 'sika_goal_reminders';
-  static const String _channelSummary = 'sika_weekly_summary';
   static const String _channelCelebrations = 'sika_celebrations';
 
   // Notification ID Ranges (pour éviter les conflits)
@@ -37,7 +35,6 @@ class NotificationService {
   static const int _idDebtPre3Days = 2000;
   static const int _idDebtPre1Day = 3000;
   static const int _idGoalReminder = 4000;
-  static const int _idWeeklySummary = 5000;
   static const int _idLowBalance = 6000;
   static const int _idGoalCompleted = 7000;
 
@@ -94,17 +91,7 @@ class NotificationService {
         ),
       );
 
-      // 4. Résumé hebdomadaire
-      await androidPlugin.createNotificationChannel(
-        const AndroidNotificationChannel(
-          _channelSummary,
-          'Résumé Hebdomadaire',
-          description: 'Récap de vos finances chaque semaine',
-          importance: Importance.defaultImportance,
-        ),
-      );
-
-      // 5. Célébrations
+      // 4. Célébrations
       await androidPlugin.createNotificationChannel(
         const AndroidNotificationChannel(
           _channelCelebrations,
@@ -293,69 +280,6 @@ class NotificationService {
     );
   }
 
-  // ==================== WEEKLY SUMMARY ====================
-
-  /// Schedule weekly summary notification based on user preferences
-  Future<void> scheduleWeeklySummary() async {
-    if (!_isInitialized) await init();
-
-    final prefs = NotificationPreferences();
-    final masterEnabled = await prefs.isEnabled;
-    final summaryEnabled = await prefs.weeklySummaryEnabled;
-    if (!masterEnabled || !summaryEnabled) {
-      await cancel(_idWeeklySummary);
-      return;
-    }
-
-    final summaryDay = await prefs.weeklySummaryDay;
-    final summaryHour = await prefs.weeklySummaryHour;
-
-    // Find next matching day
-    var nextDay = DateTime.now();
-    while (nextDay.weekday != summaryDay) {
-      nextDay = nextDay.add(const Duration(days: 1));
-    }
-
-    await _scheduleNotification(
-      id: _idWeeklySummary,
-      title: 'Résumé hebdomadaire',
-      body: 'Votre bilan financier de la semaine est disponible.',
-      scheduledDate: _setTime(nextDay, summaryHour, 0),
-      channelId: _channelSummary,
-      channelName: 'Résumé Hebdomadaire',
-      matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-    );
-  }
-
-  /// Show weekly summary with actual data
-  Future<void> showWeeklySummaryNow({
-    required double totalExpenses,
-    required double totalIncome,
-    required double savings,
-  }) async {
-    if (!_isInitialized) await init();
-
-    final formattedExpenses = _formatAmount(totalExpenses);
-    final formattedIncome = _formatAmount(totalIncome);
-
-    await _notificationsPlugin.show(
-      _idWeeklySummary + 1,
-      'Résumé hebdomadaire',
-      'Revenus : $formattedIncome FCFA · Dépenses : $formattedExpenses FCFA',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelSummary,
-          'Résumé Hebdomadaire',
-          channelDescription: 'Récap de vos finances chaque semaine',
-          importance: Importance.defaultImportance,
-          priority: Priority.defaultPriority,
-          color: const Color(0xFF5E35B1), // Violet
-          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-          icon: '@drawable/ic_stat_notification',
-        ),
-      ),
-    );
-  }
 
   // ==================== HELPER METHODS ====================
 

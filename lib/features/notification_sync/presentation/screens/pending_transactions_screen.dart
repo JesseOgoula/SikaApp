@@ -167,6 +167,7 @@ class PendingTransactionsScreen extends ConsumerWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      useSafeArea: true,
       builder: (context) => EditPendingTransactionBottomSheet(
         transaction: tx,
         onSave: (updatedTx, linkedDebt, accountId) async {

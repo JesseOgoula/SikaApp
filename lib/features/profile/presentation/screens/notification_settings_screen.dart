@@ -28,9 +28,6 @@ class _NotificationSettingsScreenState
   bool _goalEnabled = true;
   int _goalDay = 7;
   int _goalHour = 10;
-  bool _summaryEnabled = true;
-  int _summaryDay = 7;
-  int _summaryHour = 18;
   bool _budgetEnabled = true;
 
   @override
@@ -50,9 +47,6 @@ class _NotificationSettingsScreenState
     _goalEnabled = await _prefs.goalRemindersEnabled;
     _goalDay = await _prefs.goalReminderDay;
     _goalHour = await _prefs.goalReminderHour;
-    _summaryEnabled = await _prefs.weeklySummaryEnabled;
-    _summaryDay = await _prefs.weeklySummaryDay;
-    _summaryHour = await _prefs.weeklySummaryHour;
     _budgetEnabled = await _prefs.budgetAlertsEnabled;
 
     if (mounted) setState(() => _isLoading = false);
@@ -64,10 +58,6 @@ class _NotificationSettingsScreenState
       await service.init();
       if (!_masterEnabled) {
         await service.cancelAll();
-      } else {
-        if (_summaryEnabled) {
-          await service.scheduleWeeklySummary();
-        }
       }
     } catch (e) {
       /* ignore */
@@ -121,8 +111,6 @@ class _NotificationSettingsScreenState
                           _buildBudgetSection(),
                           const SizedBox(height: 12),
                           _buildGoalSection(),
-                          const SizedBox(height: 12),
-                          _buildSummarySection(),
                         ],
                       ),
                     ),
@@ -412,47 +400,7 @@ class _NotificationSettingsScreenState
     );
   }
 
-  // ==================== WEEKLY SUMMARY ====================
 
-  Widget _buildSummarySection() {
-    return _buildCard(
-      children: [
-        _buildSwitchTile(
-          icon: Icons.bar_chart_rounded,
-          title: 'Résumé Hebdomadaire',
-          subtitle: 'Récap de vos finances chaque semaine',
-          value: _summaryEnabled,
-          onChanged: (val) async {
-            setState(() => _summaryEnabled = val);
-            await _prefs.setWeeklySummaryEnabled(val);
-            await _rescheduleNotifications();
-          },
-        ),
-        if (_summaryEnabled) ...[
-          const Divider(height: 1),
-          _buildDayPicker(
-            label: 'Jour du résumé',
-            value: _summaryDay,
-            onChanged: (day) async {
-              setState(() => _summaryDay = day);
-              await _prefs.setWeeklySummaryDay(day);
-              await _rescheduleNotifications();
-            },
-          ),
-          const Divider(height: 1),
-          _buildHourPicker(
-            label: 'Heure du résumé',
-            value: _summaryHour,
-            onChanged: (hour) async {
-              setState(() => _summaryHour = hour);
-              await _prefs.setWeeklySummaryHour(hour);
-              await _rescheduleNotifications();
-            },
-          ),
-        ],
-      ],
-    );
-  }
 
   // ==================== SHARED WIDGETS ====================
 

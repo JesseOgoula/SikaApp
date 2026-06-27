@@ -92,7 +92,6 @@ void main() async {
     await NotificationPreferences().init();
     await NotificationService().init();
     await NotificationService().requestPermissions();
-    await NotificationService().scheduleWeeklySummary();
   } catch (e) {
     SikaLogger.error('Failed to init basic notifications: $e', tag: 'MAIN');
   }

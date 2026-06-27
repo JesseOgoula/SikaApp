@@ -22,6 +22,18 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
 
   bool _isLoading = true;
   final _scrollController = ScrollController();
+  int? _focusedIndex;
+
+  void _scrollToFocusedCard(int index) {
+    if (!_scrollController.hasClients) return;
+    // Simple scroll calculation based on card height estimate
+    final targetOffset = index * 120.0; 
+    _scrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
 
   @override
   void initState() {
@@ -400,7 +412,7 @@ class _AccountConfig {
   final String? iconPath;
   final String color;
   bool enabled;
-  
+  final TextEditingController balanceController = TextEditingController();
 
   _AccountConfig({
     required this.name,
