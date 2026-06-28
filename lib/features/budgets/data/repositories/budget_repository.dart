@@ -157,6 +157,8 @@ class BudgetRepository {
               syncStatus: const Value(0),
             ),
           );
+      
+      XPService().awardXP(ActionType.createBudget);
     }
     autoSyncService?.forceSync();
   }

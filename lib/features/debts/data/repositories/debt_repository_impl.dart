@@ -163,52 +163,76 @@ class DebtRepositoryImpl implements DebtRepository {
     String? accountId,
     String? categoryId,
   }) async {
-    // 1. Mettre à jour le statut
+    // 1. Préparer le nouveau statut
     final updatedDebt = debt.copyWith(
       status: DebtStatus.paid,
       updatedAt: DateTime.now(),
     );
-    await updateDebt(updatedDebt);
 
-    // 2. Créer une transaction si demandé
-    if (createTransaction && accountId != null) {
-      // Pour les factures et dettes sortantes, c'est toujours une dépense (expense)
-      await _db
-          .into(_db.transactionsTable)
-          .insert(
-            TransactionsTableCompanion.insert(
-              id: const Uuid().v4(),
-              amount: debt.amount,
-              type: 'expense',
-              merchantName: Value(debt.personName ?? debt.name),
-              categoryId: Value(categoryId),
-              accountId: Value(accountId),
-              date: DateTime.now(),
-              syncStatus: const Value(0),
-              validationStatus: const Value(
-                1,
-              ), // 1 = validated, apparaît dans les transactions
-              createdAt: Value(DateTime.now()),
-              updatedAt: Value(DateTime.now()),
-            ),
-          );
-
-      // Mettre à jour le solde du compte
-      final account = await (_db.select(
-        _db.accountsTable,
-      )..where((t) => t.id.equals(accountId))).getSingle();
-
+    // 2. Exécuter toutes les mises à jour de DB dans une transaction atomique
+    await _db.transaction(() async {
       await (_db.update(
-        _db.accountsTable,
-      )..where((t) => t.id.equals(accountId))).write(
-        AccountsTableCompanion(
-          balance: Value(account.balance - debt.amount),
-          updatedAt: Value(DateTime.now()),
+        _db.debtsTable,
+      )..where((t) => t.id.equals(debt.id))).write(
+        DebtsTableCompanion(
+          status: Value(updatedDebt.status.name),
+          syncStatus: const Value(0),
+          updatedAt: Value(updatedDebt.updatedAt),
         ),
       );
+
+      // Créer une transaction si demandé
+      if (createTransaction && accountId != null) {
+        // Pour les factures et dettes sortantes, c'est toujours une dépense (expense)
+        await _db
+            .into(_db.transactionsTable)
+            .insert(
+              TransactionsTableCompanion.insert(
+                id: const Uuid().v4(),
+                amount: debt.amount,
+                type: 'expense',
+                merchantName: Value(debt.personName ?? debt.name),
+                categoryId: Value(categoryId),
+                accountId: Value(accountId),
+                debtId: Value(debt.id),
+                date: DateTime.now(),
+                syncStatus: const Value(0),
+                validationStatus: const Value(1),
+                createdAt: Value(DateTime.now()),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+
+        // Mettre à jour le solde du compte
+        final account = await (_db.select(
+          _db.accountsTable,
+        )..where((t) => t.id.equals(accountId))).getSingle();
+
+        await (_db.update(
+          _db.accountsTable,
+        )..where((t) => t.id.equals(accountId))).write(
+          AccountsTableCompanion(
+            balance: Value(account.balance - debt.amount),
+            updatedAt: Value(DateTime.now()),
+            syncStatus: const Value(0),
+          ),
+        );
+      }
+    });
+
+    // 3. Effectuer les opérations non-critiques (notifications, sync, XP)
+    try {
+      await NotificationService().cancelDebtReminders(debt.id);
+    } catch (e) {
+      // Ignorer les erreurs de notification pour ne pas bloquer l'UI
     }
 
-    // Award XP for paying debt
+    try {
+      autoSyncService?.forceSync();
+    } catch (e) {
+      // Ignorer
+    }
+
     XPService().awardXP(ActionType.payDebt);
   }
 
@@ -242,51 +266,88 @@ class DebtRepositoryImpl implements DebtRepository {
     final newPaidAmount = debt.paidAmount + amount;
     final isFullyPaid = newPaidAmount >= debt.amount;
 
-    // 1. Mettre à jour la dette (créance)
     final updatedDebt = debt.copyWith(
       paidAmount: newPaidAmount,
       status: isFullyPaid ? DebtStatus.paid : debt.status,
       updatedAt: DateTime.now(),
     );
-    await updateDebt(updatedDebt);
 
-    // 2. Créer une transaction de type revenu
-    await _db
-        .into(_db.transactionsTable)
-        .insert(
-          TransactionsTableCompanion.insert(
-            id: const Uuid().v4(),
-            amount: amount,
-            type: debt.type == DebtType.debtIn ? 'income' : 'expense',
-            merchantName: Value(debt.personName ?? debt.name),
-            categoryId: Value(categoryId),
-            accountId: Value(accountId),
-            debtId: Value(debt.id),
-            date: DateTime.now(),
-            syncStatus: const Value(0),
-            validationStatus: const Value(1),
-            createdAt: Value(DateTime.now()),
-            updatedAt: Value(DateTime.now()),
+    // 1. Transaction atomique pour la DB
+    await _db.transaction(() async {
+      // Mettre à jour la dette
+      await (_db.update(
+        _db.debtsTable,
+      )..where((t) => t.id.equals(debt.id))).write(
+        DebtsTableCompanion(
+          paidAmount: Value(updatedDebt.paidAmount),
+          status: Value(updatedDebt.status.name),
+          syncStatus: const Value(0),
+          updatedAt: Value(updatedDebt.updatedAt),
+        ),
+      );
+
+      // Créer une transaction de type revenu ou dépense
+      await _db
+          .into(_db.transactionsTable)
+          .insert(
+            TransactionsTableCompanion.insert(
+              id: const Uuid().v4(),
+              amount: amount,
+              type: debt.type == DebtType.debtIn ? 'income' : 'expense',
+              merchantName: Value(debt.personName ?? debt.name),
+              categoryId: Value(categoryId),
+              accountId: Value(accountId),
+              debtId: Value(debt.id),
+              date: DateTime.now(),
+              syncStatus: const Value(0),
+              validationStatus: const Value(1),
+              createdAt: Value(DateTime.now()),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
+
+      // Mettre à jour le solde du compte
+      final account = await (_db.select(
+        _db.accountsTable,
+      )..where((t) => t.id.equals(accountId))).getSingle();
+
+      await (_db.update(
+        _db.accountsTable,
+      )..where((t) => t.id.equals(accountId))).write(
+        AccountsTableCompanion(
+          balance: Value(
+            debt.type == DebtType.debtIn
+                ? account.balance + amount
+                : account.balance - amount,
           ),
+          updatedAt: Value(DateTime.now()),
+          syncStatus: const Value(0),
+        ),
+      );
+    });
+
+    // 2. Mettre à jour les notifications et sync (non-bloquant)
+    try {
+      if (updatedDebt.status == DebtStatus.pending) {
+        await NotificationService().cancelDebtReminders(debt.id);
+        await NotificationService().scheduleDebtReminders(
+          debtId: debt.id,
+          title: debt.name,
+          amount: debt.amount,
+          dueDate: debt.dueDate,
         );
+      } else {
+        await NotificationService().cancelDebtReminders(debt.id);
+      }
+    } catch (e) {
+      // Ignorer pour éviter les crashs silencieux
+    }
 
-    // 3. Mettre à jour le solde du compte
-    final account = await (_db.select(
-      _db.accountsTable,
-    )..where((t) => t.id.equals(accountId))).getSingle();
-
-    final newBalance = debt.type == DebtType.debtIn 
-        ? account.balance + amount 
-        : account.balance - amount;
-
-    await (_db.update(
-      _db.accountsTable,
-    )..where((t) => t.id.equals(accountId))).write(
-      AccountsTableCompanion(
-        balance: Value(newBalance),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    try {
+      autoSyncService?.forceSync();
+    } catch (e) {
+      // Ignorer
+    }
 
     // Award XP
     XPService().awardXP(ActionType.payDebt); // On réutilise cette action

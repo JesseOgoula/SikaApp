@@ -12,6 +12,8 @@ import 'package:sika_app/features/notification_sync/presentation/widgets/edit_pe
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
 /// Écran listant les transactions détectées en attente de validation
 class PendingTransactionsScreen extends ConsumerWidget {
@@ -142,6 +144,9 @@ class PendingTransactionsScreen extends ConsumerWidget {
 
       await repo.addManualTransaction(companion);
 
+      // Award XP specific to auto detection
+      XPService().awardXP(ActionType.validateAutoDetection);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -201,6 +206,9 @@ class PendingTransactionsScreen extends ConsumerWidget {
 
               await txRepo.addManualTransaction(companion);
             }
+
+            // Award XP specific to auto detection
+            XPService().awardXP(ActionType.validateAutoDetection);
 
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

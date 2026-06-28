@@ -52,7 +52,7 @@ class XPService {
     if (points <= 0) return 0;
 
     final currentXP = await _settings.getTotalXP();
-    final newXP = (currentXP + points).clamp(0, 10000);
+    final newXP = (currentXP + points).clamp(0, 999999);
     await _settings.setTotalXP(newXP);
 
     // Sync vers Supabase (await pour garantir la coherence)
@@ -67,7 +67,7 @@ class XPService {
     if (points <= 0) return 0;
 
     final currentXP = await _settings.getTotalXP();
-    final newXP = (currentXP + points).clamp(0, 10000);
+    final newXP = (currentXP + points).clamp(0, 999999);
     await _settings.setTotalXP(newXP);
 
     // Sync vers Supabase (await pour garantir la coherence)

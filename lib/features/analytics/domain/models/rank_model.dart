@@ -15,6 +15,7 @@ enum ActionType {
   payDebt, // +20 XP
   addAccount, // +15 XP
   healthScoreBonus, // score/10 XP (max 10)
+  validateAutoDetection, // +15 XP
 }
 
 /// Points attribués par action
@@ -33,6 +34,7 @@ class ActionPoints {
     ActionType.payDebt: 20,
     ActionType.addAccount: 15,
     ActionType.healthScoreBonus: 10, // max per day
+    ActionType.validateAutoDetection: 15,
   };
 
   static int getPoints(ActionType action) => values[action] ?? 0;
@@ -66,6 +68,8 @@ class ActionPoints {
         return 'Compte ajouté';
       case ActionType.healthScoreBonus:
         return 'Bonus santé financière';
+      case ActionType.validateAutoDetection:
+        return 'Détection auto. validée';
     }
   }
 }
@@ -224,7 +228,7 @@ class RankDefinitions {
       level: 5,
       name: 'Sika Boss',
       minXP: 10000,
-      maxXP: 10000,
+      maxXP: 999999,
       icon: Icons.diamond,
       cardLabel: 'BLACK',
       cardGradient: [Color(0xFF1A1A2E), Color(0xFF0D0D15)],

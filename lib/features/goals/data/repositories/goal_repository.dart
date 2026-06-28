@@ -131,6 +131,9 @@ class GoalRepository {
         } catch (e) {
           /* ignore */
         }
+        
+        // Award XP for feeding goal (if not completed yet)
+        XPService().awardXP(ActionType.feedGoal);
       }
 
       // Sync vers Supabase

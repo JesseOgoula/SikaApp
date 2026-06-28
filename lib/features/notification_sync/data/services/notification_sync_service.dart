@@ -11,6 +11,7 @@ import 'package:sika_app/features/notification_sync/data/parsers/notification_pa
 import 'package:sika_app/features/notification_sync/data/services/pending_transaction_queue.dart';
 import 'package:sika_app/features/notification_sync/data/services/sms_listener_service.dart';
 import 'package:sika_app/features/notification_sync/domain/models/parsed_transaction.dart';
+import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 
 /// Service principal d'orchestration de la détection automatique de transactions
 ///
@@ -91,11 +92,18 @@ class NotificationSyncService {
 
   /// Active ou désactive la détection automatique
   Future<void> setEnabled(bool enabled) async {
-    _isEnabled = enabled;
     final prefs = await SharedPreferences.getInstance();
+    final wasEnabled = prefs.getBool(_prefKey) ?? false;
+    
+    _isEnabled = enabled;
     await prefs.setBool(_prefKey, enabled);
 
     if (enabled) {
+      if (!wasEnabled) {
+        // One-time large XP reward for enabling auto-sync
+        XPService().awardCustomXP(50, 'Activation Saisie Auto');
+      }
+      
       if (Platform.isAndroid) {
         await _startNotificationListener();
         await _smsListener.startListening();
