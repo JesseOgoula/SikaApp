@@ -839,7 +839,15 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
 
     // Vérifier le solde disponible pour les dépenses
     if (_transactionType == 'expense') {
-      final availableBalance = ref.read(totalAccountsBalanceProvider);
+      double availableBalance = ref.read(totalAccountsBalanceProvider);
+      if (_selectedAccountId != null) {
+        final accountsAsync = ref.read(accountsWithBalanceProvider);
+        final accounts = accountsAsync.valueOrNull ?? [];
+        try {
+          availableBalance = accounts.firstWhere((a) => a.id == _selectedAccountId).balance;
+        } catch (_) {}
+      }
+      
       if (amount > availableBalance) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -4,12 +4,13 @@ import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 import 'package:sika_app/features/transactions/presentation/widgets/blinking_cursor.dart';
 
 class AddPaymentBottomSheet extends ConsumerStatefulWidget {
   final Debt debt;
-  final List<AccountsTableData> accounts;
+  final List<AccountWithBalance> accounts;
 
   const AddPaymentBottomSheet({
     super.key,
@@ -162,12 +163,7 @@ class _AddPaymentBottomSheetState extends ConsumerState<AddPaymentBottomSheet> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _selectedAccountId == null ||
-                        widget.accounts.isEmpty ||
-                        _amountText.isEmpty ||
-                        (double.tryParse(_amountText) ?? 0) <= 0
-                    ? null
-                    : _submitPayment,
+                onPressed: _canSubmit() ? _submitPayment : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: themeColor,
                   foregroundColor: Colors.white,
@@ -426,5 +422,32 @@ class _AddPaymentBottomSheetState extends ConsumerState<AddPaymentBottomSheet> {
         ),
       );
     }
+  }
+
+  bool _hasInsufficientFunds() {
+    if (widget.debt.type == DebtType.debtIn) return false; // Receipts don't need funds
+    if (_selectedAccountId == null) return false;
+    final amount = double.tryParse(_amountText) ?? 0;
+    if (amount <= 0) return false;
+    
+    try {
+      final selectedAcc = widget.accounts.firstWhere((a) => a.id == _selectedAccountId);
+      return amount > selectedAcc.balance;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _canSubmit() {
+    if (_selectedAccountId == null || widget.accounts.isEmpty || _amountText.isEmpty) {
+      return false;
+    }
+    final amount = double.tryParse(_amountText) ?? 0;
+    if (amount <= 0) return false;
+    
+    // Check if enough funds
+    if (_hasInsufficientFunds()) return false;
+    
+    return true;
   }
 }

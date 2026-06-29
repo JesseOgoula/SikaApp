@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/database/app_database.dart';
 import 'package:sika_app/features/debts/presentation/widgets/add_payment_bottom_sheet.dart';
 import '../../data/providers/debt_providers.dart';
@@ -242,12 +243,16 @@ class _DebtsList extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            if (debt.type == DebtType.debtIn && !isPaid) ...[
+                            if (!isPaid) ...[
                               const SizedBox(height: 8),
                               LinearProgressIndicator(
                                 value: debt.amount > 0 ? debt.paidAmount / debt.amount : 0,
                                 backgroundColor: Colors.grey.shade200,
-                                color: AppTheme.primaryColor,
+                                color: debt.type == DebtType.debtIn 
+                                    ? AppTheme.primaryColor
+                                    : debt.type == DebtType.bill
+                                        ? AppTheme.primaryColor
+                                        : AppTheme.error,
                                 minHeight: 6,
                                 borderRadius: BorderRadius.circular(3),
                               ),
@@ -357,7 +362,7 @@ class _DebtsList extends ConsumerWidget {
   }
 
   void _showPaymentDialog(BuildContext context, WidgetRef ref, Debt debt) {
-    final accountsAsync = ref.read(activeAccountsProvider);
+    final accountsAsync = ref.read(accountsWithBalanceProvider);
 
     accountsAsync.when(
       data: (accounts) {
@@ -386,7 +391,7 @@ class _DebtsList extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     Debt debt,
-    List<AccountsTableData> accounts,
+    List<AccountWithBalance> accounts,
   ) {
     showModalBottomSheet(
       context: context,

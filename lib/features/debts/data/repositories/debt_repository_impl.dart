@@ -203,20 +203,6 @@ class DebtRepositoryImpl implements DebtRepository {
               ),
             );
 
-        // Mettre à jour le solde du compte
-        final account = await (_db.select(
-          _db.accountsTable,
-        )..where((t) => t.id.equals(accountId))).getSingle();
-
-        await (_db.update(
-          _db.accountsTable,
-        )..where((t) => t.id.equals(accountId))).write(
-          AccountsTableCompanion(
-            balance: Value(account.balance - debt.amount),
-            updatedAt: Value(DateTime.now()),
-            syncStatus: const Value(0),
-          ),
-        );
       }
     });
 
@@ -306,24 +292,6 @@ class DebtRepositoryImpl implements DebtRepository {
             ),
           );
 
-      // Mettre à jour le solde du compte
-      final account = await (_db.select(
-        _db.accountsTable,
-      )..where((t) => t.id.equals(accountId))).getSingle();
-
-      await (_db.update(
-        _db.accountsTable,
-      )..where((t) => t.id.equals(accountId))).write(
-        AccountsTableCompanion(
-          balance: Value(
-            debt.type == DebtType.debtIn
-                ? account.balance + amount
-                : account.balance - amount,
-          ),
-          updatedAt: Value(DateTime.now()),
-          syncStatus: const Value(0),
-        ),
-      );
     });
 
     // 2. Mettre à jour les notifications et sync (non-bloquant)

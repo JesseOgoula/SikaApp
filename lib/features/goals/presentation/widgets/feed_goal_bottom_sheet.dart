@@ -63,6 +63,25 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
   Widget build(BuildContext context) {
     final remaining = widget.goal.targetAmount - widget.goal.savedAmount;
     final displayAmount = _amountText.isEmpty ? '0' : _amountText;
+    
+    final accountsAsync = ref.watch(accountsWithBalanceProvider);
+    final accounts = accountsAsync.valueOrNull ?? [];
+    
+    bool hasInsufficientFunds = false;
+    if (_selectedAccountId != null && _amountText.isNotEmpty) {
+      final amount = double.tryParse(_amountText) ?? 0;
+      if (amount > 0) {
+        try {
+          final acc = accounts.firstWhere((a) => a.id == _selectedAccountId);
+          if (amount > acc.balance) hasInsufficientFunds = true;
+        } catch (_) {}
+      }
+    }
+    
+    final canSubmit = _amountText.isNotEmpty && 
+                     (double.tryParse(_amountText) ?? 0) > 0 && 
+                     _selectedAccountId != null && 
+                     !hasInsufficientFunds;
 
     return Container(
       padding: EdgeInsets.only(
@@ -150,6 +169,19 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
                   ),
                 ],
               ),
+              
+              if (hasInsufficientFunds)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Fonds insuffisants pour ce montant.',
+                    style: TextStyle(
+                      color: AppTheme.error,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
 
               const SizedBox(height: 24),
 
@@ -163,7 +195,7 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _feedGoal,
+                  onPressed: _isLoading || !canSubmit ? null : _feedGoal,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
