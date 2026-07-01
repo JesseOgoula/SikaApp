@@ -507,13 +507,34 @@ class _DebtsList extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Montant : ${currencyFormat.format(debt.amount)}',
+                'Montant total : ${currencyFormat.format(debt.amount)}',
                 style: const TextStyle(
                   fontSize: 16,
                   color: AppTheme.textSecondary,
                 ),
               ),
               const SizedBox(height: 4),
+              if (!isPaid) ...[
+                Text(
+                  'Déjà ${debt.type == DebtType.debtIn ? "perçu" : "payé"} : ${currencyFormat.format(debt.paidAmount)}',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Reste à ${debt.type == DebtType.debtIn ? "percevoir" : "payer"} : ${currencyFormat.format(debt.amount - debt.paidAmount)}',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: debt.type == DebtType.debtIn 
+                        ? AppTheme.primaryColor 
+                        : (debt.type == DebtType.bill ? AppTheme.primaryColor : AppTheme.error),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
               Text(
                 'Échéance : ${dateFormat.format(debt.dueDate)}',
                 style: const TextStyle(

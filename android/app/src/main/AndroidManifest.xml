@@ -55,6 +55,18 @@
             </intent-filter>
         </service>
 
+        <!-- BroadcastReceiver statique pour l'écoute des SMS app fermée -->
+        <!-- Déclaré ici (et non dynamiquement) pour être réveillé par Android sans Flutter actif -->
+        <receiver
+            android:name=".SikaSmsReceiver"
+            android:permission="android.permission.BROADCAST_SMS"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter android:priority="999">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
     </application>
     
     <queries>

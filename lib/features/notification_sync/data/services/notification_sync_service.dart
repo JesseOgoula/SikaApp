@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -88,6 +89,11 @@ class NotificationSyncService {
 
     _isInitialized = true;
     SikaLogger.info('NotificationSyncService initialized (enabled=$_isEnabled)', tag: _tag);
+
+    // Importer les transactions détectées pendant que l'app était fermée
+    if (Platform.isAndroid) {
+      await _importBackgroundTransactions();
+    }
   }
 
   /// Active ou désactive la détection automatique
@@ -112,6 +118,73 @@ class NotificationSyncService {
     } else {
       _stopListeners();
       SikaLogger.info('Notification sync disabled', tag: _tag);
+    }
+  }
+
+  /// Récupère les transactions stockées en arrière-plan (app fermée)
+  /// et les injecte dans la file d'attente locale.
+  Future<void> _importBackgroundTransactions() async {
+    try {
+      final List<dynamic>? rawList = await _notifChannel
+          .invokeMethod<List<dynamic>>('getPendingBackgroundTransactions');
+
+      if (rawList == null || rawList.isEmpty) {
+        SikaLogger.info('No background transactions to import', tag: _tag);
+        return;
+      }
+
+      SikaLogger.info(
+        'Importing ${rawList.length} background transaction(s)...', tag: _tag);
+
+      int imported = 0;
+      for (final raw in rawList) {
+        try {
+          final map = Map<String, dynamic>.from(raw as Map);
+          // Tente de récupérer la couleur réelle depuis la config Dart
+          final opKey = map['operatorKey'] as String? ?? '';
+          final opConfig = NotificationParser.getOperatorByKey(opKey);
+          final opColor = opConfig?.color ?? const Color(0xFF9E9E9E);
+
+          // Reconstruire un ParsedTransaction depuis le JSON natif
+          final tx = ParsedTransaction(
+            id: map['id'] as String? ?? '',
+            source: ParsedSource.sms,
+            operatorKey: opKey,
+            operatorLabel: map['operatorLabel'] as String? ?? '',
+            operatorColor: opColor,
+            accountType: map['accountType'] as String? ?? 'mobile_money',
+            patternLabel: map['patternLabel'] as String? ?? '',
+            type: map['type'] as String? ?? 'expense',
+            amount: (map['amount'] as num?)?.toInt() ?? 0,
+            description: map['description'] as String? ?? '',
+            suggestedCategory: map['suggestedCategory'] as String? ?? 'cat-autres',
+            date: map['date'] as String? ?? '',
+            detectedBalance: null,
+            rawMessage: map['rawMessage'] as String? ?? '',
+            parsedAt: map['parsedAt'] as String? ?? DateTime.now().toIso8601String(),
+            receivedAt: map['receivedAt'] as String? ?? DateTime.now().toIso8601String(),
+            externalId: null,
+          );
+
+          if (tx.id.isEmpty || tx.amount <= 0) continue;
+
+          final added = await _queue.push(tx);
+          if (added != null) {
+            imported++;
+            SikaLogger.info(
+              'BG tx imported: ${tx.operatorLabel} ${tx.type} ${tx.amount} FCFA',
+              tag: _tag);
+          }
+        } catch (e) {
+          SikaLogger.error('Failed to import BG transaction: $e', tag: _tag);
+        }
+      }
+
+      // Effacer le stockage natif après import
+      await _notifChannel.invokeMethod('clearBackgroundTransactions');
+      SikaLogger.info('Background import done: $imported/${rawList.length} imported', tag: _tag);
+    } catch (e) {
+      SikaLogger.error('Failed to import background transactions: $e', tag: _tag);
     }
   }
 

@@ -21,6 +21,7 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import io.flutter.plugin.common.PluginRegistry
+import org.json.JSONArray
 
 /**
  * Plugin Flutter qui fait le pont entre le code natif Android et Flutter.
@@ -94,6 +95,15 @@ class SikaNotificationPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
             }
             "startSmsListening" -> {
                 registerSmsReceiver()
+                result.success(true)
+            }
+
+            // ── Background transactions (détectées app fermée) ──
+            "getPendingBackgroundTransactions" -> {
+                result.success(getPendingBackgroundTransactions())
+            }
+            "clearBackgroundTransactions" -> {
+                clearBackgroundTransactions()
                 result.success(true)
             }
 
@@ -250,4 +260,43 @@ class SikaNotificationPlugin : FlutterPlugin, MethodCallHandler, ActivityAware,
     override fun onDetachedFromActivity() {
         activity = null
     }
+
+    // ── Background transactions ──
+
+    /**
+     * Récupère les transactions détectées en arrière-plan (app fermée).
+     * Retourne une liste de Maps prête à être consommée par Flutter.
+     */
+    private fun getPendingBackgroundTransactions(): List<Map<String, Any?>> {
+        val ctx = context ?: return emptyList()
+        val prefs = ctx.getSharedPreferences(SikaSmsReceiver.PREFS_NAME, Context.MODE_PRIVATE)
+        val raw = prefs.getString(SikaSmsReceiver.PREFS_KEY, "[]") ?: "[]"
+        return try {
+            val arr = JSONArray(raw)
+            val result = mutableListOf<Map<String, Any?>>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val map = mutableMapOf<String, Any?>()
+                obj.keys().forEach { key -> map[key] = if (obj.isNull(key)) null else obj.get(key) }
+                result.add(map)
+            }
+            Log.d(SikaSmsReceiver.TAG, "getPendingBackgroundTransactions: ${result.size} items")
+            result
+        } catch (e: Exception) {
+            Log.e(SikaSmsReceiver.TAG, "Failed to read background transactions: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Supprime toutes les transactions en arrière-plan du SharedPreferences.
+     * Appelé par Flutter après les avoir importées.
+     */
+    private fun clearBackgroundTransactions() {
+        val ctx = context ?: return
+        val prefs = ctx.getSharedPreferences(SikaSmsReceiver.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().remove(SikaSmsReceiver.PREFS_KEY).apply()
+        Log.d(SikaSmsReceiver.TAG, "Background transactions cleared")
+    }
 }
+
