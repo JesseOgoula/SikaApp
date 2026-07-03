@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -21,6 +22,9 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
+
+  static final StreamController<String?> selectNotificationStream =
+      StreamController<String?>.broadcast();
 
   bool _isInitialized = false;
 
@@ -51,7 +55,9 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: (details) async {},
+      onDidReceiveNotificationResponse: (details) async {
+        selectNotificationStream.add(details.payload);
+      },
     );
 
     // Create all notification channels

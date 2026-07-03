@@ -163,6 +163,20 @@ final _airtelMoney = OperatorConfig(
       ),
       suggestedCategory: 'cat-transferts',
     ),
+    // Achat Forfait / Bundle
+    TransactionPattern(
+      type: 'expense',
+      label: 'Forfait / Bundle',
+      regex: RegExp(
+        r'paiement\s+de\s+(\d[\d\s]*)\s*(?:FCFA|XAF|F)\s+BUNDLE\s+pour\s+ref\s+(.+?)(?:\s+(?:a\s+ete|effectue)|le\s+|\s*\.\s*|Solde|$)',
+        caseSensitive: false,
+      ),
+      extract: (m) => ExtractedData(
+        amount: parseAmount(m.group(1)!),
+        description: 'Achat Forfait / Bundle',
+      ),
+      suggestedCategory: 'cat-factures',
+    ),
     // Paiement marchand classique
     TransactionPattern(
       type: 'expense',

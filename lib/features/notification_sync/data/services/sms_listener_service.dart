@@ -149,6 +149,15 @@ class SmsListenerService {
   /// Affiche une notification locale quand une transaction SMS est détectée
   Future<void> _showLocalNotification(ParsedTransaction tx) async {
     try {
+      // S'assurer que le plugin est initialisé avec un callback pour être cliquable
+      const initSettings = InitializationSettings(
+        android: AndroidInitializationSettings('@drawable/ic_stat_notification'),
+      );
+      await _localNotifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (details) async {},
+      );
+
       final sign = tx.isIncome ? '+' : '-';
       final formattedAmount = tx.amount
           .toString()
@@ -173,6 +182,7 @@ class SmsListenerService {
             icon: '@drawable/ic_stat_notification',
           ),
         ),
+        payload: 'pending_transaction',
       );
       SikaLogger.info('Local notification shown for SMS transaction', tag: _tag);
     } catch (e) {

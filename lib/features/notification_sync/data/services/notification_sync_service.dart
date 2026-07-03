@@ -63,7 +63,10 @@ class NotificationSyncService {
     const initSettings = InitializationSettings(
       android: AndroidInitializationSettings('@drawable/ic_stat_notification'),
     );
-    await _localNotifications.initialize(initSettings);
+    await _localNotifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (details) async {},
+    );
 
     // Créer le channel de notification locale pour les alertes de détection
     await _createNotificationChannel();
@@ -294,6 +297,7 @@ class NotificationSyncService {
           icon: '@drawable/ic_stat_notification',
         ),
       ),
+      payload: 'pending_transaction',
     );
   }
 

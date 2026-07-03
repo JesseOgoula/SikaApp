@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -52,9 +54,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _rankChecked = false;
   int _totalXP = 0;
   final _balancePageController = PageController();
+  StreamSubscription? _notificationSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _configureSelectNotificationSubject();
+  }
+
+  void _configureSelectNotificationSubject() {
+    _notificationSubscription = NotificationService.selectNotificationStream.stream.listen((String? payload) async {
+      if (payload == 'pending_transaction' && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PendingTransactionsScreen()),
+        );
+      }
+    });
+
+    FlutterLocalNotificationsPlugin().getNotificationAppLaunchDetails().then((details) {
+      if (details != null && details.didNotificationLaunchApp) {
+        if (details.notificationResponse?.payload == 'pending_transaction') {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PendingTransactionsScreen()),
+              );
+            }
+          });
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _notificationSubscription?.cancel();
     _balancePageController.dispose();
     super.dispose();
   }
