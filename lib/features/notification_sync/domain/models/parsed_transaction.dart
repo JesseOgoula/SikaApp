@@ -182,4 +182,5 @@ class ParsedTransaction {
 
   bool get isIncome => type == 'income';
   bool get isExpense => type == 'expense';
+  bool get isTransfer => type == 'transfer';
 }

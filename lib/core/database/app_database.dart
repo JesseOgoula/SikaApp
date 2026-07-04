@@ -73,7 +73,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version du schéma de la base de données
   /// Incrémenter à chaque modification du schéma
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   /// Migrations de la base de données
   ///
@@ -135,6 +135,13 @@ class AppDatabase extends _$AppDatabase {
           }
           // Fix existing debts that have a null paid_amount from earlier versions
           await customStatement('UPDATE debts_table SET paid_amount = 0.0 WHERE paid_amount IS NULL');
+        }
+        if (from < 11) {
+          try {
+            await m.addColumn(transactionsTable, transactionsTable.toAccountId);
+          } catch (e) {
+            // ignore
+          }
         }
       },
       // Exécuté à chaque ouverture de la base

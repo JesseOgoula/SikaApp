@@ -24,8 +24,11 @@ class PendingTransactionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = tx.isIncome;
-    final sign = isIncome ? '+' : '-';
-    final amountColor = isIncome ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final isTransfer = tx.isTransfer;
+    final sign = isTransfer ? '↔' : (isIncome ? '+' : '-');
+    final amountColor = isTransfer 
+        ? const Color(0xFF8B5CF6) // Purple for transfers
+        : (isIncome ? const Color(0xFF16A34A) : const Color(0xFFDC2626));
     final formattedAmount = NumberFormat('#,###', 'fr_FR').format(tx.amount);
 
     return Container(

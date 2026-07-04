@@ -101,6 +101,13 @@ final accountsWithBalanceProvider =
                     transactionSum += tx.amount;
                   } else if (tx.type == 'expense') {
                     transactionSum -= tx.amount;
+                  } else if (tx.type == 'transfer') {
+                    transactionSum -= tx.amount; // Sortie du compte source
+                  }
+                }
+                if (tx.toAccountId == account.id) {
+                  if (tx.type == 'transfer') {
+                    transactionSum += tx.amount; // Entrée dans le compte destination
                   }
                 }
               }

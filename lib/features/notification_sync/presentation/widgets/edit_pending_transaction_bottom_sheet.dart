@@ -15,6 +15,7 @@ class EditPendingTransactionBottomSheet extends ConsumerStatefulWidget {
     ParsedTransaction updatedTx,
     Debt? linkedDebt,
     String? accountId,
+    String? toAccountId,
   ) onSave;
 
   const EditPendingTransactionBottomSheet({
@@ -36,6 +37,7 @@ class _EditPendingTransactionBottomSheetState
   Debt? _selectedDebt;
   bool _linkToDebt = false;
   String? _selectedAccountId;
+  String? _selectedToAccountId;
 
   @override
   void initState() {
@@ -172,6 +174,41 @@ class _EditPendingTransactionBottomSheetState
                       ),
                     ),
                   ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _type = 'transfer';
+                        _selectedDebt = null;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _type == 'transfer'
+                              ? Colors.white
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: _type == 'transfer'
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 4,
+                                  )
+                                ]
+                              : null,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Transfert',
+                          style: TextStyle(
+                            color: _type == 'transfer'
+                                ? const Color(0xFF8B5CF6)
+                                : Colors.grey.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -206,17 +243,8 @@ class _EditPendingTransactionBottomSheetState
                   }
                 }
 
-                return DropdownButtonFormField<String>(
-                  value: _selectedAccountId,
-                  decoration: InputDecoration(
-                    labelText: 'Compte',
-                    prefixIcon: const Icon(Icons.account_balance_wallet),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: accounts.map((a) {
-                    final isAsset = a.iconKey.startsWith('assets/') || a.iconKey.endsWith('.png');
+                final accountItems = accounts.map((a) {
+                  final isAsset = a.iconKey.startsWith('assets/') || a.iconKey.endsWith('.png');
                     Color accColor = Colors.grey;
                     try {
                       accColor = Color(int.parse(a.color.replaceFirst('#', '0xFF')));
@@ -262,11 +290,51 @@ class _EditPendingTransactionBottomSheetState
                         ],
                       ),
                     );
-                  }).toList(),
-                  onChanged: (val) {
-                    setState(() => _selectedAccountId = val);
-                  },
-                );
+                  }).toList();
+
+                  // Set default destination account if transfer
+                  if (_type == 'transfer' && _selectedToAccountId == null) {
+                    final destMatch = accounts.where((a) => a.type == 'cash' || a.name.toLowerCase() == 'cash');
+                    if (destMatch.isNotEmpty) {
+                      _selectedToAccountId = destMatch.first.id;
+                    }
+                  }
+
+                  return Column(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        value: _selectedAccountId,
+                        decoration: InputDecoration(
+                          labelText: _type == 'transfer' ? 'Compte source' : 'Compte',
+                          prefixIcon: const Icon(Icons.account_balance_wallet),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        items: accountItems,
+                        onChanged: (val) {
+                          setState(() => _selectedAccountId = val);
+                        },
+                      ),
+                      if (_type == 'transfer') ...[
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _selectedToAccountId,
+                          decoration: InputDecoration(
+                            labelText: 'Compte destination',
+                            prefixIcon: const Icon(Icons.account_balance_wallet),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          items: accountItems,
+                          onChanged: (val) {
+                            setState(() => _selectedToAccountId = val);
+                          },
+                        ),
+                      ],
+                    ],
+                  );
               },
               loading: () => const LinearProgressIndicator(),
               error: (_, __) => const SizedBox.shrink(),
@@ -358,8 +426,8 @@ class _EditPendingTransactionBottomSheetState
             ),
             const SizedBox(height: 16),
 
-            // Catégorie (Affiché uniquement si non lié à une dette)
-            if (!_linkToDebt)
+            // Catégorie (Affiché uniquement si non lié à une dette et pas un transfert)
+            if (!_linkToDebt && _type != 'transfer')
               categoriesAsync.when(
                 data: (categories) {
                   final relevantCategories = categories.toList();
@@ -414,7 +482,7 @@ class _EditPendingTransactionBottomSheetState
                     suggestedCategory: _selectedCategoryId,
                   );
 
-                  widget.onSave(updatedTx, _selectedDebt, _selectedAccountId);
+                  widget.onSave(updatedTx, _selectedDebt, _selectedAccountId, _type == 'transfer' ? _selectedToAccountId : null);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,

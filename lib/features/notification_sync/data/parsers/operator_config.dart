@@ -207,7 +207,7 @@ final _airtelMoney = OperatorConfig(
     ),
     // Retrait (agent / DAB)
     TransactionPattern(
-      type: 'expense',
+      type: 'transfer',
       label: 'Retrait',
       regex: RegExp(
         r'retrait\s+(?:de\s+)?(\d[\d\s]*)\s*(?:FCFA|XAF|F)(?:\s+reussi)?(?:\s+vers\s+(.+?))?(?:\.|\s+Solde|$)',
@@ -307,7 +307,7 @@ final _moovMoney = OperatorConfig(
     ),
     // Retrait
     TransactionPattern(
-      type: 'expense',
+      type: 'transfer',
       label: 'Retrait',
       regex: RegExp(
         r'retrait\s+(?:de\s+)?(\d[\d\s]*)\s*(?:FCFA|XAF|F)',
@@ -380,7 +380,7 @@ final _ubaGabon = OperatorConfig(
     ),
     // Retrait DAB
     TransactionPattern(
-      type: 'expense',
+      type: 'transfer',
       label: 'DAB',
       regex: RegExp(
         r'retrait\s+(?:dab|guichet|atm)?\s*(?:de\s+)?(\d[\d\s.,]*)\s*(?:FCFA|XAF|CFA|F)',
@@ -451,7 +451,7 @@ final _ecobankGabon = OperatorConfig(
     ),
     // Xpress Cash
     TransactionPattern(
-      type: 'expense',
+      type: 'transfer',
       label: 'Xpress Cash',
       regex: RegExp(
         r'ecobank\s+xpress\s+(?:cash\s+)?(?:de\s+)?(\d[\d\s.,]*)\s*(?:FCFA|XAF|CFA)',

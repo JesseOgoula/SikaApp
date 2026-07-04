@@ -73,6 +73,17 @@ class $TransactionsTableTable extends TransactionsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _toAccountIdMeta = const VerificationMeta(
+    'toAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> toAccountId = GeneratedColumn<String>(
+    'to_account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _debtIdMeta = const VerificationMeta('debtId');
   @override
   late final GeneratedColumn<String> debtId = GeneratedColumn<String>(
@@ -173,6 +184,7 @@ class $TransactionsTableTable extends TransactionsTable
     merchantName,
     categoryId,
     accountId,
+    toAccountId,
     debtId,
     date,
     externalId,
@@ -234,6 +246,15 @@ class $TransactionsTableTable extends TransactionsTable
       context.handle(
         _accountIdMeta,
         accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
+    }
+    if (data.containsKey('to_account_id')) {
+      context.handle(
+        _toAccountIdMeta,
+        toAccountId.isAcceptableOrUnknown(
+          data['to_account_id']!,
+          _toAccountIdMeta,
+        ),
       );
     }
     if (data.containsKey('debt_id')) {
@@ -329,6 +350,10 @@ class $TransactionsTableTable extends TransactionsTable
         DriftSqlType.string,
         data['${effectivePrefix}account_id'],
       ),
+      toAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}to_account_id'],
+      ),
       debtId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}debt_id'],
@@ -390,6 +415,9 @@ class TransactionsTableData extends DataClass
   /// FK vers AccountsTable (UUID) - Compte source de la transaction
   final String? accountId;
 
+  /// FK vers AccountsTable (UUID) - Compte destination (pour les transferts)
+  final String? toAccountId;
+
   /// FK vers DebtsTable (UUID) - Lien avec un revenu potentiel / créance / dette
   final String? debtId;
 
@@ -421,6 +449,7 @@ class TransactionsTableData extends DataClass
     this.merchantName,
     this.categoryId,
     this.accountId,
+    this.toAccountId,
     this.debtId,
     required this.date,
     this.externalId,
@@ -444,6 +473,9 @@ class TransactionsTableData extends DataClass
     }
     if (!nullToAbsent || accountId != null) {
       map['account_id'] = Variable<String>(accountId);
+    }
+    if (!nullToAbsent || toAccountId != null) {
+      map['to_account_id'] = Variable<String>(toAccountId);
     }
     if (!nullToAbsent || debtId != null) {
       map['debt_id'] = Variable<String>(debtId);
@@ -474,6 +506,9 @@ class TransactionsTableData extends DataClass
       accountId: accountId == null && nullToAbsent
           ? const Value.absent()
           : Value(accountId),
+      toAccountId: toAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(toAccountId),
       debtId: debtId == null && nullToAbsent
           ? const Value.absent()
           : Value(debtId),
@@ -501,6 +536,7 @@ class TransactionsTableData extends DataClass
       merchantName: serializer.fromJson<String?>(json['merchantName']),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
       accountId: serializer.fromJson<String?>(json['accountId']),
+      toAccountId: serializer.fromJson<String?>(json['toAccountId']),
       debtId: serializer.fromJson<String?>(json['debtId']),
       date: serializer.fromJson<DateTime>(json['date']),
       externalId: serializer.fromJson<String?>(json['externalId']),
@@ -521,6 +557,7 @@ class TransactionsTableData extends DataClass
       'merchantName': serializer.toJson<String?>(merchantName),
       'categoryId': serializer.toJson<String?>(categoryId),
       'accountId': serializer.toJson<String?>(accountId),
+      'toAccountId': serializer.toJson<String?>(toAccountId),
       'debtId': serializer.toJson<String?>(debtId),
       'date': serializer.toJson<DateTime>(date),
       'externalId': serializer.toJson<String?>(externalId),
@@ -539,6 +576,7 @@ class TransactionsTableData extends DataClass
     Value<String?> merchantName = const Value.absent(),
     Value<String?> categoryId = const Value.absent(),
     Value<String?> accountId = const Value.absent(),
+    Value<String?> toAccountId = const Value.absent(),
     Value<String?> debtId = const Value.absent(),
     DateTime? date,
     Value<String?> externalId = const Value.absent(),
@@ -554,6 +592,7 @@ class TransactionsTableData extends DataClass
     merchantName: merchantName.present ? merchantName.value : this.merchantName,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
     accountId: accountId.present ? accountId.value : this.accountId,
+    toAccountId: toAccountId.present ? toAccountId.value : this.toAccountId,
     debtId: debtId.present ? debtId.value : this.debtId,
     date: date ?? this.date,
     externalId: externalId.present ? externalId.value : this.externalId,
@@ -575,6 +614,9 @@ class TransactionsTableData extends DataClass
           ? data.categoryId.value
           : this.categoryId,
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
+      toAccountId: data.toAccountId.present
+          ? data.toAccountId.value
+          : this.toAccountId,
       debtId: data.debtId.present ? data.debtId.value : this.debtId,
       date: data.date.present ? data.date.value : this.date,
       externalId: data.externalId.present
@@ -603,6 +645,7 @@ class TransactionsTableData extends DataClass
           ..write('merchantName: $merchantName, ')
           ..write('categoryId: $categoryId, ')
           ..write('accountId: $accountId, ')
+          ..write('toAccountId: $toAccountId, ')
           ..write('debtId: $debtId, ')
           ..write('date: $date, ')
           ..write('externalId: $externalId, ')
@@ -623,6 +666,7 @@ class TransactionsTableData extends DataClass
     merchantName,
     categoryId,
     accountId,
+    toAccountId,
     debtId,
     date,
     externalId,
@@ -642,6 +686,7 @@ class TransactionsTableData extends DataClass
           other.merchantName == this.merchantName &&
           other.categoryId == this.categoryId &&
           other.accountId == this.accountId &&
+          other.toAccountId == this.toAccountId &&
           other.debtId == this.debtId &&
           other.date == this.date &&
           other.externalId == this.externalId &&
@@ -660,6 +705,7 @@ class TransactionsTableCompanion
   final Value<String?> merchantName;
   final Value<String?> categoryId;
   final Value<String?> accountId;
+  final Value<String?> toAccountId;
   final Value<String?> debtId;
   final Value<DateTime> date;
   final Value<String?> externalId;
@@ -676,6 +722,7 @@ class TransactionsTableCompanion
     this.merchantName = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.accountId = const Value.absent(),
+    this.toAccountId = const Value.absent(),
     this.debtId = const Value.absent(),
     this.date = const Value.absent(),
     this.externalId = const Value.absent(),
@@ -693,6 +740,7 @@ class TransactionsTableCompanion
     this.merchantName = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.accountId = const Value.absent(),
+    this.toAccountId = const Value.absent(),
     this.debtId = const Value.absent(),
     required DateTime date,
     this.externalId = const Value.absent(),
@@ -713,6 +761,7 @@ class TransactionsTableCompanion
     Expression<String>? merchantName,
     Expression<String>? categoryId,
     Expression<String>? accountId,
+    Expression<String>? toAccountId,
     Expression<String>? debtId,
     Expression<DateTime>? date,
     Expression<String>? externalId,
@@ -730,6 +779,7 @@ class TransactionsTableCompanion
       if (merchantName != null) 'merchant_name': merchantName,
       if (categoryId != null) 'category_id': categoryId,
       if (accountId != null) 'account_id': accountId,
+      if (toAccountId != null) 'to_account_id': toAccountId,
       if (debtId != null) 'debt_id': debtId,
       if (date != null) 'date': date,
       if (externalId != null) 'external_id': externalId,
@@ -749,6 +799,7 @@ class TransactionsTableCompanion
     Value<String?>? merchantName,
     Value<String?>? categoryId,
     Value<String?>? accountId,
+    Value<String?>? toAccountId,
     Value<String?>? debtId,
     Value<DateTime>? date,
     Value<String?>? externalId,
@@ -766,6 +817,7 @@ class TransactionsTableCompanion
       merchantName: merchantName ?? this.merchantName,
       categoryId: categoryId ?? this.categoryId,
       accountId: accountId ?? this.accountId,
+      toAccountId: toAccountId ?? this.toAccountId,
       debtId: debtId ?? this.debtId,
       date: date ?? this.date,
       externalId: externalId ?? this.externalId,
@@ -798,6 +850,9 @@ class TransactionsTableCompanion
     }
     if (accountId.present) {
       map['account_id'] = Variable<String>(accountId.value);
+    }
+    if (toAccountId.present) {
+      map['to_account_id'] = Variable<String>(toAccountId.value);
     }
     if (debtId.present) {
       map['debt_id'] = Variable<String>(debtId.value);
@@ -838,6 +893,7 @@ class TransactionsTableCompanion
           ..write('merchantName: $merchantName, ')
           ..write('categoryId: $categoryId, ')
           ..write('accountId: $accountId, ')
+          ..write('toAccountId: $toAccountId, ')
           ..write('debtId: $debtId, ')
           ..write('date: $date, ')
           ..write('externalId: $externalId, ')
@@ -4633,6 +4689,7 @@ typedef $$TransactionsTableTableCreateCompanionBuilder =
       Value<String?> merchantName,
       Value<String?> categoryId,
       Value<String?> accountId,
+      Value<String?> toAccountId,
       Value<String?> debtId,
       required DateTime date,
       Value<String?> externalId,
@@ -4651,6 +4708,7 @@ typedef $$TransactionsTableTableUpdateCompanionBuilder =
       Value<String?> merchantName,
       Value<String?> categoryId,
       Value<String?> accountId,
+      Value<String?> toAccountId,
       Value<String?> debtId,
       Value<DateTime> date,
       Value<String?> externalId,
@@ -4698,6 +4756,11 @@ class $$TransactionsTableTableFilterComposer
 
   ColumnFilters<String> get accountId => $composableBuilder(
     column: $table.accountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get toAccountId => $composableBuilder(
+    column: $table.toAccountId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4781,6 +4844,11 @@ class $$TransactionsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get toAccountId => $composableBuilder(
+    column: $table.toAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get debtId => $composableBuilder(
     column: $table.debtId,
     builder: (column) => ColumnOrderings(column),
@@ -4852,6 +4920,11 @@ class $$TransactionsTableTableAnnotationComposer
 
   GeneratedColumn<String> get accountId =>
       $composableBuilder(column: $table.accountId, builder: (column) => column);
+
+  GeneratedColumn<String> get toAccountId => $composableBuilder(
+    column: $table.toAccountId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get debtId =>
       $composableBuilder(column: $table.debtId, builder: (column) => column);
@@ -4932,6 +5005,7 @@ class $$TransactionsTableTableTableManager
                 Value<String?> merchantName = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
+                Value<String?> toAccountId = const Value.absent(),
                 Value<String?> debtId = const Value.absent(),
                 Value<DateTime> date = const Value.absent(),
                 Value<String?> externalId = const Value.absent(),
@@ -4948,6 +5022,7 @@ class $$TransactionsTableTableTableManager
                 merchantName: merchantName,
                 categoryId: categoryId,
                 accountId: accountId,
+                toAccountId: toAccountId,
                 debtId: debtId,
                 date: date,
                 externalId: externalId,
@@ -4966,6 +5041,7 @@ class $$TransactionsTableTableTableManager
                 Value<String?> merchantName = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
+                Value<String?> toAccountId = const Value.absent(),
                 Value<String?> debtId = const Value.absent(),
                 required DateTime date,
                 Value<String?> externalId = const Value.absent(),
@@ -4982,6 +5058,7 @@ class $$TransactionsTableTableTableManager
                 merchantName: merchantName,
                 categoryId: categoryId,
                 accountId: accountId,
+                toAccountId: toAccountId,
                 debtId: debtId,
                 date: date,
                 externalId: externalId,

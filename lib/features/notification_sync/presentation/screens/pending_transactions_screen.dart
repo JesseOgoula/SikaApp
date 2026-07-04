@@ -11,6 +11,7 @@ import 'package:drift/drift.dart' as drift;
 import 'package:sika_app/features/notification_sync/presentation/widgets/edit_pending_transaction_bottom_sheet.dart';
 import 'package:sika_app/features/debts/domain/entities/debt.dart';
 import 'package:sika_app/features/debts/data/providers/debt_providers.dart';
+import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
@@ -129,12 +130,37 @@ class PendingTransactionsScreen extends ConsumerWidget {
       // 1. Marquer comme confirmé dans la file d'attente
       await queue.confirm(tx.id);
 
-      // 2. Insérer dans la base de données principale
-      // Pour l'instant on utilise le compte par défaut.
-      // Dans le flow réel, on pourrait ouvrir un bottom sheet pour choisir le compte si on est pas sûr.
+      // Essayer de trouver les comptes (source et destination)
+      String? sourceAccountId;
+      String? destinationAccountId;
+      
+      try {
+        final accounts = await ref.read(activeAccountsProvider.future);
+        
+        // Auto-match source account based on operator
+        final sourceMatch = accounts.where((a) => a.name.toLowerCase().contains(tx.operatorLabel.toLowerCase()));
+        if (sourceMatch.isNotEmpty) {
+          sourceAccountId = sourceMatch.first.id;
+        } else if (accounts.isNotEmpty) {
+          sourceAccountId = accounts.first.id;
+        }
+
+        // Si c'est un transfert, auto-match destination account (Cash)
+        if (tx.isTransfer) {
+          final destMatch = accounts.where((a) => a.type == 'cash' || a.name.toLowerCase() == 'cash');
+          if (destMatch.isNotEmpty) {
+            destinationAccountId = destMatch.first.id;
+          }
+        }
+      } catch (_) {
+        // Ignorer si les comptes ne sont pas encore chargés
+      }
+
       final companion = TransactionsTableCompanion(
         amount: drift.Value(tx.amount.toDouble()),
         type: drift.Value(tx.type),
+        accountId: sourceAccountId != null ? drift.Value(sourceAccountId) : const drift.Value.absent(),
+        toAccountId: destinationAccountId != null ? drift.Value(destinationAccountId) : const drift.Value.absent(),
         merchantName: drift.Value(tx.description),
         categoryId: drift.Value(tx.suggestedCategory),
         date: drift.Value(DateTime.parse(tx.receivedAt)),
@@ -175,7 +201,7 @@ class PendingTransactionsScreen extends ConsumerWidget {
       useSafeArea: true,
       builder: (context) => EditPendingTransactionBottomSheet(
         transaction: tx,
-        onSave: (updatedTx, linkedDebt, accountId) async {
+        onSave: (updatedTx, linkedDebt, accountId, toAccountId) async {
           Navigator.pop(context);
 
           final queue = ref.read(pendingTransactionQueueProvider);
@@ -199,6 +225,7 @@ class PendingTransactionsScreen extends ConsumerWidget {
                 merchantName: drift.Value(updatedTx.description),
                 categoryId: drift.Value(updatedTx.suggestedCategory),
                 accountId: accountId != null ? drift.Value(accountId) : const drift.Value.absent(),
+                toAccountId: toAccountId != null ? drift.Value(toAccountId) : const drift.Value.absent(),
                 date: drift.Value(DateTime.parse(updatedTx.receivedAt)),
                 externalId: drift.Value(updatedTx.externalId ?? 'auto_${updatedTx.id}'),
                 isAiCategorized: const drift.Value(true),
