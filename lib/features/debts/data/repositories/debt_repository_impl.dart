@@ -220,6 +220,9 @@ class DebtRepositoryImpl implements DebtRepository {
     }
 
     XPService().awardXP(ActionType.payDebt);
+
+    // 4. Handle recurring debt
+    await _handleRecurringDebt(debt);
   }
 
   @override
@@ -319,6 +322,35 @@ class DebtRepositoryImpl implements DebtRepository {
 
     // Award XP
     XPService().awardXP(ActionType.payDebt); // On réutilise cette action
+
+    // 3. Handle recurring debt
+    if (isFullyPaid) {
+      await _handleRecurringDebt(debt);
+    }
+  }
+
+  Future<void> _handleRecurringDebt(Debt debt) async {
+    if (debt.isRecurring && debt.recurrenceRule == 'monthly') {
+      // Create next month's due date
+      final nextDueDate = DateTime(
+        debt.dueDate.year,
+        debt.dueDate.month + 1,
+        debt.dueDate.day,
+        debt.dueDate.hour,
+        debt.dueDate.minute,
+      );
+
+      final newDebt = debt.copyWith(
+        id: const Uuid().v4(),
+        dueDate: nextDueDate,
+        status: DebtStatus.pending,
+        paidAmount: 0.0,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await addDebt(newDebt);
+    }
   }
 
   Debt _mapToEntity(DebtsTableData row) {
