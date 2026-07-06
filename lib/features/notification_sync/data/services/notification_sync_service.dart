@@ -13,6 +13,7 @@ import 'package:sika_app/features/notification_sync/data/services/pending_transa
 import 'package:sika_app/features/notification_sync/data/services/sms_listener_service.dart';
 import 'package:sika_app/features/notification_sync/domain/models/parsed_transaction.dart';
 import 'package:sika_app/features/analytics/data/services/xp_service.dart';
+import 'package:sika_app/core/services/notification_service.dart';
 
 /// Service principal d'orchestration de la détection automatique de transactions
 ///
@@ -65,7 +66,11 @@ class NotificationSyncService {
     );
     await _localNotifications.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: (details) async {},
+      onDidReceiveNotificationResponse: (details) async {
+        if (details.payload != null) {
+          NotificationService.selectNotificationStream.add(details.payload);
+        }
+      },
     );
 
     // Créer le channel de notification locale pour les alertes de détection
@@ -297,7 +302,7 @@ class NotificationSyncService {
           icon: '@drawable/ic_stat_notification',
         ),
       ),
-      payload: 'pending_transaction',
+      payload: 'pending_transaction:${tx.id}',
     );
   }
 

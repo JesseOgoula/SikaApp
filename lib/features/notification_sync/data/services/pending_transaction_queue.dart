@@ -20,6 +20,7 @@ class PendingTransactionQueue {
 
   static const String _storageKey = 'sika_pending_transactions';
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  List<ParsedTransaction>? _cache;
 
   /// Référence vers la base de données locale pour la déduplication
   AppDatabase? database;
@@ -32,31 +33,46 @@ class PendingTransactionQueue {
 
   /// Récupère toutes les transactions en attente
   Future<List<ParsedTransaction>> getAll() async {
+    if (_cache != null) return [..._cache!];
+    
     try {
       final raw = await _storage.read(key: _storageKey);
-      if (raw == null || raw.isEmpty) return [];
+      if (raw == null || raw.isEmpty) {
+        _cache = [];
+        return [];
+      }
 
       final List<dynamic> jsonList = jsonDecode(raw);
-      return jsonList
+      _cache = jsonList
           .map((e) => ParsedTransaction.fromJson(e as Map<String, dynamic>))
           .toList();
+      return [..._cache!];
     } catch (_) {
+      _cache = [];
       return [];
     }
   }
+
+  bool _isProcessing = false;
 
   /// Ajoute une transaction détectée à la file d'attente
   ///
   /// Retourne la transaction ajoutée, ou `null` si c'est un doublon.
   /// Déduplication : même opérateur + même montant + même type + intervalle < 60s
   Future<ParsedTransaction?> push(ParsedTransaction tx) async {
-    // 1. Vérification en base de données si un TID (externalId) est présent
-    if (tx.externalId != null && database != null) {
-      final exists = await database!.transactionExists(tx.externalId!);
-      if (exists) {
-        return null;
-      }
+    while (_isProcessing) {
+      await Future.delayed(const Duration(milliseconds: 50));
     }
+    _isProcessing = true;
+    
+    try {
+      // 1. Vérification en base de données si un TID (externalId) est présent
+      if (tx.externalId != null && database != null) {
+        final exists = await database!.transactionExists(tx.externalId!);
+        if (exists) {
+          return null;
+        }
+      }
 
     final queue = await getAll();
 
@@ -73,6 +89,9 @@ class PendingTransactionQueue {
     await _save(updatedQueue);
     _controller.add(updatedQueue);
     return tx;
+    } finally {
+      _isProcessing = false;
+    }
   }
 
   /// Confirme une transaction (la retire de la file)
@@ -102,6 +121,7 @@ class PendingTransactionQueue {
 
   /// Supprime toutes les transactions en attente
   Future<void> clear() async {
+    _cache = [];
     await _storage.delete(key: _storageKey);
     _controller.add([]);
   }
@@ -111,6 +131,7 @@ class PendingTransactionQueue {
 
   /// Sauvegarde la file d'attente
   Future<void> _save(List<ParsedTransaction> queue) async {
+    _cache = queue;
     final jsonList = queue.map((tx) => tx.toJson()).toList();
     await _storage.write(key: _storageKey, value: jsonEncode(jsonList));
   }

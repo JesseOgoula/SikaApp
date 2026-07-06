@@ -29,13 +29,16 @@ final pendingTransactionQueueProvider = Provider<PendingTransactionQueue>((ref) 
 /// );
 /// ```
 final pendingTransactionsProvider =
-    StreamProvider<List<ParsedTransaction>>((ref) {
+    StreamProvider<List<ParsedTransaction>>((ref) async* {
   final queue = ref.watch(pendingTransactionQueueProvider);
 
-  // Émet la liste initiale puis les mises à jour
-  return queue.stream.asyncExpand((list) async* {
+  // Émet la liste initiale
+  yield await queue.getAll();
+
+  // Puis écoute les mises à jour du stream
+  await for (final list in queue.stream) {
     yield list;
-  }).asBroadcastStream();
+  }
 });
 
 /// FutureProvider pour le nombre de transactions en attente

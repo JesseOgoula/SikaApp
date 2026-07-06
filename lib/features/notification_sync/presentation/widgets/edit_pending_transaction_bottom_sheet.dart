@@ -286,7 +286,12 @@ class _EditPendingTransactionBottomSheetState
                                 : Icon(fallbackIcon, color: accColor, size: 16),
                           ),
                           const SizedBox(width: 10),
-                          Text(a.name),
+                          Expanded(
+                            child: Text(
+                              a.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ],
                       ),
                     );
@@ -303,6 +308,7 @@ class _EditPendingTransactionBottomSheetState
                   return Column(
                     children: [
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: _selectedAccountId,
                         decoration: InputDecoration(
                           labelText: _type == 'transfer' ? 'Compte source' : 'Compte',
@@ -319,6 +325,7 @@ class _EditPendingTransactionBottomSheetState
                       if (_type == 'transfer') ...[
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
+                          isExpanded: true,
                           value: _selectedToAccountId,
                           decoration: InputDecoration(
                             labelText: 'Compte destination',
@@ -390,6 +397,7 @@ class _EditPendingTransactionBottomSheetState
                     if (_linkToDebt) ...[
                       const SizedBox(height: 12),
                       DropdownButtonFormField<Debt?>(
+                        isExpanded: true,
                         value: _selectedDebt,
                         decoration: InputDecoration(
                           labelText: _type == 'income' 
@@ -409,7 +417,10 @@ class _EditPendingTransactionBottomSheetState
                             final formatAmount = NumberFormat('#,###', 'fr_FR').format(d.amount - d.paidAmount);
                             return DropdownMenuItem<Debt?>(
                               value: d,
-                              child: Text('${d.name} ($formatAmount F restants)'),
+                              child: Text(
+                                '${d.name} ($formatAmount F restants)',
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
                         ],
@@ -441,6 +452,7 @@ class _EditPendingTransactionBottomSheetState
                   }
 
                   return DropdownButtonFormField<String>(
+                    isExpanded: true,
                     value: _selectedCategoryId,
                     decoration: InputDecoration(
                       labelText: 'Catégorie',
@@ -456,7 +468,12 @@ class _EditPendingTransactionBottomSheetState
                           children: [
                             const Icon(Icons.label_outline, size: 16),
                             const SizedBox(width: 8),
-                            Text(c.name),
+                            Expanded(
+                              child: Text(
+                                c.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
                           ],
                         ),
                       );

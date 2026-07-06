@@ -7,6 +7,7 @@ import 'package:sika_app/features/notification_sync/data/parsers/notification_pa
 import 'package:sika_app/features/notification_sync/data/services/pending_transaction_queue.dart';
 import 'package:sika_app/features/notification_sync/domain/models/parsed_transaction.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:sika_app/core/services/notification_service.dart';
 
 /// Service d'écoute des SMS financiers (Android uniquement)
 /// Utilise un MethodChannel pour recevoir les SMS via un BroadcastReceiver natif.
@@ -155,7 +156,11 @@ class SmsListenerService {
       );
       await _localNotifications.initialize(
         initSettings,
-        onDidReceiveNotificationResponse: (details) async {},
+        onDidReceiveNotificationResponse: (details) async {
+          if (details.payload != null) {
+            NotificationService.selectNotificationStream.add(details.payload);
+          }
+        },
       );
 
       final sign = tx.isIncome ? '+' : '-';
@@ -182,7 +187,7 @@ class SmsListenerService {
             icon: '@drawable/ic_stat_notification',
           ),
         ),
-        payload: 'pending_transaction',
+        payload: 'pending_transaction:${tx.id}',
       );
       SikaLogger.info('Local notification shown for SMS transaction', tag: _tag);
     } catch (e) {

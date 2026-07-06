@@ -64,22 +64,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _configureSelectNotificationSubject() {
     _notificationSubscription = NotificationService.selectNotificationStream.stream.listen((String? payload) async {
-      if (payload == 'pending_transaction' && mounted) {
+      if (payload != null && payload.startsWith('pending_transaction') && mounted) {
+        final parts = payload.split(':');
+        final txId = parts.length > 1 ? parts[1] : null;
+
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const PendingTransactionsScreen()),
+          MaterialPageRoute(builder: (_) => PendingTransactionsScreen(autoOpenTxId: txId)),
         );
       }
     });
 
     FlutterLocalNotificationsPlugin().getNotificationAppLaunchDetails().then((details) {
       if (details != null && details.didNotificationLaunchApp) {
-        if (details.notificationResponse?.payload == 'pending_transaction') {
+        final payload = details.notificationResponse?.payload;
+        if (payload != null && payload.startsWith('pending_transaction')) {
+          final parts = payload.split(':');
+          final txId = parts.length > 1 ? parts[1] : null;
+
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PendingTransactionsScreen()),
+                MaterialPageRoute(builder: (_) => PendingTransactionsScreen(autoOpenTxId: txId)),
               );
             }
           });

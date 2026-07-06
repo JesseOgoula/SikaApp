@@ -17,11 +17,20 @@ import 'package:sika_app/features/analytics/data/services/xp_service.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
 /// Écran listant les transactions détectées en attente de validation
-class PendingTransactionsScreen extends ConsumerWidget {
-  const PendingTransactionsScreen({super.key});
+class PendingTransactionsScreen extends ConsumerStatefulWidget {
+  final String? autoOpenTxId;
+
+  const PendingTransactionsScreen({super.key, this.autoOpenTxId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PendingTransactionsScreen> createState() => _PendingTransactionsScreenState();
+}
+
+class _PendingTransactionsScreenState extends ConsumerState<PendingTransactionsScreen> {
+  bool _hasAutoOpened = false;
+
+  @override
+  Widget build(BuildContext context) {
     final pendingAsync = ref.watch(pendingTransactionsProvider);
 
     return Scaffold(
@@ -57,6 +66,18 @@ class PendingTransactionsScreen extends ConsumerWidget {
         data: (transactions) {
           if (transactions.isEmpty) {
             return const _EmptyState();
+          }
+
+          if (widget.autoOpenTxId != null && !_hasAutoOpened) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                final targetTx = transactions.where((t) => t.id == widget.autoOpenTxId).firstOrNull;
+                if (targetTx != null) {
+                  _hasAutoOpened = true;
+                  _handleEdit(context, ref, targetTx);
+                }
+              }
+            });
           }
 
           return Column(
