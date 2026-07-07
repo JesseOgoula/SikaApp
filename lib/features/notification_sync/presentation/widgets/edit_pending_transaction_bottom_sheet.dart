@@ -201,7 +201,7 @@ class _EditPendingTransactionBottomSheetState
                           'Transfert',
                           style: TextStyle(
                             color: _type == 'transfer'
-                                ? const Color(0xFF8B5CF6)
+                                ? AppTheme.primaryColor
                                 : Colors.grey.shade600,
                             fontWeight: FontWeight.w600,
                           ),

@@ -101,7 +101,7 @@ void main() {
     });
 
     test('should parse Airtel Money Airtime Purchase SMS and extract TID', () {
-      const sms = 'Achat de CREDIT DE COMMUNICATION de 300 F effectue avec succes. Solde: 215016.71 F TID:RC260604.1913.D70331';
+      const sms = 'Achat de CREDIT DE COMMUNICATION de 200 F effectue avec succes. Solde: 69042.71 F TID:RC260706.1948.D77290';
       final parsed = NotificationParser.parseMessage(
         sender: 'AirtelMoney',
         body: sms,
@@ -110,9 +110,25 @@ void main() {
 
       expect(parsed, isNotNull);
       expect(parsed!.operatorKey, equals('AIRTEL_MONEY'));
-      expect(parsed.amount, equals(300));
+      expect(parsed.amount, equals(200));
       expect(parsed.type, equals('expense'));
-      expect(parsed.externalId, equals('RC260604.1913.D70331'));
+      expect(parsed.externalId, equals('RC260706.1948.D77290'));
+    });
+
+    test('should parse Airtel Money Bundle Purchase SMS and extract TID', () {
+      const sms = 'Paiement de 1000 F  BUNDLE pour ref AB89|Data|ESB|DAILY|SELF|077617569 a ete effectue avec succes. Cout: 0 FCFA. Solde 120742.71F. TID: MP260706.1337.D74838.';
+      final parsed = NotificationParser.parseMessage(
+        sender: 'AirtelMoney',
+        body: sms,
+        source: ParsedSource.sms,
+      );
+
+      expect(parsed, isNotNull);
+      expect(parsed!.operatorKey, equals('AIRTEL_MONEY'));
+      expect(parsed.amount, equals(1000));
+      expect(parsed.type, equals('expense'));
+      expect(parsed.externalId, equals('MP260706.1337.D74838'));
+      expect(parsed.description, contains('Bundle'));
     });
 
     test('should parse Airtel Money Withdrawal SMS and extract TID', () {
@@ -126,7 +142,7 @@ void main() {
       expect(parsed, isNotNull);
       expect(parsed!.operatorKey, equals('AIRTEL_MONEY'));
       expect(parsed.amount, equals(200000));
-      expect(parsed.type, equals('expense'));
+      expect(parsed.type, equals('transfer'));
       expect(parsed.externalId, equals('WR260620.1824.A12345'));
     });
    group('PendingTransactionQueue Database Deduplication', () {

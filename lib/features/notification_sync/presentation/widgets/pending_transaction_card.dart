@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'package:sika_app/features/notification_sync/domain/models/parsed_transaction.dart';
+import 'package:sika_app/core/theme/app_theme.dart';
 
 /// Carte affichant une transaction détectée en attente de validation
 ///
@@ -25,10 +26,10 @@ class PendingTransactionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIncome = tx.isIncome;
     final isTransfer = tx.isTransfer;
-    final sign = isTransfer ? '↔' : (isIncome ? '+' : '-');
+    final sign = isTransfer ? '' : (isIncome ? '+' : '-');
     final amountColor = isTransfer 
-        ? const Color(0xFF8B5CF6) // Purple for transfers
-        : (isIncome ? const Color(0xFF16A34A) : const Color(0xFFDC2626));
+        ? AppTheme.textPrimary
+        : (isIncome ? AppTheme.success : AppTheme.textPrimary);
     final formattedAmount = NumberFormat('#,###', 'fr_FR').format(tx.amount);
 
     return Container(

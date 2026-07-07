@@ -196,8 +196,8 @@ class _PendingTransactionsScreenState extends ConsumerState<PendingTransactionsS
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Transaction enregistrée avec succès'),
+          const SnackBar(
+            content: Text('Transaction enregistrée avec succès'),
             backgroundColor: AppTheme.success,
           ),
         );
@@ -262,7 +262,7 @@ class _PendingTransactionsScreenState extends ConsumerState<PendingTransactionsS
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Transaction modifiée et enregistrée avec succès'),
-                  backgroundColor: Color(0xFF16A34A),
+                  backgroundColor: AppTheme.success,
                 ),
               );
             }
@@ -271,7 +271,7 @@ class _PendingTransactionsScreenState extends ConsumerState<PendingTransactionsS
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Erreur lors de l\'enregistrement : $e'),
-                  backgroundColor: const Color(0xFFDC2626),
+                  backgroundColor: AppTheme.error,
                 ),
               );
             }
@@ -343,13 +343,13 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF16A34A).withOpacity(0.1),
+              color: Colors.grey.shade100,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.check_circle_outline,
               size: 64,
-              color: Color(0xFF16A34A),
+              color: Colors.grey.shade400,
             ),
           ),
           const SizedBox(height: 24),
@@ -358,7 +358,7 @@ class _EmptyState extends StatelessWidget {
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
+              color: AppTheme.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
@@ -367,7 +367,7 @@ class _EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: Color(0xFF6B7280),
+              color: AppTheme.textSecondary,
             ),
           ),
         ],
