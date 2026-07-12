@@ -131,13 +131,22 @@ class _DebtsScreenState extends ConsumerState<DebtsScreen> {
   }
 }
 
-class _DebtsList extends ConsumerWidget {
+class _DebtsList extends ConsumerStatefulWidget {
   final List<DebtType> typeFilter;
 
   const _DebtsList({required this.typeFilter});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DebtsList> createState() => _DebtsListState();
+}
+
+enum _DebtFilter { pending, paid, all }
+
+class _DebtsListState extends ConsumerState<_DebtsList> {
+  _DebtFilter _currentFilter = _DebtFilter.pending;
+
+  @override
+  Widget build(BuildContext context) {
     final allDebtsAsync = ref.watch(allDebtsProvider);
     final currencyFormat = NumberFormat.currency(
       locale: 'fr_FR',
@@ -148,18 +157,27 @@ class _DebtsList extends ConsumerWidget {
 
     return allDebtsAsync.when(
       data: (allDebts) {
-        final filteredDebts = allDebts
-            .where((d) => typeFilter.contains(d.type))
-            .toList();
+        final filteredDebts = allDebts.where((d) {
+          if (!widget.typeFilter.contains(d.type)) return false;
+          
+          if (_currentFilter == _DebtFilter.pending) {
+            return d.status == DebtStatus.pending || d.status == DebtStatus.overdue;
+          } else if (_currentFilter == _DebtFilter.paid) {
+            return d.status == DebtStatus.paid;
+          }
+          return true;
+        }).toList();
 
-        if (filteredDebts.isEmpty) {
-          return _buildEmptyState(context);
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          itemCount: filteredDebts.length,
-          itemBuilder: (context, index) {
+        return Column(
+          children: [
+            _buildFilterBar(),
+            Expanded(
+              child: filteredDebts.isEmpty
+                  ? _buildEmptyState(context)
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      itemCount: filteredDebts.length,
+                      itemBuilder: (context, index) {
             final debt = filteredDebts[index];
             final isPaid = debt.status == DebtStatus.paid;
             final isOverdue = debt.status == DebtStatus.overdue;
@@ -341,12 +359,53 @@ class _DebtsList extends ConsumerWidget {
               ),
             );
           },
+        ),
+            ),
+          ],
         );
       },
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppTheme.primaryColor),
       ),
       error: (err, stack) => Center(child: Text('Erreur: $err')),
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+      color: AppTheme.scaffoldBackground,
+      child: Row(
+        children: [
+          _buildFilterChip('En cours', _DebtFilter.pending),
+          const SizedBox(width: 8),
+          _buildFilterChip('Soldées', _DebtFilter.paid),
+          const SizedBox(width: 8),
+          _buildFilterChip('Toutes', _DebtFilter.all),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, _DebtFilter filter) {
+    final isSelected = _currentFilter == filter;
+    return GestureDetector(
+      onTap: () => setState(() => _currentFilter = filter),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.grey.shade200 : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ),
     );
   }
 

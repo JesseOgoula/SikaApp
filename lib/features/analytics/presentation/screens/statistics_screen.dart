@@ -1170,7 +1170,21 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    final sortedDates = _groupedTransactions.keys.toList()
+    // Limiter l'historique aux 15 dernières transactions
+    final flatList = _groupedTransactions.values.expand((e) => e).toList();
+    final limitedList = flatList.take(15).toList();
+    final limitedGrouped = <DateTime, List<TransactionWithCategory>>{};
+    for (var tx in limitedList) {
+      final date = DateTime(
+        tx.transaction.date.year,
+        tx.transaction.date.month,
+        tx.transaction.date.day,
+      );
+      if (limitedGrouped[date] == null) limitedGrouped[date] = [];
+      limitedGrouped[date]!.add(tx);
+    }
+
+    final sortedDates = limitedGrouped.keys.toList()
       ..sort((a, b) => b.compareTo(a));
 
     return SliverList(
@@ -1193,7 +1207,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         if (dateIndex >= sortedDates.length) return null;
 
         final date = sortedDates[dateIndex];
-        final txs = _groupedTransactions[date]!;
+        final txs = limitedGrouped[date]!;
         final isToday = DateUtils.isSameDay(date, DateTime.now());
         final dateLabel = isToday
             ? "Aujourd'hui"
