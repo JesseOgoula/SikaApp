@@ -16,6 +16,7 @@ enum ActionType {
   addAccount, // +15 XP
   healthScoreBonus, // score/10 XP (max 10)
   validateAutoDetection, // +15 XP
+  makeTransfer, // +10 XP
 }
 
 /// Points attribués par action
@@ -35,6 +36,7 @@ class ActionPoints {
     ActionType.addAccount: 15,
     ActionType.healthScoreBonus: 10, // max per day
     ActionType.validateAutoDetection: 15,
+    ActionType.makeTransfer: 10,
   };
 
   static int getPoints(ActionType action) => values[action] ?? 0;
@@ -70,6 +72,8 @@ class ActionPoints {
         return 'Bonus santé financière';
       case ActionType.validateAutoDetection:
         return 'Détection auto. validée';
+      case ActionType.makeTransfer:
+        return 'Transfert effectué';
     }
   }
 }
@@ -83,8 +87,6 @@ class RankInfo {
   final IconData icon;
   final String cardLabel;
   final List<Color> cardGradient;
-  final String encouragement;
-
   const RankInfo({
     required this.level,
     required this.name,
@@ -93,7 +95,6 @@ class RankInfo {
     required this.icon,
     required this.cardLabel,
     required this.cardGradient,
-    required this.encouragement,
   });
 
   /// Couleur du rang (toujours sobre, basée sur le thème)
@@ -188,8 +189,6 @@ class RankDefinitions {
       icon: Icons.shield_outlined,
       cardLabel: 'STANDARD',
       cardGradient: [Color(0xFF6B7280), Color(0xFF374151)],
-      encouragement:
-          'Chaque expert a commencé par être un débutant. Continue, tu vas progresser !',
     ),
     RankInfo(
       level: 2,
@@ -199,8 +198,6 @@ class RankDefinitions {
       icon: Icons.trending_up,
       cardLabel: 'SILVER',
       cardGradient: [Color(0xFF94A3B8), Color(0xFF64748B)],
-      encouragement:
-          'Tu prends de bonnes habitudes ! Continue à utiliser SIKA régulièrement.',
     ),
     RankInfo(
       level: 3,
@@ -210,8 +207,6 @@ class RankDefinitions {
       icon: Icons.stars,
       cardLabel: 'GOLD',
       cardGradient: [Color(0xFF1A237E), Color(0xFF311B92)],
-      encouragement:
-          'Tu maîtrises tes finances comme un pro. Vise encore plus haut !',
     ),
     RankInfo(
       level: 4,
@@ -221,8 +216,6 @@ class RankDefinitions {
       icon: Icons.military_tech,
       cardLabel: 'PLATINUM',
       cardGradient: [Color(0xFF311B92), Color(0xFF1A1A2E)],
-      encouragement:
-          'Ta discipline financière est exemplaire. Le rang ultime t\'attend !',
     ),
     RankInfo(
       level: 5,
@@ -232,8 +225,6 @@ class RankDefinitions {
       icon: Icons.diamond,
       cardLabel: 'BLACK',
       cardGradient: [Color(0xFF1A1A2E), Color(0xFF0D0D15)],
-      encouragement:
-          'Tu es au sommet ! Tu maîtrises tes finances à la perfection.',
     ),
   ];
 

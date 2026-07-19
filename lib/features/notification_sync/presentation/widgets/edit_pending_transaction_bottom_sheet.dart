@@ -269,21 +269,19 @@ class _EditPendingTransactionBottomSheetState
                       value: a.id,
                       child: Row(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: isAsset ? Colors.white : accColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: isAsset ? Border.all(color: Colors.grey.shade200) : null,
-                            ),
+                          SizedBox(
+                            width: 20,
+                            height: 20,
                             child: isAsset
                                 ? Image.asset(
-                                    a.iconKey,
-                                    width: 16,
-                                    height: 16,
+                                    a.iconKey.endsWith('.png') && !a.iconKey.endsWith('rond.png')
+                                        ? a.iconKey.replaceAll('.png', 'rond.png')
+                                        : a.iconKey,
+                                    width: 20,
+                                    height: 20,
                                     fit: BoxFit.contain,
                                   )
-                                : Icon(fallbackIcon, color: accColor, size: 16),
+                                : Icon(fallbackIcon, color: accColor, size: 20),
                           ),
                           const SizedBox(width: 10),
                           Expanded(

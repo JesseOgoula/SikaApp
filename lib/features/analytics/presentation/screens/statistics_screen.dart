@@ -167,6 +167,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
       // Récupère les données des comptes pour le score amélioré
       final totalAccountsBalance = ref.read(totalAccountsBalanceProvider);
+      final totalSavingsBalance = ref.read(savingsAccountsBalanceProvider);
+      final totalAssets = totalAccountsBalance + totalSavingsBalance;
+      
       final accountsData = ref.read(activeAccountsProvider);
       final activeAccountsCount = accountsData.valueOrNull?.length ?? 0;
 
@@ -201,11 +204,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         savingsScore = 5;
       }
 
-      // Coussin de sécurité (20 pts)
+      // Coussin de sécurité (20 pts) : prend en compte courant + épargne
       if (expense > 0) {
-        final monthsCovered = totalAccountsBalance / expense;
+        final monthsCovered = totalAssets / expense;
         cushionScore = (monthsCovered / 3 * 20).clamp(0, 20).toDouble();
-      } else if (totalAccountsBalance > 0) {
+      } else if (totalAssets > 0) {
         cushionScore = 10;
       }
 
@@ -437,6 +440,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
     // Utilise le solde total des comptes comme solde net
     final totalAccountsBalance = ref.watch(totalAccountsBalanceProvider);
+    final totalSavingsBalance = ref.watch(savingsAccountsBalanceProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +499,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             Expanded(
               child: _buildMiniStatCard(
                 label: 'Épargne',
-                amount: _totalSavings,
+                amount: totalSavingsBalance,
                 trend: 0,
                 color: AppTheme.secondaryColor,
                 icon: FontAwesomeIcons.piggyBank,
@@ -1170,22 +1174,20 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    // Limiter l'historique aux 15 dernières transactions
-    final flatList = _groupedTransactions.values.expand((e) => e).toList();
-    final limitedList = flatList.take(15).toList();
-    final limitedGrouped = <DateTime, List<TransactionWithCategory>>{};
-    for (var tx in limitedList) {
-      final date = DateTime(
-        tx.transaction.date.year,
-        tx.transaction.date.month,
-        tx.transaction.date.day,
-      );
-      if (limitedGrouped[date] == null) limitedGrouped[date] = [];
-      limitedGrouped[date]!.add(tx);
+    // Limiter l'historique aux transactions d'aujourd'hui uniquement
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayTransactions = _groupedTransactions[today] ?? [];
+    
+    if (todayTransactions.isEmpty) {
+      return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
-    final sortedDates = limitedGrouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final limitedGrouped = <DateTime, List<TransactionWithCategory>>{
+      today: todayTransactions,
+    };
+
+    final sortedDates = [today];
 
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {

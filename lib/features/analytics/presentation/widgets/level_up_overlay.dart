@@ -113,17 +113,6 @@ class LevelUpOverlay {
             ),
             const SizedBox(height: 16),
 
-            // Encouragement
-            Text(
-              newRank.encouragement,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppTheme.textSecondary,
-                fontSize: 13,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 20),
 
             // Carte virtuelle débloquée
             Container(

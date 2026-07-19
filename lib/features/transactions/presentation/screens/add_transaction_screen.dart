@@ -32,6 +32,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
   String _transactionType = 'expense';
   String? _selectedCategoryId;
   String? _selectedAccountId;
+  String? _selectedToAccountId;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
   bool _showKeypad = false; // Clavier numérique caché par défaut
@@ -173,13 +174,17 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     children: [
                       const SizedBox(height: 8),
 
-                      // === CATÉGORIES ===
-                      _buildCategorySection(categoriesAsync),
+                      // === CATÉGORIES (masquées pour les transferts) ===
+                      if (_transactionType != 'transfer') ...[
+                        _buildCategorySection(categoriesAsync),
+                        const SizedBox(height: 20),
+                      ],
 
-                      const SizedBox(height: 20),
-
-                      // === COMPTE ===
-                      _buildAccountSection(),
+                      // === COMPTE(S) ===
+                      if (_transactionType == 'transfer')
+                        _buildTransferAccountSection()
+                      else
+                        _buildAccountSection(),
 
                       const SizedBox(height: 20),
 
@@ -345,6 +350,7 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
         children: [
           _buildTypeTab('expense', 'Dépense', AppTheme.error),
           _buildTypeTab('income', 'Revenu', AppTheme.success),
+          _buildTypeTab('transfer', 'Transfert', AppTheme.primaryColor),
         ],
       ),
     );
@@ -569,21 +575,19 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
                     value: acc.id,
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isAsset ? Colors.white : color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: isAsset ? Border.all(color: Colors.grey.shade200, width: 1) : null,
-                          ),
+                        SizedBox(
+                          width: 24,
+                          height: 24,
                           child: isAsset
                               ? Image.asset(
-                                  acc.iconKey,
-                                  width: 20,
-                                  height: 20,
+                                  acc.iconKey.endsWith('.png') && !acc.iconKey.endsWith('rond.png')
+                                      ? acc.iconKey.replaceAll('.png', 'rond.png')
+                                      : acc.iconKey,
+                                  width: 24,
+                                  height: 24,
                                   fit: BoxFit.contain,
                                 )
-                              : Icon(iconData, color: color, size: 20),
+                              : Icon(iconData, color: color, size: 24),
                         ),
                         const SizedBox(width: 12),
                         Text(acc.name),
@@ -603,6 +607,162 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Section de sélection des comptes pour un transfert (source → destination)
+  Widget _buildTransferAccountSection() {
+    final accountsAsync = ref.watch(activeAccountsProvider);
+
+    return accountsAsync.when(
+      data: (accounts) {
+        if (accounts.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Aucun compte configuré'),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Compte source (Depuis)
+            const Text(
+              'Depuis',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildAccountDropdown(
+              accounts: accounts,
+              selectedId: _selectedAccountId,
+              excludeId: _selectedToAccountId,
+              hint: 'Compte source',
+              onChanged: (value) => setState(() => _selectedAccountId = value),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Icône flèche
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_downward_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Compte destination (Vers)
+            const Text(
+              'Vers',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildAccountDropdown(
+              accounts: accounts,
+              selectedId: _selectedToAccountId,
+              excludeId: _selectedAccountId,
+              hint: 'Compte destination',
+              onChanged: (value) => setState(() => _selectedToAccountId = value),
+            ),
+          ],
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (_, __) => const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text('Erreur de chargement'),
+      ),
+    );
+  }
+
+  /// Dropdown réutilisable pour sélectionner un compte
+  Widget _buildAccountDropdown({
+    required List<AccountsTableData> accounts,
+    required String? selectedId,
+    String? excludeId,
+    required String hint,
+    required ValueChanged<String?> onChanged,
+  }) {
+    final filtered = excludeId != null
+        ? accounts.where((a) => a.id != excludeId).toList()
+        : accounts;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: DropdownButtonFormField<String>(
+        value: filtered.any((a) => a.id == selectedId) ? selectedId : null,
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+        hint: Text(hint),
+        items: filtered.map((acc) {
+          final isAsset = acc.iconKey.startsWith('assets/') || acc.iconKey.endsWith('.png');
+          final iconData = _getAccountIcon(acc.iconKey);
+          final color = Color(
+            int.parse(acc.color.replaceFirst('#', '0xFF')),
+          );
+          return DropdownMenuItem<String>(
+            value: acc.id,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: isAsset
+                      ? Image.asset(
+                          acc.iconKey.endsWith('.png') && !acc.iconKey.endsWith('rond.png')
+                              ? acc.iconKey.replaceAll('.png', 'rond.png')
+                              : acc.iconKey,
+                          width: 24,
+                          height: 24,
+                          fit: BoxFit.contain,
+                        )
+                      : Icon(iconData, color: color, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Text(acc.name),
+              ],
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
     );
   }
 
@@ -837,8 +997,8 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       return;
     }
 
-    // Vérifier le solde disponible pour les dépenses
-    if (_transactionType == 'expense') {
+    // Vérifier le solde disponible pour les dépenses et transferts
+    if (_transactionType == 'expense' || _transactionType == 'transfer') {
       double availableBalance = ref.read(totalAccountsBalanceProvider);
       if (_selectedAccountId != null) {
         final accountsAsync = ref.read(accountsWithBalanceProvider);
@@ -865,20 +1025,56 @@ class _AddTransactionScreenState extends ConsumerState<AddTransactionScreen> {
       }
     }
 
+    // Validation spécifique aux transferts
+    if (_transactionType == 'transfer') {
+      if (_selectedAccountId == null || _selectedToAccountId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Sélectionnez les comptes source et destination'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
+      if (_selectedAccountId == _selectedToAccountId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Les comptes source et destination doivent être différents'),
+            backgroundColor: AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
       final note = _noteText.trim();
+      final defaultNote = _transactionType == 'transfer'
+          ? 'Transfert entre comptes'
+          : 'Transaction manuelle';
 
       final companion = TransactionsTableCompanion(
         amount: Value(amount),
         type: Value(_transactionType),
-        merchantName: Value(note.isNotEmpty ? note : 'Transaction manuelle'),
-        categoryId: _selectedCategoryId != null
+        merchantName: Value(note.isNotEmpty ? note : defaultNote),
+        categoryId: _transactionType != 'transfer' && _selectedCategoryId != null
             ? Value(_selectedCategoryId!)
             : const Value.absent(),
         accountId: _selectedAccountId != null
             ? Value(_selectedAccountId!)
+            : const Value.absent(),
+        toAccountId: _transactionType == 'transfer' && _selectedToAccountId != null
+            ? Value(_selectedToAccountId!)
             : const Value.absent(),
         date: Value(_selectedDate),
         externalId: const Value.absent(),

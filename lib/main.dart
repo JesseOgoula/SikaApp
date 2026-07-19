@@ -24,6 +24,8 @@ import 'package:sika_app/core/services/analytics_service.dart';
 import 'package:sika_app/features/accounts/presentation/widgets/account_setup_checker.dart';
 import 'package:sika_app/features/auth/presentation/screens/setup_security_screen.dart';
 import 'package:sika_app/features/auth/presentation/screens/app_lock_screen.dart';
+import 'package:sika_app/features/auth/presentation/screens/disclaimer_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Instance globale d'AutoSyncService
 AutoSyncService? autoSyncService;
@@ -173,6 +175,7 @@ class _AuthGateState extends ConsumerState<_AuthGate>
   bool _isLocallyAuthenticated = false;
   bool _securitySetupDone = false;
   bool _securityChecked = false;
+  bool _disclaimerAccepted = true; // Par défaut true pour les utilisateurs existants
 
   final _appLock = AppLockService();
 
@@ -240,10 +243,15 @@ class _AuthGateState extends ConsumerState<_AuthGate>
     final setupDone = await _appLock.isSecuritySetupDone();
     final lockEnabled = await _appLock.isLockEnabled();
 
+    // Vérifie si le disclaimer a été accepté
+    final prefs = await SharedPreferences.getInstance();
+    final disclaimerDone = prefs.getBool(kDisclaimerAccepted) ?? false;
+
     if (!mounted) return;
     setState(() {
       _securitySetupDone = setupDone;
       _securityChecked = true;
+      _disclaimerAccepted = disclaimerDone;
     });
 
     final authState = ref.read(authControllerProvider);
@@ -259,7 +267,12 @@ class _AuthGateState extends ConsumerState<_AuthGate>
     setState(() {
       _securitySetupDone = true;
       _isLocallyAuthenticated = true;
+      _disclaimerAccepted = false; // Afficher le disclaimer après le PIN
     });
+  }
+
+  void _onDisclaimerAccepted() {
+    setState(() => _disclaimerAccepted = true);
   }
 
   void _onUnlocked() {
@@ -373,7 +386,12 @@ class _AuthGateState extends ConsumerState<_AuthGate>
           );
         }
 
-        // Étape 3 : Accès à l'app
+        // Étape 3 : Disclaimer (affiché une seule fois après inscription)
+        if (!_disclaimerAccepted) {
+          return DisclaimerScreen(onAccepted: _onDisclaimerAccepted);
+        }
+
+        // Étape 4 : Accès à l'app
         return const AccountSetupChecker();
 
       case AuthStatus.unauthenticated:

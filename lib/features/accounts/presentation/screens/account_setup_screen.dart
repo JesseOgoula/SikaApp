@@ -231,13 +231,9 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(
-                  color: AppTheme.scaffoldBackground,
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: Center(
                   child: account.iconPath != null
-                      ? Image.asset(account.iconPath!, width: 26, height: 26)
+                      ? Image.asset(account.iconPath!, width: 32, height: 32)
                       : const Icon(
                           Icons.account_balance_wallet_outlined,
                           color: AppTheme.textSecondary,

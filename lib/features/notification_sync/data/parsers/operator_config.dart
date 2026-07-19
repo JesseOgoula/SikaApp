@@ -177,6 +177,20 @@ final _airtelMoney = OperatorConfig(
       ),
       suggestedCategory: 'cat-factures',
     ),
+    // Transfert vers Bamboopay
+    TransactionPattern(
+      type: 'transfer',
+      label: 'Transfert Bamboopay',
+      regex: RegExp(
+        r'paiement\s+de\s+(\d[\d\s]*)\s*(?:FCFA|XAF|F)\s+EBILLING\s+pour\s+ref\s+\S+\s+bamboopay\s+effectue',
+        caseSensitive: false,
+      ),
+      extract: (m) => ExtractedData(
+        amount: parseAmount(m.group(1)!),
+        description: 'Transfert vers Bamboo',
+      ),
+      suggestedCategory: 'cat-transferts',
+    ),
     // Paiement marchand classique
     TransactionPattern(
       type: 'expense',
@@ -466,18 +480,36 @@ final _ecobankGabon = OperatorConfig(
   ],
 );
 
-// ─── BAMBOU EMF ─────────────────────────────
+// ─── BAMBOO EMF ─────────────────────────────
 
 final _bambouEmf = OperatorConfig(
   key: 'BAMBOU_EMF',
-  label: 'Bambou EMF',
+  label: 'Bamboo',
   color: const Color(0xFF2E7D32),
   accountType: 'microfinance',
   senderPatterns: [
     RegExp(r'bambou', caseSensitive: false),
+    RegExp(r'bamboo', caseSensitive: false),
     RegExp(r'bambou\s*emf', caseSensitive: false),
+    RegExp(r'bamboo\s*emf', caseSensitive: false),
+    RegExp(r'bamboopay', caseSensitive: false),
   ],
   transactionPatterns: [
+    // Paiement EBILLING (transfert Airtel → Bamboo via bamboopay)
+    // Ex: "Paiement de 7500 F EBILLING pour ref 5576192754 bamboopay effectue avec succes. Cout: 75 FCFA. Solde 27077.71F."
+    TransactionPattern(
+      type: 'income',
+      label: 'Paiement reçu',
+      regex: RegExp(
+        r'paiement\s+de\s+(\d[\d\s.,]*)\s*(?:FCFA|XAF|F)\s+EBILLING\s+pour\s+ref\s+\S+\s+bamboopay\s+effectue',
+        caseSensitive: false,
+      ),
+      extract: (m) => ExtractedData(
+        amount: parseAmount(m.group(1)!),
+        description: 'Paiement reçu via Bamboopay',
+      ),
+      suggestedCategory: 'cat-transferts',
+    ),
     // Crédit
     TransactionPattern(
       type: 'income',
@@ -488,7 +520,7 @@ final _bambouEmf = OperatorConfig(
       ),
       extract: (m) => ExtractedData(
         amount: parseAmount(m.group(1)!),
-        description: 'Crédit Bambou EMF',
+        description: 'Crédit Bamboo',
       ),
       suggestedCategory: 'cat-transferts',
     ),
@@ -502,7 +534,7 @@ final _bambouEmf = OperatorConfig(
       ),
       extract: (m) => ExtractedData(
         amount: parseAmount(m.group(1)!),
-        description: 'Débit Bambou EMF',
+        description: 'Débit Bamboo',
       ),
       suggestedCategory: 'cat-transferts',
     ),

@@ -423,21 +423,19 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                     value: acc.id,
                     child: Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isAsset ? Colors.white : color.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: isAsset ? Border.all(color: Colors.grey.shade200, width: 1) : null,
-                          ),
+                        SizedBox(
+                          width: 24,
+                          height: 24,
                           child: isAsset
                               ? Image.asset(
-                                  acc.iconKey,
-                                  width: 20,
-                                  height: 20,
+                                  acc.iconKey.endsWith('.png') && !acc.iconKey.endsWith('rond.png')
+                                      ? acc.iconKey.replaceAll('.png', 'rond.png')
+                                      : acc.iconKey,
+                                  width: 24,
+                                  height: 24,
                                   fit: BoxFit.contain,
                                 )
-                              : Icon(iconData, color: color, size: 20),
+                              : Icon(iconData, color: color, size: 24),
                         ),
                         const SizedBox(width: 12),
                         Text(acc.name),

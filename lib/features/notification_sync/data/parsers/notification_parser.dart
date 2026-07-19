@@ -8,7 +8,7 @@ import 'package:sika_app/features/notification_sync/domain/models/parsed_transac
 ///
 /// Détecte et extrait automatiquement les transactions à partir
 /// du contenu textuel des notifications push et SMS des opérateurs
-/// Airtel Money, Moov Money, UBA, Ecobank et Bambou EMF.
+/// Airtel Money, Moov Money, UBA, Ecobank et Bamboo.
 class NotificationParser {
   /// Pattern pour extraire le TID (Transaction ID)
   static final RegExp _tidPattern = RegExp(

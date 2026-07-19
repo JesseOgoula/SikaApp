@@ -103,7 +103,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
     autoSyncService?.forceSync();
 
     // 3. Award XP for transaction
-    XPService().awardXP(ActionType.addTransaction);
+    final isTransfer = companion.toAccountId.present && companion.toAccountId.value != null;
+    if (isTransfer) {
+      XPService().awardXP(ActionType.makeTransfer);
+    } else {
+      XPService().awardXP(ActionType.addTransaction);
+    }
 
     // 3. Vérifie le solde après une dépense
     final txType = companion.type.present ? companion.type.value : '';

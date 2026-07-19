@@ -216,7 +216,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _buildActionTile(
           icon: Icons.add_card_outlined,
           title: 'Comptes',
-          subtitle: 'Ajouter un nouveau compte (Moov, Airtel, UBA...)',
+          subtitle: 'Ajouter un nouveau compte (Moov, Airtel, UBA, Bamboo...)',
           onTap: () async {
             final result = await showModalBottomSheet<bool>(
               context: context,

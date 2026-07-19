@@ -242,9 +242,9 @@ class _AddAccountBottomSheetState extends ConsumerState<AddAccountBottomSheet> {
                           ),
                         const SizedBox(height: 8),
                         Text(
-                          type.name.split(' ').first,
+                          type.name,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: isSelected
                                 ? FontWeight.w600
                                 : FontWeight.w500,
@@ -253,6 +253,8 @@ class _AddAccountBottomSheetState extends ConsumerState<AddAccountBottomSheet> {
                                 : AppTheme.textSecondary,
                           ),
                           textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),

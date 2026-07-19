@@ -87,19 +87,7 @@ class HealthScoreCard extends StatelessWidget {
                     // Badge rang
                     Row(
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            rank.icon,
-                            color: AppTheme.primaryColor,
-                            size: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
+
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 10,
@@ -129,17 +117,7 @@ class HealthScoreCard extends StatelessWidget {
                         color: AppTheme.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      rank.encouragement,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondary,
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+
                   ],
                 ),
               ),

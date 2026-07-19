@@ -346,21 +346,19 @@ class _AddPaymentBottomSheetState extends ConsumerState<AddPaymentBottomSheet> {
               value: acc.id,
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: isAsset ? Colors.white : accColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                      border: isAsset ? Border.all(color: Colors.grey.shade200) : null,
-                    ),
+                  SizedBox(
+                    width: 20,
+                    height: 20,
                     child: isAsset
                         ? Image.asset(
-                            acc.iconKey,
-                            width: 16,
-                            height: 16,
+                            acc.iconKey.endsWith('.png') && !acc.iconKey.endsWith('rond.png')
+                                ? acc.iconKey.replaceAll('.png', 'rond.png')
+                                : acc.iconKey,
+                            width: 20,
+                            height: 20,
                             fit: BoxFit.contain,
                           )
-                        : Icon(fallbackIcon, color: accColor, size: 16),
+                        : Icon(fallbackIcon, color: accColor, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Text(

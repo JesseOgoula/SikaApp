@@ -551,7 +551,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Si aucun compte, afficher une carte par défaut
         if (accounts.isEmpty) {
           return SizedBox(
-            height: 200,
+            height: 220,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: _buildBalanceCard(
@@ -576,6 +576,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               subtitle: 'Tous comptes',
               showSubtitle: true,
               healthScore: healthScore,
+              savingsAmount: ref.watch(savingsAccountsBalanceProvider),
             ),
           ),
           // Cartes pour chaque compte avec solde calculé
@@ -588,7 +589,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ];
 
         return SizedBox(
-          height: 200,
+          height: 220,
           child: PageView(
             controller: _balancePageController,
             onPageChanged: (index) => setState(() => _balancePageIndex = index),
@@ -597,13 +598,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
       },
       loading: () => const SizedBox(
-        height: 200,
+        height: 220,
         child: Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor),
         ),
       ),
       error: (_, __) => SizedBox(
-        height: 200,
+        height: 220,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: _buildBalanceCard(
@@ -704,7 +705,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: gradient,
         borderRadius: BorderRadius.circular(28),
@@ -736,18 +737,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     acc.iconKey.startsWith('assets/') || acc.iconKey.endsWith('.png')
-                        ? Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Image.asset(
-                              acc.iconKey,
-                              width: 14,
-                              height: 14,
-                              fit: BoxFit.contain,
-                            ),
+                        ? Image.asset(
+                            acc.iconKey.endsWith('.png') && !acc.iconKey.endsWith('rond.png') 
+                                ? acc.iconKey.replaceAll('.png', 'rond.png') 
+                                : acc.iconKey,
+                            width: 18,
+                            height: 18,
+                            fit: BoxFit.contain,
                           )
                         : Icon(accountIcon, color: Colors.white, size: 14),
                     const SizedBox(width: 6),
@@ -958,6 +954,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String subtitle,
     required bool showSubtitle,
     required int healthScore,
+    double? savingsAmount,
   }) {
     final user = Supabase.instance.client.auth.currentUser;
     final metadata = user?.userMetadata ?? {};
@@ -976,7 +973,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: cardGradient,
         borderRadius: BorderRadius.circular(28),
@@ -998,7 +995,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 6,
+                  vertical: 4,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.15),
@@ -1019,23 +1016,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              // Rank Badge (remplace HealthScoreBadge)
-              RankBadgeWidget(xp: _totalXP, size: 42),
+              RankBadgeWidget(xp: _totalXP, size: 36),
             ],
           ),
 
-          const Spacer(),
+          const Spacer(flex: 2),
 
           // Middle: Label + Amount + Visibility
           Text(
             title,
             style: TextStyle(
               color: Colors.white.withOpacity(0.8),
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
+              height: 1.1,
             ),
           ),
-          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1046,9 +1042,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       : '••••••••',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 28,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
+                    height: 1.1,
                   ),
                 ),
               ),
@@ -1068,34 +1065,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
 
-          const Spacer(),
-
-          // Bottom: Account Info + Time/Date
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
+          if (savingsAmount != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Numéro de compte',
+                  Text(
+                    'Épargne & Objectifs',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: Colors.white.withOpacity(0.8),
                       fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '**** ${user?.id.substring(0, 4).toUpperCase() ?? "9934"}',
+                    _isAmountVisible
+                        ? _formatCurrency(savingsAmount, userInfo.currencyName)
+                        : '••••••••',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.5,
                     ),
                   ),
                 ],
               ),
+            ),
+
+          const Spacer(flex: 1),
+
+          // Bottom: Time/Date
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1103,7 +1108,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     'Dernière activité',
                     style: TextStyle(
                       color: Colors.white70,
-                      fontSize: 10,
+                      fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1112,7 +1117,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     '$formattedDate • $formattedTime',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1410,9 +1415,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           icon: tx.type == 'income'
               ? FontAwesomeIcons.arrowDown
               : FontAwesomeIcons.arrowUp,
-          iconColor: tx.type == 'income'
-              ? const Color(0xFF2ECC71)
-              : const Color(0xFFE74C3C),
+          iconColor: AppTheme.primaryColor,
         ),
       );
     }
@@ -1446,7 +1449,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           icon: debt.type == DebtType.bill
               ? FontAwesomeIcons.fileInvoiceDollar
               : FontAwesomeIcons.handHoldingDollar,
-          iconColor: const Color(0xFFE67E22),
+          iconColor: AppTheme.primaryColor,
         ),
       );
     }

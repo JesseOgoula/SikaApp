@@ -44,9 +44,21 @@ const List<AccountTypeConfig> kAllAccountTypes = [
     color: '#C62828',
   ),
   AccountTypeConfig(
+    name: 'Bamboo Courant',
+    type: 'bank',
+    iconPath: 'assets/icons/bamboo.png',
+    color: '#2E7D32',
+  ),
+  AccountTypeConfig(
+    name: 'Bamboo Épargne',
+    type: 'bank',
+    iconPath: 'assets/icons/bamboo.png',
+    color: '#66BB6A',
+  ),
+  AccountTypeConfig(
     name: 'Cash',
     type: 'cash',
-    iconPath: null,
+    iconPath: 'assets/icons/cash.png',
     color: '#43A047',
   ),
 ];
@@ -131,14 +143,35 @@ final accountsWithBalanceProvider =
       );
     });
 
-/// Provider pour le solde total de tous les comptes (calculé)
+bool _isSavingsAccount(String name, String type) {
+  final n = name.toLowerCase();
+  return n.contains('épargne') || n.contains('epargne') || n.contains('objectif') || type == 'savings' || type == 'goal';
+}
+
+/// Provider pour le solde total courant (hors épargne/objectifs)
 final totalAccountsBalanceProvider = Provider<double>((ref) {
   final accountsAsync = ref.watch(accountsWithBalanceProvider);
   return accountsAsync.whenOrNull(
-        data: (accounts) => accounts.fold<double>(
-          0.0,
-          (sum, acc) => sum + acc.calculatedBalance,
-        ),
+        data: (accounts) => accounts
+            .where((acc) => !_isSavingsAccount(acc.account.name, acc.account.type))
+            .fold<double>(
+              0.0,
+              (sum, acc) => sum + acc.calculatedBalance,
+            ),
+      ) ??
+      0.0;
+});
+
+/// Provider pour le solde total épargne/objectifs
+final savingsAccountsBalanceProvider = Provider<double>((ref) {
+  final accountsAsync = ref.watch(accountsWithBalanceProvider);
+  return accountsAsync.whenOrNull(
+        data: (accounts) => accounts
+            .where((acc) => _isSavingsAccount(acc.account.name, acc.account.type))
+            .fold<double>(
+              0.0,
+              (sum, acc) => sum + acc.calculatedBalance,
+            ),
       ) ??
       0.0;
 });

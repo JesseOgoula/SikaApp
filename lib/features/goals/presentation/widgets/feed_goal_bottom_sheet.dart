@@ -326,21 +326,19 @@ class _FeedGoalBottomSheetState extends ConsumerState<FeedGoalBottomSheet> {
                   value: acc.id,
                   child: Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: isAsset ? Colors.white : color.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: isAsset ? Border.all(color: Colors.grey.shade200, width: 1) : null,
-                        ),
+                      SizedBox(
+                        width: 22,
+                        height: 22,
                         child: isAsset
                             ? Image.asset(
-                                acc.account.iconKey,
-                                width: 18,
-                                height: 18,
+                                acc.account.iconKey.endsWith('.png') && !acc.account.iconKey.endsWith('rond.png')
+                                    ? acc.account.iconKey.replaceAll('.png', 'rond.png')
+                                    : acc.account.iconKey,
+                                width: 22,
+                                height: 22,
                                 fit: BoxFit.contain,
                               )
-                            : Icon(iconData, color: color, size: 18),
+                            : Icon(iconData, color: color, size: 22),
                       ),
                       const SizedBox(width: 10),
                       Expanded(

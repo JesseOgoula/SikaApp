@@ -17,46 +17,20 @@ class RankBadgeWidget extends StatelessWidget {
     final rank = RankDefinitions.getRankForXP(xp);
 
     return Container(
-      height: size,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: size * 0.6, // Hauteur réduite pour la pastille
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(size / 2),
+        color: rank.color,
+        borderRadius: BorderRadius.circular(20),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            rank.icon,
-            color: Colors.white.withOpacity(0.9),
-            size: size * 0.38,
-          ),
-          const SizedBox(width: 6),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Lv.${rank.level}',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: size * 0.26,
-                  fontWeight: FontWeight.w800,
-                  height: 1.1,
-                ),
-              ),
-              Text(
-                '${_formatXP(xp)} XP',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: size * 0.2,
-                  fontWeight: FontWeight.w600,
-                  height: 1.1,
-                ),
-              ),
-            ],
-          ),
-        ],
+      alignment: Alignment.center,
+      child: Text(
+        'Lv.${rank.level} - ${rank.name}',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: size * 0.28,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
