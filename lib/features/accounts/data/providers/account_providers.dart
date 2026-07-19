@@ -59,7 +59,7 @@ const List<AccountTypeConfig> kAllAccountTypes = [
     name: 'Cash',
     type: 'cash',
     iconPath: 'assets/icons/cash.png',
-    color: '#43A047',
+    color: '#000000',
   ),
 ];
 

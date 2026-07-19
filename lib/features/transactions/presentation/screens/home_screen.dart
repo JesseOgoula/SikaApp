@@ -705,21 +705,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: accountColor.withOpacity(0.25),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: accountColor.withOpacity(0.1),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Background gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: gradient,
+              ),
+            ),
+            // Decorative background shapes for 3D depth
+            Positioned(
+              right: -40,
+              top: -40,
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.15),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -30,
+              bottom: -50,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.1),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Glass reflection & Border overlay
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1.2,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.3),
+                    Colors.white.withOpacity(0.0),
+                    Colors.white.withOpacity(0.0),
+                    Colors.white.withOpacity(0.1),
+                  ],
+                  stops: const [0.0, 0.3, 0.7, 1.0],
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           // === TOP ROW: Type badge + % du total ===
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -887,6 +959,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -973,21 +1049,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: cardGradient,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryColor.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: AppTheme.primaryColor.withOpacity(0.1),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          children: [
+            // Background gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: cardGradient,
+              ),
+            ),
+            // Decorative background shapes for 3D depth
+            Positioned(
+              right: -40,
+              top: -40,
+              child: Container(
+                width: 160,
+                height: 160,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.12),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: -20,
+              bottom: -60,
+              child: Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.08),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Glass reflection & Border overlay
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.2),
+                  width: 1.2,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.3),
+                    Colors.white.withOpacity(0.0),
+                    Colors.white.withOpacity(0.0),
+                    Colors.white.withOpacity(0.1),
+                  ],
+                  stops: const [0.0, 0.3, 0.7, 1.0],
+                ),
+              ),
+            ),
+            // Content
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
           // Top Row: Info Pays + Logo Carte
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1126,6 +1274,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ],
+      ),
+            ),
+          ],
+        ),
       ),
     );
   }
