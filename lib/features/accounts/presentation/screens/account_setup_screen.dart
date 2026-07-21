@@ -22,18 +22,6 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
 
   bool _isLoading = true;
   final _scrollController = ScrollController();
-  int? _focusedIndex;
-
-  void _scrollToFocusedCard(int index) {
-    if (!_scrollController.hasClients) return;
-    // Simple scroll calculation based on card height estimate
-    final targetOffset = index * 120.0; 
-    _scrollController.animateTo(
-      targetOffset,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
 
   @override
   void initState() {
@@ -279,54 +267,7 @@ class _AccountSetupScreenState extends ConsumerState<AccountSetupScreen> {
             ],
           ),
 
-          // Champ de solde (visible si activé)
-          if (isEnabled) ...[
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _focusedIndex = index;
-                });
-                _scrollToFocusedCard(index);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.scaffoldBackground,
-                  borderRadius: BorderRadius.circular(12),
-                  
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        account.balanceController.text.isEmpty
-                            ? 'Solde actuel'
-                            : account.balanceController.text,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: account.balanceController.text.isEmpty
-                              ? AppTheme.textSecondary
-                              : AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'FCFA',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+          // Champ de solde a été supprimé
         ],
       ),
     );
@@ -408,7 +349,6 @@ class _AccountConfig {
   final String? iconPath;
   final String color;
   bool enabled;
-  final TextEditingController balanceController = TextEditingController();
 
   _AccountConfig({
     required this.name,

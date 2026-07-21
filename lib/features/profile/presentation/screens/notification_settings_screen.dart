@@ -169,6 +169,10 @@ class _NotificationSettingsScreenState
               await _prefs.setDebtReminderHour(hour);
             },
           ),
+          const Divider(height: 1),
+          _buildTestButton(
+            onPressed: () => NotificationService().testDebtNotification(),
+          ),
         ],
       ],
     );
@@ -254,6 +258,10 @@ class _NotificationSettingsScreenState
         if (_lowBalanceEnabled) ...[
           const Divider(height: 1),
           _buildThresholdPicker(),
+          const Divider(height: 1),
+          _buildTestButton(
+            onPressed: () => NotificationService().testLowBalanceNotification(),
+          ),
         ],
       ],
     );
@@ -357,6 +365,12 @@ class _NotificationSettingsScreenState
             }
           },
         ),
+        if (_budgetEnabled) ...[
+          const Divider(height: 1),
+          _buildTestButton(
+            onPressed: () => NotificationService().testBudgetNotification(),
+          ),
+        ],
       ],
     );
   }
@@ -395,6 +409,10 @@ class _NotificationSettingsScreenState
               await _prefs.setGoalReminderHour(hour);
             },
           ),
+          const Divider(height: 1),
+          _buildTestButton(
+            onPressed: () => NotificationService().testGoalNotification(),
+          ),
         ],
       ],
     );
@@ -403,6 +421,30 @@ class _NotificationSettingsScreenState
 
 
   // ==================== SHARED WIDGETS ====================
+
+  Widget _buildTestButton({required VoidCallback onPressed}) {
+    return InkWell(
+      onTap: onPressed,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.notifications_active_outlined, size: 16, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              'Tester la notification',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildCard({required List<Widget> children}) {
     return Container(

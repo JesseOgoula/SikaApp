@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sika_app/core/theme/app_theme.dart';
 import 'package:sika_app/features/accounts/data/providers/account_providers.dart';
-import 'package:sika_app/features/transactions/presentation/widgets/number_pad.dart';
 
 class AddAccountBottomSheet extends ConsumerStatefulWidget {
   const AddAccountBottomSheet({super.key});
@@ -19,8 +18,6 @@ class _AddAccountBottomSheetState extends ConsumerState<AddAccountBottomSheet> {
   bool _isSaving = false;
 
   AccountTypeConfig? _selectedType;
-  final TextEditingController _balanceController = TextEditingController();
-  bool _isNumpadVisible = false;
 
   @override
   void initState() {
@@ -42,38 +39,13 @@ class _AddAccountBottomSheetState extends ConsumerState<AddAccountBottomSheet> {
     }
   }
 
-  void _onKeyPressed(String value) {
-    final currentText = _balanceController.text;
-    if (value == '.' && currentText.contains('.')) return;
-    if (currentText == '0' && value != '.') {
-      _balanceController.text = value;
-    } else {
-      _balanceController.text = currentText + value;
-    }
-    setState(() {});
-  }
-
-  void _onBackspace() {
-    final currentText = _balanceController.text;
-    if (currentText.isNotEmpty) {
-      _balanceController.text = currentText.substring(
-        0,
-        currentText.length - 1,
-      );
-      setState(() {});
-    }
-  }
-
   Future<void> _saveAccount() async {
     if (_selectedType == null) return;
 
     setState(() => _isSaving = true);
 
     try {
-      final balanceText = _balanceController.text
-          .replaceAll(' ', '')
-          .replaceAll(',', '.');
-      final balance = double.tryParse(balanceText) ?? 0.0;
+      final balance = 0.0;
 
       final repo = ref.read(accountRepositoryProvider);
       final success = await repo.createAccount(
@@ -266,96 +238,8 @@ class _AddAccountBottomSheetState extends ConsumerState<AddAccountBottomSheet> {
 
           const SizedBox(height: 24),
 
-          // Champ de solde
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: const Text(
-              'Solde initial',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: GestureDetector(
-              onTap: () {
-                setState(() => _isNumpadVisible = true);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.scaffoldBackground,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _isNumpadVisible
-                        ? AppTheme.primaryColor
-                        : Colors.transparent,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _balanceController.text.isEmpty
-                            ? '0'
-                            : _balanceController.text,
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          color: _balanceController.text.isEmpty
-                              ? AppTheme.textSecondary
-                              : AppTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                    const Text(
-                      'FCFA',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 24),
-
-          // Numpad et boutton
-          if (_isNumpadVisible) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() => _isNumpadVisible = false);
-                    },
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('OK'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            NumberPad(onKeyPressed: _onKeyPressed, onBackspace: _onBackspace),
-          ] else ...[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
               child: SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -389,7 +273,6 @@ class _AddAccountBottomSheetState extends ConsumerState<AddAccountBottomSheet> {
                 ),
               ),
             ),
-          ],
         ],
       ),
     );

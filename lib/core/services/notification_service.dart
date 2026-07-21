@@ -461,4 +461,86 @@ class NotificationService {
     // Marquer comme notifie
     await prefs.setLastBudgetNotifMonth(monthKey);
   }
+
+  // ==================== TEST METHODS ====================
+
+  Future<void> testDebtNotification() async {
+    if (!_isInitialized) await init();
+    await _notificationsPlugin.show(
+      _idDebtBase + 999,
+      'Test: Échéance aujourd\'hui',
+      'Montant dû : 15 000 FCFA (Ceci est un test)',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelReminders,
+          'Rappels et Échéances',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: const Color(0xFF5E35B1),
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_stat_notification',
+        ),
+      ),
+    );
+  }
+
+  Future<void> testLowBalanceNotification() async {
+    if (!_isInitialized) await init();
+    await _notificationsPlugin.show(
+      _idLowBalance + 999,
+      'Test: Solde faible',
+      'Votre solde est en dessous du seuil (Test).',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelBalance,
+          'Alertes Solde',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: const Color(0xFFE53935),
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_stat_notification',
+        ),
+      ),
+    );
+  }
+
+  Future<void> testBudgetNotification() async {
+    if (!_isInitialized) await init();
+    await _notificationsPlugin.show(
+      _idBudgetExceeded + 999,
+      'Test: Budget dépassé',
+      'Vous avez dépassé votre limite de budget (Test).',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelBalance,
+          'Alertes Budget',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: const Color(0xFFE53935),
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_stat_notification',
+        ),
+      ),
+    );
+  }
+
+  Future<void> testGoalNotification() async {
+    if (!_isInitialized) await init();
+    await _notificationsPlugin.show(
+      _idGoalReminder + 999,
+      'Test: Rappel Objectif',
+      'Il vous reste un montant à épargner (Test).',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _channelGoals,
+          'Objectifs d\'épargne',
+          importance: Importance.high,
+          priority: Priority.high,
+          color: const Color(0xFF5E35B1),
+          largeIcon: const DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: '@drawable/ic_stat_notification',
+        ),
+      ),
+    );
+  }
 }
