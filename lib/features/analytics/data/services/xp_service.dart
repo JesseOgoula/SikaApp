@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sika_app/core/services/settings_service.dart';
+import 'package:sika_app/core/utils/logger.dart';
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 import 'package:sika_app/features/analytics/data/services/rank_service.dart';
 
@@ -40,7 +41,7 @@ class XPService {
         healthScore: healthScore,
       );
     } catch (e) {
-      print('[XP_SYNC] Sync FAILED: $e');
+      SikaLogger.error('[XP_SYNC] Sync FAILED: $e', tag: 'XP_SERVICE');
     }
   }
 

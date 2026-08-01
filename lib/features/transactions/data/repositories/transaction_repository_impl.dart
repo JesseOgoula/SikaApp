@@ -8,6 +8,8 @@ import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 import 'package:sika_app/core/services/notification_service.dart';
 import 'package:sika_app/core/services/notification_preferences.dart';
 
+import 'package:sika_app/core/utils/logger.dart';
+
 import '../../../../core/database/app_database.dart';
 import '../../../analytics/domain/entities/category_stat.dart';
 import '../../../analytics/domain/entities/daily_summary.dart';
@@ -123,23 +125,13 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final prefs = NotificationPreferences();
       final threshold = await prefs.lowBalanceThreshold;
 
-      // Calculer le solde total (comptes + transactions)
+      // Le solde des comptes est déjà maintenu à jour par les transactions.
+      // Il suffit de sommer les soldes de tous les comptes.
       final accounts = await _db.select(_db.accountsTable).get();
       double totalBalance = 0;
       for (final account in accounts) {
         totalBalance += account.balance;
       }
-
-      // Ajouter les revenus et soustraire les dépenses
-      final incomeQuery = _db.select(_db.transactionsTable)
-        ..where((t) => t.type.equals('income'));
-      final incomes = await incomeQuery.get();
-      totalBalance += incomes.fold<double>(0, (sum, tx) => sum + tx.amount);
-
-      final expenseQuery = _db.select(_db.transactionsTable)
-        ..where((t) => t.type.equals('expense'));
-      final expenses = await expenseQuery.get();
-      totalBalance -= expenses.fold<double>(0, (sum, tx) => sum + tx.amount);
 
       if (totalBalance <= threshold) {
         await NotificationService().showLowBalanceAlert(
@@ -148,7 +140,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
         );
       }
     } catch (e) {
-      /* ignore */
+      SikaLogger.error('Erreur lors de la vérification du solde bas: $e', tag: 'TRANSACTION_REPO');
     }
   }
 

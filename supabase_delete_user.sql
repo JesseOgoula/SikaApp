@@ -32,15 +32,27 @@ BEGIN
   -- 3. Supprimer les catégories de l'utilisateur
   DELETE FROM public.categories WHERE user_id = current_user_id;
   
-  -- 4. Supprimer les comptes de l'utilisateur (si la table existe)
+  -- 4. Supprimer les dettes de l'utilisateur
+  BEGIN
+    DELETE FROM public.debts WHERE user_id = current_user_id;
+  EXCEPTION WHEN undefined_table THEN NULL; END;
+
+  -- 5. Supprimer les budgets de l'utilisateur
+  BEGIN
+    DELETE FROM public.budgets WHERE user_id = current_user_id;
+  EXCEPTION WHEN undefined_table THEN NULL; END;
+
+  -- 6. Supprimer les rangs de l'utilisateur
+  BEGIN
+    DELETE FROM public.user_ranks WHERE user_id = current_user_id;
+  EXCEPTION WHEN undefined_table THEN NULL; END;
+  
+  -- 7. Supprimer les comptes de l'utilisateur
   BEGIN
     DELETE FROM public.accounts WHERE user_id = current_user_id;
-  EXCEPTION WHEN undefined_table THEN
-    -- La table n'existe pas, on ignore
-    NULL;
-  END;
+  EXCEPTION WHEN undefined_table THEN NULL; END;
 
-  -- 5. Supprimer l'utilisateur de auth.users
+  -- 8. Supprimer l'utilisateur de auth.users
   -- Note: Cette opération nécessite SECURITY DEFINER et accès à auth schema
   DELETE FROM auth.users WHERE id = current_user_id;
 

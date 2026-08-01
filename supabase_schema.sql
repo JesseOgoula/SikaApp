@@ -46,6 +46,81 @@ CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON public.categories(parent_
 COMMENT ON TABLE public.categories IS 'Catégories de transactions (Alimentation, Transport, etc.)';
 
 -- -----------------------------------------------------------------------------
+-- Table: budgets
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.budgets (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  category_id text NOT NULL,
+  category_name text NOT NULL,
+  parent_budget_id uuid REFERENCES public.budgets(id) ON DELETE CASCADE,
+  amount numeric(12,2) NOT NULL,
+  period_type text NOT NULL DEFAULT 'monthly',
+  start_date timestamptz NOT NULL,
+  end_date timestamptz,
+  is_active boolean NOT NULL DEFAULT true,
+  alert_threshold numeric(5,2) NOT NULL DEFAULT 80.0,
+  sync_status smallint NOT NULL DEFAULT 1,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS budgets_user_id_idx ON public.budgets (user_id);
+CREATE INDEX IF NOT EXISTS budgets_category_id_idx ON public.budgets (category_id);
+
+ALTER TABLE public.budgets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own budgets"
+  ON public.budgets FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own budgets"
+  ON public.budgets FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own budgets"
+  ON public.budgets FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own budgets"
+  ON public.budgets FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- -----------------------------------------------------------------------------
+-- Table: user_ranks
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.user_ranks (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  total_xp integer NOT NULL DEFAULT 0,
+  health_score integer NOT NULL DEFAULT 0,
+  rank_level integer NOT NULL DEFAULT 1,
+  rank_name text NOT NULL DEFAULT 'Novice',
+  display_name text,
+  avatar_url text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS user_ranks_total_xp_idx ON public.user_ranks (total_xp DESC);
+
+ALTER TABLE public.user_ranks ENABLE ROW LEVEL SECURITY;
+
+-- Tout le monde peut lire le classement
+CREATE POLICY "Anyone can view user_ranks"
+  ON public.user_ranks FOR SELECT
+  USING (true);
+
+-- Les utilisateurs peuvent modifier leur propre rang
+CREATE POLICY "Users can update their own rank"
+  ON public.user_ranks FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own rank"
+  ON public.user_ranks FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- -----------------------------------------------------------------------------
 -- Table: accounts
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.accounts (
@@ -85,6 +160,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     merchant_name TEXT,
     category_id TEXT REFERENCES public.categories(id) ON DELETE SET NULL,
     account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,
+    to_account_id TEXT REFERENCES public.accounts(id) ON DELETE SET NULL,
     debt_id TEXT REFERENCES public.debts(id) ON DELETE SET NULL,
     date TIMESTAMPTZ NOT NULL,
     sms_sender TEXT,
@@ -258,14 +334,17 @@ CREATE POLICY "Users can delete their own goals"
 -- Remplit automatiquement user_id avec auth.uid() si non fourni
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.auto_set_user_id()
-RETURNS TRIGGER AS $$
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
 BEGIN
-    IF NEW.user_id IS NULL THEN
-        NEW.user_id := auth.uid();
-    END IF;
-    RETURN NEW;
+  -- FORCER le user_id à celui de l'utilisateur authentifié.
+  -- Ne jamais faire confiance à ce que le client envoie.
+  NEW.user_id := auth.uid();
+  RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- -----------------------------------------------------------------------------
 -- Fonction: auto_update_timestamp
@@ -296,7 +375,19 @@ CREATE TRIGGER trigger_categories_updated_at
 -- Triggers pour accounts
 -- -----------------------------------------------------------------------------
 DROP TRIGGER IF EXISTS trigger_accounts_user_id ON public.accounts;
-CREATE TRIGGER trigger_accounts_user_id
+CREATE TRIGGER tr_budgets_auto_set_user_id
+  BEFORE INSERT ON public.budgets
+  FOR EACH ROW EXECUTE FUNCTION public.auto_set_user_id();
+
+CREATE TRIGGER tr_budgets_auto_update_timestamp
+  BEFORE UPDATE ON public.budgets
+  FOR EACH ROW EXECUTE FUNCTION public.auto_update_timestamp();
+
+CREATE TRIGGER tr_user_ranks_auto_update_timestamp
+  BEFORE UPDATE ON public.user_ranks
+  FOR EACH ROW EXECUTE FUNCTION public.auto_update_timestamp();
+
+CREATE TRIGGER tr_accounts_auto_set_user_id
     BEFORE INSERT ON public.accounts
     FOR EACH ROW EXECUTE FUNCTION public.auto_set_user_id();
 
@@ -427,5 +518,53 @@ SELECT table_name,
        (SELECT COUNT(*) FROM information_schema.columns WHERE table_name = t.table_name) as columns_count
 FROM information_schema.tables t
 WHERE table_schema = 'public' 
-  AND table_name IN ('categories', 'accounts', 'transactions', 'goals', 'debts')
+  AND table_name IN ('categories', 'accounts', 'transactions', 'goals', 'debts', 'budgets', 'user_ranks')
 ORDER BY table_name;
+
+-- =============================================================================
+-- SYNC CONFLICT RESOLUTION (TIMESTAMP MERGE)
+-- =============================================================================
+
+-- Trigger de protection contre l'écrasement par des données locales obsolètes
+CREATE OR REPLACE FUNCTION public.protect_newer_updates()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- Si l'enregistrement entrant (NEW) a un updated_at plus vieux que ce qu'on a
+  -- déjà en base (OLD), on refuse silencieusement l'update (retourne OLD).
+  IF NEW.updated_at < OLD.updated_at THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Application du trigger sur toutes les tables de données synchronisées
+DROP TRIGGER IF EXISTS trigger_transactions_protect_newer ON public.transactions;
+CREATE TRIGGER trigger_transactions_protect_newer
+    BEFORE UPDATE ON public.transactions
+    FOR EACH ROW EXECUTE FUNCTION public.protect_newer_updates();
+
+DROP TRIGGER IF EXISTS trigger_accounts_protect_newer ON public.accounts;
+CREATE TRIGGER trigger_accounts_protect_newer
+    BEFORE UPDATE ON public.accounts
+    FOR EACH ROW EXECUTE FUNCTION public.protect_newer_updates();
+
+DROP TRIGGER IF EXISTS trigger_categories_protect_newer ON public.categories;
+CREATE TRIGGER trigger_categories_protect_newer
+    BEFORE UPDATE ON public.categories
+    FOR EACH ROW EXECUTE FUNCTION public.protect_newer_updates();
+
+DROP TRIGGER IF EXISTS trigger_goals_protect_newer ON public.goals;
+CREATE TRIGGER trigger_goals_protect_newer
+    BEFORE UPDATE ON public.goals
+    FOR EACH ROW EXECUTE FUNCTION public.protect_newer_updates();
+
+DROP TRIGGER IF EXISTS trigger_debts_protect_newer ON public.debts;
+CREATE TRIGGER trigger_debts_protect_newer
+    BEFORE UPDATE ON public.debts
+    FOR EACH ROW EXECUTE FUNCTION public.protect_newer_updates();
+
+DROP TRIGGER IF EXISTS trigger_budgets_protect_newer ON public.budgets;
+CREATE TRIGGER trigger_budgets_protect_newer
+    BEFORE UPDATE ON public.budgets
+    FOR EACH ROW EXECUTE FUNCTION public.protect_newer_updates();

@@ -46,6 +46,7 @@ class NotificationService {
     if (_isInitialized) return;
 
     tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Africa/Libreville')); // Heure locale du Gabon (WAT = UTC+1)
 
     const androidSettings = AndroidInitializationSettings(
       '@drawable/ic_stat_notification',
@@ -387,8 +388,9 @@ class NotificationService {
     final now = DateTime.now();
     final monthKey =
         'cat_${categoryName}_${now.year}-${now.month.toString().padLeft(2, '0')}';
-    final lastNotif = await prefs.lastBudgetNotifMonth;
-    if (lastNotif != null && lastNotif.contains(monthKey)) return;
+    final lastNotifs = await prefs.lastBudgetNotifMonth;
+    final notifList = lastNotifs?.split(',') ?? [];
+    if (notifList.contains(monthKey)) return;
 
     final exceeded = currentSpent - budgetLimit;
 
@@ -412,7 +414,10 @@ class NotificationService {
     );
 
     // Marquer comme notifie
-    await prefs.setLastBudgetNotifMonth(monthKey);
+    notifList.add(monthKey);
+    // Garder seulement les 10 dernières pour ne pas faire grossir SharedPreferences indéfiniment
+    if (notifList.length > 10) notifList.removeAt(0);
+    await prefs.setLastBudgetNotifMonth(notifList.join(','));
   }
 
   /// Notification quand le budget global mensuel est dépassé

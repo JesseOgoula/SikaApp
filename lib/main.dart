@@ -71,11 +71,6 @@ void main() async {
   late final AppDatabase database;
   try {
     database = AppDatabase();
-    // Force sync de toutes les catégories existantes (une seule fois au démarrage)
-    await database.customUpdate(
-      'UPDATE categories SET sync_status = 0 WHERE sync_status = 1',
-      updates: {database.categoriesTable},
-    );
   } catch (e) {
     SikaLogger.error('CRITICAL ERROR IN DATABASE INIT: $e', tag: 'MAIN');
     return; // Impossible de continuer sans base de données
@@ -114,8 +109,7 @@ void main() async {
 
   await SentryFlutter.init(
     (options) {
-      options.dsn =
-          'https://0e879dedaea1a1698e26073922c6957e@o4511013665964032.ingest.de.sentry.io/4511013669306448';
+      options.dsn = dotenv.env['SENTRY_DSN'] ?? '';
       // Set tracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
       // We recommend adjusting this value in production.
       options.tracesSampleRate = 1.0;

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sika_app/core/utils/logger.dart';
 
 import 'package:sika_app/features/analytics/domain/models/rank_model.dart';
 
@@ -22,7 +23,7 @@ class RankService {
   }) async {
     final user = _supabase.auth.currentUser;
     if (user == null) {
-      print('[RANK_SYNC] No user, skipping');
+      SikaLogger.warn('[RANK_SYNC] No user, skipping', tag: 'RANK_SERVICE');
       return;
     }
 
@@ -41,7 +42,7 @@ class RankService {
         'updated_at': DateTime.now().toIso8601String(),
       });
     } catch (e) {
-      print('[RANK_SYNC] Upsert FAILED: $e');
+      SikaLogger.error('[RANK_SYNC] Upsert FAILED: $e', tag: 'RANK_SERVICE');
     }
   }
 

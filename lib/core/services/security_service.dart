@@ -29,7 +29,7 @@ class SecurityService {
       return true;
     } catch (e) {
       SikaLogger.error('Security check failed: $e', tag: 'SECURITY');
-      return true; // En cas d'erreur, on laisse passer
+      return false; // Fail-Safe: refuser l'accès en cas d'erreur
     }
   }
 
@@ -51,7 +51,7 @@ class SecurityService {
       );
     } on PlatformException catch (e) {
       SikaLogger.error('Biometric auth error: $e', tag: 'SECURITY');
-      return true; // En cas d'erreur, on laisse passer pour ne pas bloquer
+      return false; // Fail-Safe: refuser l'accès, l'utilisateur devra saisir son PIN
     }
   }
 }

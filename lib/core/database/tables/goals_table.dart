@@ -28,6 +28,12 @@ class GoalsTable extends Table {
   /// Date de création
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
+  /// Date de dernière modification
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// Statut de synchronisation: 0=pending, 1=synced, 2=error
+  IntColumn get syncStatus => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

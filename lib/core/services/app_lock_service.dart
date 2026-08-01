@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -8,7 +9,7 @@ import 'package:sika_app/core/utils/logger.dart';
 
 /// Service de verrouillage local de l'application (PIN + Biométrie)
 ///
-/// Gère le stockage sécurisé du PIN (hash SHA-256),
+/// Gère le stockage sécurisé du PIN (hash HMAC-SHA-256 avec sel),
 /// les préférences biométriques et le flux de setup.
 class AppLockService {
   static final AppLockService _instance = AppLockService._internal();
@@ -22,6 +23,7 @@ class AppLockService {
 
   // Clés Secure Storage
   static const _keyPinHash = 'sika_pin_hash';
+  static const _keyPinSalt = 'sika_pin_salt';
 
   // Clés SharedPreferences
   static const _keyBiometricEnabled = 'sika_biometric_enabled';
@@ -30,29 +32,59 @@ class AppLockService {
 
   // ==================== HASH ====================
 
-  /// Hash SHA-256 d'une chaîne
-  String _hashValue(String value) {
-    final bytes = utf8.encode(value);
-    return sha256.convert(bytes).toString();
+  /// Génère un sel cryptographique aléatoire (32 caractères hex)
+  String _generateSalt() {
+    final random = Random.secure();
+    final saltBytes = List<int>.generate(16, (_) => random.nextInt(256));
+    return saltBytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
+
+  /// Hash HMAC-SHA-256 avec sel (résistant aux rainbow tables)
+  String _hashWithSalt(String value, String salt) {
+    final key = utf8.encode(salt);
+    final hmac = Hmac(sha256, key);
+    return hmac.convert(utf8.encode(value)).toString();
+  }
+
 
   // ==================== PIN ====================
 
   /// Définir un code PIN à 4 chiffres
   Future<void> setPin(String pin) async {
     assert(pin.length == 4, 'Le PIN doit contenir exactement 4 chiffres');
-    final hash = _hashValue(pin);
+    final salt = _generateSalt();
+    final hash = _hashWithSalt(pin, salt);
+    await _storage.write(key: _keyPinSalt, value: salt);
     await _storage.write(key: _keyPinHash, value: hash);
     await setLockEnabled(true);
     await _setSecuritySetupDone(true);
-    SikaLogger.info('PIN défini avec succès', tag: 'APP_LOCK');
+    SikaLogger.info('PIN défini avec succès (HMAC-SHA256 + sel)', tag: 'APP_LOCK');
   }
 
   /// Vérifie un code PIN
+  ///
+  /// Supporte la migration automatique depuis l'ancien format (SHA-256 sans sel) :
+  /// si aucun sel n'est trouvé, tente la vérification legacy puis re-hash avec sel.
   Future<bool> verifyPin(String pin) async {
     final storedHash = await _storage.read(key: _keyPinHash);
     if (storedHash == null) return false;
-    return _hashValue(pin) == storedHash;
+
+    final storedSalt = await _storage.read(key: _keyPinSalt);
+
+    if (storedSalt != null) {
+      // Nouveau format : HMAC-SHA256 avec sel
+      return _hashWithSalt(pin, storedSalt) == storedHash;
+    } else {
+      // Migration depuis l'ancien format (SHA-256 sans sel)
+      final legacyHash = sha256.convert(utf8.encode(pin)).toString();
+      if (legacyHash == storedHash) {
+        // Migration automatique vers le nouveau format
+        SikaLogger.info('Migration PIN vers HMAC-SHA256 + sel', tag: 'APP_LOCK');
+        await setPin(pin);
+        return true;
+      }
+      return false;
+    }
   }
 
   /// Change le PIN (vérifie l'ancien d'abord)
@@ -161,6 +193,7 @@ class AppLockService {
   /// Réinitialise toute la sécurité locale
   Future<void> clearSecurity() async {
     await _storage.delete(key: _keyPinHash);
+    await _storage.delete(key: _keyPinSalt);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_keyBiometricEnabled);
     await prefs.remove(_keySecuritySetupDone);

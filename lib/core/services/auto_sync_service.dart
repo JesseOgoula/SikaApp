@@ -89,6 +89,15 @@ class AutoSyncService {
     _isSyncing = true;
 
     try {
+      // 1. PULL : Récupérer les données du cloud et résoudre les conflits
+      await _restoreCategories(user.id);
+      await _restoreTransactions(user.id);
+      await _restoreAccounts(user.id);
+      await _restoreDebts(user.id);
+      await _restoreGoals(user.id);
+      await _restoreBudgets(user.id);
+
+      // 2. PUSH : Envoyer les modifications locales non synchronisées
       await _syncCategories(user.id);
       await _syncTransactions(user.id);
       await _syncAccounts(user.id);
@@ -124,8 +133,8 @@ class AutoSyncService {
           'budget_limit': category.budgetLimit,
           'sort_order': category.sortOrder,
           'sync_status': 1,
-          'created_at': category.createdAt.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': category.createdAt.toUtc().toIso8601String(),
+          'updated_at': category.updatedAt.toUtc().toIso8601String(),
         });
 
         await (_db.update(_db.categoriesTable)
@@ -156,14 +165,14 @@ class AutoSyncService {
           'category_id': tx.categoryId,
           'account_id': tx.accountId,
           'to_account_id': tx.toAccountId,
-          'date': tx.date.toIso8601String(),
+          'date': tx.date.toUtc().toIso8601String(),
           'external_id': tx.externalId,
           'is_ai_categorized': tx.isAiCategorized ? 1 : 0,
           'sync_status': 1,
           'validation_status': tx.validationStatus,
           'debt_id': tx.debtId,
-          'created_at': tx.createdAt.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': tx.createdAt.toUtc().toIso8601String(),
+          'updated_at': tx.updatedAt.toUtc().toIso8601String(),
         });
 
         await (_db.update(_db.transactionsTable)
@@ -177,7 +186,9 @@ class AutoSyncService {
 
   /// Synchronise les comptes vers Supabase
   Future<void> _syncAccounts(String userId) async {
-    final allAccounts = await _db.select(_db.accountsTable).get();
+    final allAccounts = await (_db.select(_db.accountsTable)
+          ..where((a) => a.syncStatus.equals(0)))
+        .get();
 
     if (allAccounts.isEmpty) return;
 
@@ -196,8 +207,8 @@ class AutoSyncService {
           'is_default': account.isDefault,
           'is_active': account.isActive,
           'sync_status': 1,
-          'created_at': account.createdAt.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': account.createdAt.toUtc().toIso8601String(),
+          'updated_at': account.updatedAt.toUtc().toIso8601String(),
         });
 
         await (_db.update(_db.accountsTable)
@@ -226,7 +237,7 @@ class AutoSyncService {
           'amount': debt.amount,
           'paid_amount': debt.paidAmount,
           'type': _toSnakeCaseDebtType(debt.type),
-          'due_date': debt.dueDate.toIso8601String(),
+          'due_date': debt.dueDate.toUtc().toIso8601String(),
           'status': debt.status,
           'person_name': debt.personName,
           'notes': debt.notes,
@@ -234,8 +245,8 @@ class AutoSyncService {
           'recurrence_rule': debt.recurrenceRule,
           'notification_id': debt.notificationId,
           'sync_status': 1,
-          'created_at': debt.createdAt.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': debt.createdAt.toUtc().toIso8601String(),
+          'updated_at': debt.updatedAt.toUtc().toIso8601String(),
         });
 
         await (_db.update(_db.debtsTable)..where((d) => d.id.equals(debt.id)))
@@ -246,10 +257,11 @@ class AutoSyncService {
     }
   }
 
-  /// Synchronise TOUS les objectifs vers Supabase
-  /// (goals n'a pas de syncStatus, on sync toujours tout)
+  /// Synchronise les objectifs (syncStatus == 0) vers Supabase
   Future<void> _syncGoals(String userId) async {
-    final goals = await _db.select(_db.goalsTable).get();
+    final goals = await (_db.select(_db.goalsTable)
+          ..where((g) => g.syncStatus.equals(0)))
+        .get();
 
     if (goals.isEmpty) return;
 
@@ -262,11 +274,16 @@ class AutoSyncService {
           'target_amount': goal.targetAmount,
           'saved_amount': goal.savedAmount,
           'icon_key': goal.iconKey,
-          'deadline': goal.deadline?.toIso8601String(),
+          'deadline': goal.deadline?.toUtc().toIso8601String(),
           'is_completed': goal.isCompleted ? 1 : 0,
-          'created_at': goal.createdAt.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': goal.createdAt.toUtc().toIso8601String(),
+          'updated_at': goal.updatedAt.toUtc().toIso8601String(),
+          'sync_status': 1,
         });
+
+        await (_db.update(_db.goalsTable)
+              ..where((g) => g.id.equals(goal.id)))
+            .write(const GoalsTableCompanion(syncStatus: Value(1)));
       } catch (e, stackTrace) {
         Sentry.captureException(e, stackTrace: stackTrace);
       }
@@ -291,13 +308,13 @@ class AutoSyncService {
           'parent_budget_id': budget.parentBudgetId,
           'amount': budget.amount,
           'period_type': budget.periodType,
-          'start_date': budget.startDate.toIso8601String(),
-          'end_date': budget.endDate?.toIso8601String(),
+          'start_date': budget.startDate.toUtc().toIso8601String(),
+          'end_date': budget.endDate?.toUtc().toIso8601String(),
           'is_active': budget.isActive,
           'alert_threshold': budget.alertThreshold,
           'sync_status': 1,
-          'created_at': budget.createdAt.toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
+          'created_at': budget.createdAt.toUtc().toIso8601String(),
+          'updated_at': budget.updatedAt.toUtc().toIso8601String(),
         });
 
         await (_db.update(_db.budgetsTable)
@@ -350,22 +367,28 @@ class AutoSyncService {
       }
 
       for (final row in data) {
-        await _db
-            .into(_db.categoriesTable)
-            .insertOnConflictUpdate(
-              CategoriesTableCompanion.insert(
-                id: row['id'] as String,
-                name: row['name'] as String,
-                iconKey: Value(row['icon_key'] as String? ?? 'question'),
-                color: Value(row['color'] as String? ?? '#9E9E9E'),
-                keywordsJson: Value(row['keywords_json'] as String? ?? ''),
-                parentId: Value(row['parent_id'] as String?),
-                isSystem: Value(row['is_system'] == true),
-                budgetLimit: Value((row['budget_limit'] as num?)?.toDouble()),
-                sortOrder: Value((row['sort_order'] as num?)?.toInt() ?? 0),
-                syncStatus: const Value(1),
-              ),
-            );
+        final cloudDate = DateTime.parse(row['updated_at'] as String);
+        final localRow = await (_db.select(_db.categoriesTable)
+              ..where((t) => t.id.equals(row['id'] as String)))
+            .getSingleOrNull();
+
+        if (localRow == null || (localRow.syncStatus == 1 && localRow.updatedAt.toUtc().isBefore(cloudDate.toUtc()))) {
+          await _db.into(_db.categoriesTable).insertOnConflictUpdate(
+                CategoriesTableCompanion.insert(
+                  id: row['id'] as String,
+                  name: row['name'] as String,
+                  iconKey: Value(row['icon_key'] as String? ?? 'question'),
+                  color: Value(row['color'] as String? ?? '#9E9E9E'),
+                  keywordsJson: Value(row['keywords_json'] as String? ?? ''),
+                  parentId: Value(row['parent_id'] as String?),
+                  isSystem: Value(row['is_system'] == true),
+                  budgetLimit: Value((row['budget_limit'] as num?)?.toDouble()),
+                  sortOrder: Value((row['sort_order'] as num?)?.toInt() ?? 0),
+                  updatedAt: Value(cloudDate),
+                  syncStatus: const Value(1),
+                ),
+              );
+        }
       }
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -385,23 +408,29 @@ class AutoSyncService {
       }
 
       for (final row in data) {
-        await _db
-            .into(_db.accountsTable)
-            .insertOnConflictUpdate(
-              AccountsTableCompanion.insert(
-                id: row['id'] as String,
-                name: row['name'] as String,
-                type: row['type'] as String,
-                balance: Value((row['balance'] as num?)?.toDouble() ?? 0.0),
-                currency: Value(row['currency'] as String? ?? 'XAF'),
-                phoneNumber: Value(row['phone_number'] as String?),
-                iconKey: Value(row['icon_key'] as String? ?? 'wallet'),
-                color: Value(row['color'] as String? ?? '#1E3A5F'),
-                isDefault: Value(row['is_default'] as bool? ?? false),
-                isActive: Value(row['is_active'] as bool? ?? true),
-                syncStatus: const Value(1),
-              ),
-            );
+        final cloudDate = DateTime.parse(row['updated_at'] as String);
+        final localRow = await (_db.select(_db.accountsTable)
+              ..where((t) => t.id.equals(row['id'] as String)))
+            .getSingleOrNull();
+
+        if (localRow == null || (localRow.syncStatus == 1 && localRow.updatedAt.toUtc().isBefore(cloudDate.toUtc()))) {
+          await _db.into(_db.accountsTable).insertOnConflictUpdate(
+                AccountsTableCompanion.insert(
+                  id: row['id'] as String,
+                  name: row['name'] as String,
+                  type: row['type'] as String,
+                  balance: Value((row['balance'] as num?)?.toDouble() ?? 0.0),
+                  currency: Value(row['currency'] as String? ?? 'XAF'),
+                  phoneNumber: Value(row['phone_number'] as String?),
+                  iconKey: Value(row['icon_key'] as String? ?? 'wallet'),
+                  color: Value(row['color'] as String? ?? '#1E3A5F'),
+                  isDefault: Value(row['is_default'] as bool? ?? false),
+                  isActive: Value(row['is_active'] as bool? ?? true),
+                  updatedAt: Value(cloudDate),
+                  syncStatus: const Value(1),
+                ),
+              );
+        }
       }
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -421,27 +450,33 @@ class AutoSyncService {
       }
 
       for (final row in data) {
-        await _db
-            .into(_db.transactionsTable)
-            .insertOnConflictUpdate(
-              TransactionsTableCompanion.insert(
-                id: row['id'] as String,
-                amount: (row['amount'] as num).toDouble(),
-                type: row['type'] as String,
-                merchantName: Value(row['merchant_name'] as String?),
-                date: DateTime.parse(row['date'] as String),
-                externalId: Value(row['external_id'] as String?),
-                categoryId: Value(row['category_id'] as String?),
-                accountId: Value(row['account_id'] as String?),
-                toAccountId: Value(row['to_account_id'] as String?),
-                isAiCategorized: Value(row['is_ai_categorized'] == true),
-                validationStatus: Value(
-                  (row['validation_status'] as num?)?.toInt() ?? 0,
+        final cloudDate = DateTime.parse(row['updated_at'] as String);
+        final localRow = await (_db.select(_db.transactionsTable)
+              ..where((t) => t.id.equals(row['id'] as String)))
+            .getSingleOrNull();
+
+        if (localRow == null || (localRow.syncStatus == 1 && localRow.updatedAt.toUtc().isBefore(cloudDate.toUtc()))) {
+          await _db.into(_db.transactionsTable).insertOnConflictUpdate(
+                TransactionsTableCompanion.insert(
+                  id: row['id'] as String,
+                  amount: (row['amount'] as num).toDouble(),
+                  type: row['type'] as String,
+                  merchantName: Value(row['merchant_name'] as String?),
+                  date: DateTime.parse(row['date'] as String),
+                  externalId: Value(row['external_id'] as String?),
+                  categoryId: Value(row['category_id'] as String?),
+                  accountId: Value(row['account_id'] as String?),
+                  toAccountId: Value(row['to_account_id'] as String?),
+                  isAiCategorized: Value(row['is_ai_categorized'] == true),
+                  validationStatus: Value(
+                    (row['validation_status'] as num?)?.toInt() ?? 0,
+                  ),
+                  debtId: Value(row['debt_id'] as String?),
+                  updatedAt: Value(cloudDate),
+                  syncStatus: const Value(1),
                 ),
-                debtId: Value(row['debt_id'] as String?),
-                syncStatus: const Value(1),
-              ),
-            );
+              );
+        }
       }
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -458,25 +493,32 @@ class AutoSyncService {
       }
 
       for (final row in data) {
-        await _db
-            .into(_db.goalsTable)
-            .insertOnConflictUpdate(
-              GoalsTableCompanion.insert(
-                id: row['id'] as String,
-                name: row['name'] as String,
-                targetAmount: (row['target_amount'] as num).toDouble(),
-                savedAmount: Value(
-                  (row['saved_amount'] as num?)?.toDouble() ?? 0.0,
+        final cloudDate = DateTime.parse(row['updated_at'] as String);
+        final localRow = await (_db.select(_db.goalsTable)
+              ..where((t) => t.id.equals(row['id'] as String)))
+            .getSingleOrNull();
+
+        if (localRow == null || (localRow.syncStatus == 1 && localRow.updatedAt.toUtc().isBefore(cloudDate.toUtc()))) {
+          await _db.into(_db.goalsTable).insertOnConflictUpdate(
+                GoalsTableCompanion.insert(
+                  id: row['id'] as String,
+                  name: row['name'] as String,
+                  targetAmount: (row['target_amount'] as num).toDouble(),
+                  savedAmount: Value(
+                    (row['saved_amount'] as num?)?.toDouble() ?? 0.0,
+                  ),
+                  iconKey: Value(row['icon_key'] as String?),
+                  deadline: Value(
+                    row['deadline'] != null
+                        ? DateTime.parse(row['deadline'] as String)
+                        : null,
+                  ),
+                  isCompleted: Value(row['is_completed'] == true),
+                  updatedAt: Value(cloudDate),
+                  syncStatus: const Value(1),
                 ),
-                iconKey: Value(row['icon_key'] as String?),
-                deadline: Value(
-                  row['deadline'] != null
-                      ? DateTime.parse(row['deadline'] as String)
-                      : null,
-                ),
-                isCompleted: Value(row['is_completed'] == true),
-              ),
-            );
+              );
+        }
       }
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -493,28 +535,34 @@ class AutoSyncService {
       }
 
       for (final row in data) {
-        await _db
-            .into(_db.debtsTable)
-            .insertOnConflictUpdate(
-              DebtsTableCompanion.insert(
-                id: row['id'] as String,
-                userId: userId,
-                name: row['name'] as String,
-                amount: (row['amount'] as num).toDouble(),
-                paidAmount: Value((row['paid_amount'] as num?)?.toDouble() ?? 0.0),
-                type: row['type'] as String,
-                dueDate: DateTime.parse(row['due_date'] as String),
-                status: Value(row['status'] as String? ?? 'pending'),
-                personName: Value(row['person_name'] as String?),
-                notes: Value(row['notes'] as String?),
-                isRecurring: Value(row['is_recurring'] == true),
-                recurrenceRule: Value(row['recurrence_rule'] as String?),
-                notificationId: Value(
-                  (row['notification_id'] as num?)?.toInt(),
+        final cloudDate = DateTime.parse(row['updated_at'] as String);
+        final localRow = await (_db.select(_db.debtsTable)
+              ..where((t) => t.id.equals(row['id'] as String)))
+            .getSingleOrNull();
+
+        if (localRow == null || (localRow.syncStatus == 1 && localRow.updatedAt.toUtc().isBefore(cloudDate.toUtc()))) {
+          await _db.into(_db.debtsTable).insertOnConflictUpdate(
+                DebtsTableCompanion.insert(
+                  id: row['id'] as String,
+                  userId: userId,
+                  name: row['name'] as String,
+                  amount: (row['amount'] as num).toDouble(),
+                  paidAmount: Value((row['paid_amount'] as num?)?.toDouble() ?? 0.0),
+                  type: row['type'] as String,
+                  dueDate: DateTime.parse(row['due_date'] as String),
+                  status: Value(row['status'] as String? ?? 'pending'),
+                  personName: Value(row['person_name'] as String?),
+                  notes: Value(row['notes'] as String?),
+                  isRecurring: Value(row['is_recurring'] == true),
+                  recurrenceRule: Value(row['recurrence_rule'] as String?),
+                  notificationId: Value(
+                    (row['notification_id'] as num?)?.toInt(),
+                  ),
+                  updatedAt: Value(cloudDate),
+                  syncStatus: const Value(1),
                 ),
-                syncStatus: const Value(1),
-              ),
-            );
+              );
+        }
       }
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);
@@ -534,29 +582,35 @@ class AutoSyncService {
       }
 
       for (final row in data) {
-        await _db
-            .into(_db.budgetsTable)
-            .insertOnConflictUpdate(
-              BudgetsTableCompanion.insert(
-                id: row['id'] as String,
-                categoryId: row['category_id'] as String,
-                categoryName: row['category_name'] as String,
-                parentBudgetId: Value(row['parent_budget_id'] as String?),
-                amount: (row['amount'] as num).toDouble(),
-                periodType: Value(row['period_type'] as String? ?? 'monthly'),
-                startDate: DateTime.parse(row['start_date'] as String),
-                endDate: Value(
-                  row['end_date'] != null
-                      ? DateTime.parse(row['end_date'] as String)
-                      : null,
+        final cloudDate = DateTime.parse(row['updated_at'] as String);
+        final localRow = await (_db.select(_db.budgetsTable)
+              ..where((t) => t.id.equals(row['id'] as String)))
+            .getSingleOrNull();
+
+        if (localRow == null || (localRow.syncStatus == 1 && localRow.updatedAt.toUtc().isBefore(cloudDate.toUtc()))) {
+          await _db.into(_db.budgetsTable).insertOnConflictUpdate(
+                BudgetsTableCompanion.insert(
+                  id: row['id'] as String,
+                  categoryId: row['category_id'] as String,
+                  categoryName: row['category_name'] as String,
+                  parentBudgetId: Value(row['parent_budget_id'] as String?),
+                  amount: (row['amount'] as num).toDouble(),
+                  periodType: Value(row['period_type'] as String? ?? 'monthly'),
+                  startDate: DateTime.parse(row['start_date'] as String),
+                  endDate: Value(
+                    row['end_date'] != null
+                        ? DateTime.parse(row['end_date'] as String)
+                        : null,
+                  ),
+                  isActive: Value(row['is_active'] as bool? ?? true),
+                  alertThreshold: Value(
+                    (row['alert_threshold'] as num?)?.toDouble() ?? 80.0,
+                  ),
+                  updatedAt: Value(cloudDate),
+                  syncStatus: const Value(1),
                 ),
-                isActive: Value(row['is_active'] as bool? ?? true),
-                alertThreshold: Value(
-                  (row['alert_threshold'] as num?)?.toDouble() ?? 80.0,
-                ),
-                syncStatus: const Value(1),
-              ),
-            );
+              );
+        }
       }
     } catch (e, stackTrace) {
       Sentry.captureException(e, stackTrace: stackTrace);

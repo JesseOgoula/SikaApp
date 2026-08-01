@@ -4,6 +4,9 @@ import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:sqlite3/sqlite3.dart';
+import '../utils/encryption_utils.dart';
+import '../utils/logger.dart';
 
 // Import des tables
 import 'tables/transactions_table.dart';
@@ -106,14 +109,16 @@ class AppDatabase extends _$AppDatabase {
           try {
             await m.createTable(debtsTable);
           } catch (e) {
-          /* ignore */ }
+            SikaLogger.error('Migration failed for debtsTable (from < 5): $e', tag: 'DB_MIGRATION');
+          }
         }
         if (from < 7) {
           // Ajout de la table BudgetsTable
           try {
             await m.createTable(budgetsTable);
           } catch (e) {
-          /* ignore */ }
+            SikaLogger.error('Migration failed for budgetsTable (from < 7): $e', tag: 'DB_MIGRATION');
+          }
         }
         if (from < 8) {
           // v8: Colonnes smsSender et smsRawContent supprimées du schema Drift.
@@ -124,14 +129,14 @@ class AppDatabase extends _$AppDatabase {
           try {
             await m.addColumn(transactionsTable, transactionsTable.debtId);
           } catch (e) {
-            // ignore
+            SikaLogger.error('Migration failed for transactionsTable.debtId (from < 9): $e', tag: 'DB_MIGRATION');
           }
         }
         if (from < 10) {
           try {
             await m.addColumn(debtsTable, debtsTable.paidAmount);
           } catch (e) {
-            // ignore
+            SikaLogger.error('Migration failed for debtsTable.paidAmount (from < 10): $e', tag: 'DB_MIGRATION');
           }
           // Fix existing debts that have a null paid_amount from earlier versions
           await customStatement('UPDATE debts_table SET paid_amount = 0.0 WHERE paid_amount IS NULL');
@@ -140,7 +145,7 @@ class AppDatabase extends _$AppDatabase {
           try {
             await m.addColumn(transactionsTable, transactionsTable.toAccountId);
           } catch (e) {
-            // ignore
+            SikaLogger.error('Migration failed for transactionsTable.toAccountId (from < 11): $e', tag: 'DB_MIGRATION');
           }
         }
       },
@@ -385,10 +390,51 @@ class AppDatabase extends _$AppDatabase {
 /// Ouvre la connexion à la base de données SQLite
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    // Récupère le dossier de l'application
+    // 1. Récupère la clé de chiffrement
+    final encryptionKey = await EncryptionUtils.getEncryptionKey();
+
+    // 2. Récupère le dossier de l'application
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'sika_database.sqlite'));
 
-    return NativeDatabase.createInBackground(file);
+    // 3. Migration d'une base non chiffrée vers une base chiffrée (SQLCipher)
+    if (file.existsSync()) {
+      bool isEncrypted = false;
+      try {
+        final db = sqlite3.open(file.path);
+        // Tente de lire sans clé. Si la base est chiffrée, cela va échouer.
+        db.execute('SELECT count(*) FROM sqlite_master;');
+        db.dispose();
+      } catch (e) {
+        // La base est déjà chiffrée (ou corrompue)
+        isEncrypted = true;
+      }
+
+      if (!isEncrypted) {
+        // La base existe mais n'est pas chiffrée, on doit la migrer
+        final unencryptedDb = sqlite3.open(file.path);
+        final tempFile = File(p.join(dbFolder.path, 'sika_database_temp.sqlite'));
+        if (tempFile.existsSync()) tempFile.deleteSync();
+
+        // Attache une nouvelle base de données temporaire chiffrée
+        unencryptedDb.execute("ATTACH DATABASE '${tempFile.path}' AS encrypted KEY '$encryptionKey';");
+        // Exporte les données de la base non chiffrée vers la base chiffrée
+        unencryptedDb.execute("SELECT sqlcipher_export('encrypted');");
+        unencryptedDb.execute("DETACH DATABASE encrypted;");
+        unencryptedDb.dispose();
+
+        // Remplace l'ancienne base non chiffrée par la nouvelle base chiffrée
+        tempFile.copySync(file.path);
+        tempFile.deleteSync();
+      }
+    }
+
+    // 4. Ouvre la base avec Drift en appliquant la clé
+    return NativeDatabase.createInBackground(
+      file,
+      setup: (db) {
+        db.execute("PRAGMA key = '$encryptionKey';");
+      },
+    );
   });
 }

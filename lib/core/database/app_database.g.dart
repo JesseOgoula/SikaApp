@@ -2510,6 +2510,30 @@ class $GoalsTableTable extends GoalsTable
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _syncStatusMeta = const VerificationMeta(
+    'syncStatus',
+  );
+  @override
+  late final GeneratedColumn<int> syncStatus = GeneratedColumn<int>(
+    'sync_status',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2520,6 +2544,8 @@ class $GoalsTableTable extends GoalsTable
     deadline,
     isCompleted,
     createdAt,
+    updatedAt,
+    syncStatus,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2593,6 +2619,18 @@ class $GoalsTableTable extends GoalsTable
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('sync_status')) {
+      context.handle(
+        _syncStatusMeta,
+        syncStatus.isAcceptableOrUnknown(data['sync_status']!, _syncStatusMeta),
+      );
+    }
     return context;
   }
 
@@ -2634,6 +2672,14 @@ class $GoalsTableTable extends GoalsTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      syncStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sync_status'],
+      )!,
     );
   }
 
@@ -2667,6 +2713,12 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
 
   /// Date de création
   final DateTime createdAt;
+
+  /// Date de dernière modification
+  final DateTime updatedAt;
+
+  /// Statut de synchronisation: 0=pending, 1=synced, 2=error
+  final int syncStatus;
   const GoalsTableData({
     required this.id,
     required this.name,
@@ -2676,6 +2728,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     this.deadline,
     required this.isCompleted,
     required this.createdAt,
+    required this.updatedAt,
+    required this.syncStatus,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2692,6 +2746,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     }
     map['is_completed'] = Variable<bool>(isCompleted);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['sync_status'] = Variable<int>(syncStatus);
     return map;
   }
 
@@ -2709,6 +2765,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           : Value(deadline),
       isCompleted: Value(isCompleted),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      syncStatus: Value(syncStatus),
     );
   }
 
@@ -2726,6 +2784,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
       deadline: serializer.fromJson<DateTime?>(json['deadline']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      syncStatus: serializer.fromJson<int>(json['syncStatus']),
     );
   }
   @override
@@ -2740,6 +2800,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
       'deadline': serializer.toJson<DateTime?>(deadline),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'syncStatus': serializer.toJson<int>(syncStatus),
     };
   }
 
@@ -2752,6 +2814,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     Value<DateTime?> deadline = const Value.absent(),
     bool? isCompleted,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    int? syncStatus,
   }) => GoalsTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -2761,6 +2825,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     deadline: deadline.present ? deadline.value : this.deadline,
     isCompleted: isCompleted ?? this.isCompleted,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    syncStatus: syncStatus ?? this.syncStatus,
   );
   GoalsTableData copyWithCompanion(GoalsTableCompanion data) {
     return GoalsTableData(
@@ -2778,6 +2844,10 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           ? data.isCompleted.value
           : this.isCompleted,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      syncStatus: data.syncStatus.present
+          ? data.syncStatus.value
+          : this.syncStatus,
     );
   }
 
@@ -2791,7 +2861,9 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           ..write('iconKey: $iconKey, ')
           ..write('deadline: $deadline, ')
           ..write('isCompleted: $isCompleted, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncStatus: $syncStatus')
           ..write(')'))
         .toString();
   }
@@ -2806,6 +2878,8 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
     deadline,
     isCompleted,
     createdAt,
+    updatedAt,
+    syncStatus,
   );
   @override
   bool operator ==(Object other) =>
@@ -2818,7 +2892,9 @@ class GoalsTableData extends DataClass implements Insertable<GoalsTableData> {
           other.iconKey == this.iconKey &&
           other.deadline == this.deadline &&
           other.isCompleted == this.isCompleted &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.syncStatus == this.syncStatus);
 }
 
 class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
@@ -2830,6 +2906,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
   final Value<DateTime?> deadline;
   final Value<bool> isCompleted;
   final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> syncStatus;
   final Value<int> rowid;
   const GoalsTableCompanion({
     this.id = const Value.absent(),
@@ -2840,6 +2918,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     this.deadline = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GoalsTableCompanion.insert({
@@ -2851,6 +2931,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     this.deadline = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.syncStatus = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -2864,6 +2946,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     Expression<DateTime>? deadline,
     Expression<bool>? isCompleted,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? syncStatus,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2875,6 +2959,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
       if (deadline != null) 'deadline': deadline,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (syncStatus != null) 'sync_status': syncStatus,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2888,6 +2974,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     Value<DateTime?>? deadline,
     Value<bool>? isCompleted,
     Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? syncStatus,
     Value<int>? rowid,
   }) {
     return GoalsTableCompanion(
@@ -2899,6 +2987,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
       deadline: deadline ?? this.deadline,
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      syncStatus: syncStatus ?? this.syncStatus,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2930,6 +3020,12 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (syncStatus.present) {
+      map['sync_status'] = Variable<int>(syncStatus.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2947,6 +3043,8 @@ class GoalsTableCompanion extends UpdateCompanion<GoalsTableData> {
           ..write('deadline: $deadline, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('syncStatus: $syncStatus, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5817,6 +5915,8 @@ typedef $$GoalsTableTableCreateCompanionBuilder =
       Value<DateTime?> deadline,
       Value<bool> isCompleted,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> syncStatus,
       Value<int> rowid,
     });
 typedef $$GoalsTableTableUpdateCompanionBuilder =
@@ -5829,6 +5929,8 @@ typedef $$GoalsTableTableUpdateCompanionBuilder =
       Value<DateTime?> deadline,
       Value<bool> isCompleted,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> syncStatus,
       Value<int> rowid,
     });
 
@@ -5878,6 +5980,16 @@ class $$GoalsTableTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -5930,6 +6042,16 @@ class $$GoalsTableTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GoalsTableTableAnnotationComposer
@@ -5970,6 +6092,14 @@ class $$GoalsTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get syncStatus => $composableBuilder(
+    column: $table.syncStatus,
+    builder: (column) => column,
+  );
 }
 
 class $$GoalsTableTableTableManager
@@ -6011,6 +6141,8 @@ class $$GoalsTableTableTableManager
                 Value<DateTime?> deadline = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsTableCompanion(
                 id: id,
@@ -6021,6 +6153,8 @@ class $$GoalsTableTableTableManager
                 deadline: deadline,
                 isCompleted: isCompleted,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6033,6 +6167,8 @@ class $$GoalsTableTableTableManager
                 Value<DateTime?> deadline = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> syncStatus = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => GoalsTableCompanion.insert(
                 id: id,
@@ -6043,6 +6179,8 @@ class $$GoalsTableTableTableManager
                 deadline: deadline,
                 isCompleted: isCompleted,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                syncStatus: syncStatus,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
